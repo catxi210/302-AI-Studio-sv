@@ -1,9 +1,21 @@
 import { type } from "arktype";
 
+export const sandboxLink = type({
+	sandboxId: "string",
+	threadId: "string",
+});
+export type SandboxLink = typeof sandboxLink.infer;
+export const claudeCodeGlobalConfig = type({
+	sandboxLinks: sandboxLink.array(),
+});
+export type ClaudeCodeGlobalConfig = typeof claudeCodeGlobalConfig.infer;
+
+export const codeAgentType = type("'local' | 'remote'");
+export type CodeAgentType = typeof codeAgentType.infer;
 export const CodeAgentConfigMetadata = type({
 	enabled: "boolean",
 	threadId: "string",
-	type: "'local' | 'remote'",
+	type: codeAgentType,
 	currentAgentId: "string",
 });
 export type CodeAgentConfigMetadata = typeof CodeAgentConfigMetadata.infer;

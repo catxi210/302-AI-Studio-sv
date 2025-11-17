@@ -211,12 +211,12 @@
 		deviceMode = mode;
 	};
 
-	const _handleEnableAgentMode = () => {
-		if (isAgentMode) {
-			return;
-		}
-		codeAgentState.updateState({ enabled: true });
-	};
+	// const _handleEnableAgentMode = () => {
+	// 	if (isAgentMode) {
+	// 		return;
+	// 	}
+	// 	codeAgentState.updateEnabled(true);
+	// };
 
 	const handleCopyDeploymentUrl = async () => {
 		if (!latestDeployment) {

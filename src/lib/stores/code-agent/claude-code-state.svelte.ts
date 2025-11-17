@@ -40,11 +40,23 @@ class ClaudeCodeAgentState {
 	baseUrl = $derived("https://api.302.ai/302/claude-code/v1");
 	ready = $derived(this.sandboxId !== "");
 
-	updateState(partial: Partial<CodeAgentMetadata>): void {
+	private updateState(partial: Partial<CodeAgentMetadata>): void {
 		persistedClaudeCodeAgentState.current = {
 			...persistedClaudeCodeAgentState.current,
 			...partial,
 		};
+	}
+
+	addSessionId(sessionId: string): void {
+		this.updateState({ sessionIds: [...this.sessionIds, sessionId] });
+	}
+
+	removeSessionId(sessionId: string): void {
+		this.updateState({ sessionIds: this.sessionIds.filter((id) => id !== sessionId) });
+	}
+
+	updateCurrentSessionId(sessionId: string): void {
+		this.updateState({ currentSessionId: sessionId });
 	}
 
 	// async createClaudeCodeSandbox(): Promise<CodeAgentCreateResult> {

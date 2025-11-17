@@ -43,7 +43,7 @@
 		) {
 			isCodeAgentPanelOpen = true;
 		} else if (codeAgentState.enabled) {
-			codeAgentState.updateState({ currentAgentId: "" });
+			codeAgentState.resetCurrentAgentId();
 		} else {
 			isCodeAgentPanelOpen = true;
 		}

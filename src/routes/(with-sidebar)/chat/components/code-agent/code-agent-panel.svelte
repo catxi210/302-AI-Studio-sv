@@ -12,6 +12,7 @@
 	import { claudeCodeAgentState, codeAgentState } from "$lib/stores/code-agent";
 	import { cn } from "$lib/utils";
 	import { Plus, RefreshCcw } from "@lucide/svelte";
+	import type { CodeAgentType } from "@shared/storage/code-agent";
 
 	interface Props {
 		onClose: () => void;
@@ -43,7 +44,7 @@
 	];
 
 	async function handleSelect(key: string) {
-		codeAgentState.updateState({ type: key as "local" | "remote" });
+		codeAgentState.updateType(key as CodeAgentType);
 	}
 
 	// async function handleCreateSandbox(agentId: string) {
@@ -77,24 +78,21 @@
 
 	async function handleAddCustomSessionId() {
 		if (customSessionId && customSessionId.trim() !== "") {
-			claudeCodeAgentState.updateState({
-				currentSessionId: customSessionId,
-				sessionIds: [...claudeCodeAgentState.sessionIds, customSessionId],
-			});
+			claudeCodeAgentState.addSessionId(customSessionId);
 			customSessionId = "";
 			showCustomSessionIdInput = false;
 		}
 	}
 
 	function handleCodeAgentSelected(codeAgentId: string) {
-		codeAgentState.updateState({ currentAgentId: codeAgentId });
+		codeAgentState.updateCurrentAgentId(codeAgentId);
 	}
 
 	function handleOverlayAction(type: "open" | "cancel" | "close") {
 		if (type === "open") {
-			codeAgentState.updateState({ enabled: true });
+			codeAgentState.updateEnabled(true);
 		} else if (type === "close") {
-			codeAgentState.updateState({ enabled: false });
+			codeAgentState.updateEnabled(false);
 		}
 		onClose();
 	}
@@ -154,7 +152,7 @@
 						value: id,
 					}))}
 					placeholder={m.select_session()}
-					onValueChange={(v) => claudeCodeAgentState.updateState({ currentSessionId: v })}
+					onValueChange={(v) => claudeCodeAgentState.updateCurrentSessionId(v)}
 				/>
 				<ButtonWithTooltip
 					class={cn(

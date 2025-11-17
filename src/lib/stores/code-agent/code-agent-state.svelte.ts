@@ -5,6 +5,7 @@ import {
 	CodeAgentCfgs,
 	CodeAgentConfigMetadata,
 	CodeAgentSandboxStatus,
+	type CodeAgentType,
 } from "@shared/storage/code-agent";
 import { match } from "ts-pattern";
 import { claudeCodeAgentState } from "./claude-code-state.svelte";
@@ -48,11 +49,27 @@ class CodeAgentState {
 			.otherwise(() => "waiting-for-sandbox");
 	});
 
-	updateState(partial: Partial<CodeAgentConfigMetadata>): void {
+	private updateState(partial: Partial<CodeAgentConfigMetadata>): void {
 		persistedCodeAgentConfigState.current = {
 			...persistedCodeAgentConfigState.current,
 			...partial,
 		};
+	}
+
+	updateCurrentAgentId(agentId: string): void {
+		this.updateState({ currentAgentId: agentId });
+	}
+
+	resetCurrentAgentId(): void {
+		this.updateState({ currentAgentId: "" });
+	}
+
+	updateType(type: CodeAgentType): void {
+		this.updateState({ type });
+	}
+
+	updateEnabled(enabled: boolean): void {
+		this.updateState({ enabled });
 	}
 
 	getCodeAgentCfgs(): CodeAgentCfgs {
