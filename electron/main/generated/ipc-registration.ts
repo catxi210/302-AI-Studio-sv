@@ -227,7 +227,6 @@ export function registerIpcHandlers() {
 				shouldSwitchActive,
 			),
 	);
-	ipcMain.handle("tabService:handleTabCloseAll", (event) => tabService.handleTabCloseAll(event));
 	ipcMain.handle("tabService:handleShellViewLevel", (event, up) =>
 		tabService.handleShellViewLevel(event, up),
 	);
@@ -399,7 +398,6 @@ export function removeIpcHandlers() {
 	ipcMain.removeHandler("tabService:handleTabClose");
 	ipcMain.removeHandler("tabService:handleTabCloseOthers");
 	ipcMain.removeHandler("tabService:handleTabCloseOffside");
-	ipcMain.removeHandler("tabService:handleTabCloseAll");
 	ipcMain.removeHandler("tabService:handleShellViewLevel");
 	ipcMain.removeHandler("tabService:replaceTabContent");
 	ipcMain.removeHandler("tabService:handleClearTabMessages");

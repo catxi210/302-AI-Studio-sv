@@ -895,38 +895,28 @@ export class TabService {
 		for (const tabIdToClose of tabIdsToClose) {
 			const tab = this.tabMap.get(tabIdToClose);
 			if (tab?.type === "chat" && tab.threadId) {
-				const thread = (await storageService.getItemInternal(
-					"app-thread:" + tab.threadId,
-				)) as ThreadParmas | null;
-
-				if (thread?.isPrivateChatActive) {
-					console.log(
-						`[Privacy] Deleting private chat data for tab ${tabIdToClose}, thread ${tab.threadId}`,
-					);
-					await storageService.removeItemInternal("app-thread:" + tab.threadId);
-					await storageService.removeItemInternal("app-chat-messages:" + tab.threadId);
-				}
+				this.afterTabClose(tab);
 			}
 
 			this.removeTab(window, tabIdToClose);
 		}
 	}
 
-	async handleTabCloseAll(event: IpcMainInvokeEvent) {
-		const window = BrowserWindow.fromWebContents(event.sender);
-		if (isNull(window)) return;
+	// async handleTabCloseAll(event: IpcMainInvokeEvent) {
+	// 	const window = BrowserWindow.fromWebContents(event.sender);
+	// 	if (isNull(window)) return;
 
-		this.windowActiveTabId.delete(window.id);
+	// 	this.windowActiveTabId.delete(window.id);
 
-		const windowViews = this.windowTabView.get(window.id);
-		if (!isUndefined(windowViews)) {
-			windowViews.forEach((view) => {
-				window.contentView.removeChildView(view);
-				view.webContents.close();
-			});
-		}
-		this.windowTabView.delete(window.id);
-	}
+	// 	const windowViews = this.windowTabView.get(window.id);
+	// 	if (!isUndefined(windowViews)) {
+	// 		windowViews.forEach((view) => {
+	// 			window.contentView.removeChildView(view);
+	// 			view.webContents.close();
+	// 		});
+	// 	}
+	// 	this.windowTabView.delete(window.id);
+	// }
 
 	async handleShellViewLevel(event: IpcMainInvokeEvent, up: boolean) {
 		const window = BrowserWindow.fromWebContents(event.sender);

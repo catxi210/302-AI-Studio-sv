@@ -234,19 +234,19 @@ class TabBarState {
 		);
 	}
 
-	async handleTabCloseAll() {
-		// Only shell views should handle tab operations
-		if (!this.#isShellView) {
-			console.warn("[TabBarState] handleTabCloseAll called in tab view, ignoring");
-			return;
-		}
+	// async handleTabCloseAll() {
+	// 	// Only shell views should handle tab operations
+	// 	if (!this.#isShellView) {
+	// 		console.warn("[TabBarState] handleTabCloseAll called in tab view, ignoring");
+	// 		return;
+	// 	}
 
-		persistedTabState.current[this.#windowId].tabs = [];
+	// 	persistedTabState.current[this.#windowId].tabs = [];
 
-		await tabService.handleTabCloseAll();
+	// 	await tabService.handleTabCloseAll();
 
-		this.handleNewTab(m.title_new_chat());
-	}
+	// 	this.handleNewTab(m.title_new_chat());
+	// }
 
 	async handleNewTab(
 		title: string,
