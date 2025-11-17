@@ -152,15 +152,16 @@
 					<Copy class="size-4" />
 				</ButtonWithTooltip>
 			{:else}
-				<ButtonWithTooltip
-					tooltip={isDeploying ? m.tooltip_deploying() : m.tooltip_deploy_to_302()}
-					class="hover:!bg-icon-btn-hover shrink-0"
-					tooltipSide="bottom"
+				<button
+					type="button"
+					class="flex items-center gap-1.5 px-2.5 py-1 rounded border border-border/40 bg-background text-foreground text-xs font-medium shadow-none transition-colors hover:bg-muted/70 disabled:opacity-50 disabled:cursor-not-allowed"
+					title={isDeploying ? m.tooltip_deploying() : m.tooltip_deploy_to_302()}
 					disabled={isDeploying}
 					onclick={onDeploy}
 				>
-					<Rocket class="size-4" />
-				</ButtonWithTooltip>
+					<Rocket class="size-4 shrink-0" />
+					<span class="shrink-0">{m.text_button_deploy()}</span>
+				</button>
 			{/if}
 		</div>
 
