@@ -655,8 +655,8 @@
 	"title_code_agent_type": "Platform",
 	"title_agent": "Agent Framework",
 	"select_agent": "Please select a code agent",
-	"title_select_session": "Select Session",
-	"select_session": "Please Select a Session",
+	"title_select_session": "Select Agent",
+	"select_session": "Please Select an Agent",
 	"select_no_options": "The current options are empty...",
 	"unsupport": "Not supported yet...",
 	"label_button_create_sandbox": "Create Sandbox",
@@ -692,5 +692,14 @@
 	"writing": "Write:",
 	"write": "Write file path",
 	"text_button_open": "Enable",
-	"toast_code_agent_model_change_failed": "Failed to replace sandbox model"
+	"toast_code_agent_model_change_failed": "Failed to replace sandbox model",
+	"title_select_existing_agent": "Connect to an existing agent",
+	"title_new_agent": "Create a new agent",
+	"title_sandbox_id_to_be_associated": "Please enter the sandbox ID to be associated",
+	"title_session_id_to_be_associated": "Please enter the session ID to be associated",
+	"title_sandbox_id": "Sandbox ID",
+	"title_session_id": "Session ID",
+	"title_custom_session_id": "Please customize session ID",
+	"text_button_checking": "Verifying...",
+	"error_verify_sandbox": "The entered sandbox ID does not exist under the current API KEY, please re-enter..."
 }

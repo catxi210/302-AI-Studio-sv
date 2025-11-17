@@ -1,4 +1,8 @@
-import { createClaudeCodeSandbox, updateClaudeCodeSandbox } from "@electron/main/apis/code-agent";
+import {
+	createClaudeCodeSandbox,
+	listClaudeCodeSandboxes,
+	updateClaudeCodeSandbox,
+} from "@electron/main/apis/code-agent";
 import { CodeAgentCreateResult } from "@shared/storage/code-agent";
 import type { IpcMainInvokeEvent } from "electron";
 import { claudeCodeStorage, codeAgentStorage } from "../storage-service/code-agent";
@@ -35,20 +39,6 @@ export class CodeAgentService {
 	}
 
 	// ******************************* IPC Methods ******************************* //
-	// async createClaudeCodeSandbox(
-	// 	_event: IpcMainInvokeEvent,
-	// 	threadId: string,
-	// 	llm_model?: string,
-	// ): Promise<{ isOK: boolean; sandboxId: string }> {
-	// 	const response = await createClaudeCodeSandbox(llm_model);
-	// 	if (response.success) {
-	// 		const sandboxId = response.data.sandbox_id;
-	// 		await this.storage.setClaudeCodeSandboxId(threadId, sandboxId);
-	// 		return { isOK: true, sandboxId };
-	// 	}
-	// 	return { isOK: false, sandboxId: "" };
-	// }
-
 	async updateClaudeCodeSandbox(
 		_event: IpcMainInvokeEvent,
 		threadId: string,
@@ -65,6 +55,23 @@ export class CodeAgentService {
 		} catch (error) {
 			console.error("Error updating Claude code sandbox:", error);
 			return { isOK: false, llm_model: "" };
+		}
+	}
+
+	async checkClaudeCodeSandbox(
+		_event: IpcMainInvokeEvent,
+		sandboxId: string,
+	): Promise<{ isOK: boolean; valid: boolean }> {
+		try {
+			const response = await listClaudeCodeSandboxes();
+			if (response.success) {
+				const sandbox = response.list.find((sandbox) => sandbox.sandbox_id === sandboxId);
+				return { isOK: true, valid: !!sandbox };
+			}
+			return { isOK: false, valid: false };
+		} catch (error) {
+			console.error("Error checking Claude code sandbox:", error);
+			return { isOK: false, valid: false };
 		}
 	}
 }

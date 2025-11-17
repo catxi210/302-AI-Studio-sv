@@ -70,3 +70,42 @@ export async function updateClaudeCodeSandbox(
 		throw error;
 	}
 }
+
+const sandboxInfoSchema = type({
+	sandbox_id: "string",
+	status: "string",
+	llm_model: "string",
+	created_at: "string",
+	updated_at: "string",
+	deleted_at: "string",
+});
+export type SandboxInfo = typeof sandboxInfoSchema.infer;
+export const listClaudeCodeSandboxesResponse = type({
+	success: "boolean",
+	pagination: {
+		current_page: "number",
+		page_size: "number",
+		total_items: "number",
+		total_pages: "number",
+	},
+	list: sandboxInfoSchema.array(),
+});
+export type ListClaudeCodeSandboxesResponse = typeof listClaudeCodeSandboxesResponse.infer;
+
+export async function listClaudeCodeSandboxes(): Promise<ListClaudeCodeSandboxesResponse> {
+	try {
+		const response = await _302AIKy.get("302/claude-code/sandbox/list").json();
+
+		console.debug(response);
+
+		const validated = listClaudeCodeSandboxesResponse(response);
+		if (validated instanceof type.errors) {
+			console.error("Failed to validate list claude code sandboxes:", validated.summary);
+			throw new Error("Invalid response format from list claude code sandboxes API");
+		}
+		return validated;
+	} catch (error) {
+		console.error("Failed to list claude code sandboxes:", error);
+		throw error;
+	}
+}

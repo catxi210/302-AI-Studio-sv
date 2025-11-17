@@ -27,7 +27,7 @@ export const persistedCodeAgentConfigState = new PersistedState<CodeAgentConfigM
 		enabled: false,
 		threadId: threadId,
 		type: "remote",
-		currentAgentId: "",
+		currentAgentId: "claude-code",
 	},
 );
 
@@ -35,9 +35,9 @@ const { updateClaudeCodeSandbox } = window.electronAPI.codeAgentService;
 
 class CodeAgentState {
 	enabled = $derived.by(() => persistedCodeAgentConfigState.current.enabled);
+	type = $derived.by(() => persistedCodeAgentConfigState.current.type);
+	currentAgentId = $derived.by(() => persistedCodeAgentConfigState.current.currentAgentId);
 
-	type = $derived(persistedCodeAgentConfigState.current.type);
-	currentAgentId = $derived(persistedCodeAgentConfigState.current.currentAgentId);
 	isFreshTab = $derived(!chatState.hasMessages);
 	inCodeAgentMode = $derived(!this.isFreshTab && this.enabled);
 
@@ -48,6 +48,11 @@ class CodeAgentState {
 			)
 			.otherwise(() => "waiting-for-sandbox");
 	});
+	canEnable = $derived.by(() =>
+		match(this.currentAgentId)
+			.with("claude-code", () => claudeCodeAgentState.ready)
+			.otherwise(() => false),
+	);
 
 	private updateState(partial: Partial<CodeAgentConfigMetadata>): void {
 		persistedCodeAgentConfigState.current = {
@@ -81,6 +86,13 @@ class CodeAgentState {
 			.otherwise(() => ({ baseUrl: "", model: "" }));
 	}
 
+	async updateCodeAgentCfgs(): Promise<boolean> {
+		if (this.currentAgentId === "claude-code") {
+			return claudeCodeAgentState.handleAgentModeEnable();
+		}
+		return false;
+	}
+
 	getCurrentSessionId(): string {
 		return match(this.currentAgentId)
 			.with("claude-code", () => claudeCodeAgentState.currentSessionId)
@@ -101,19 +113,6 @@ class CodeAgentState {
 
 		return false;
 	}
-
-	// async createSandbox(): Promise<CodeAgentCreateResult> {
-	// 	let createResult: CodeAgentCreateResult = "failed";
-	// 	if (this.currentAgentId === "claude-code") {
-	// 		createResult = await claudeCodeAgentState.createClaudeCodeSandbox();
-	// 	}
-
-	// 	if (createResult === "failed") {
-	// 		toast.error(m.sandbox_create_failed());
-	// 	}
-
-	// 	return createResult;
-	// }
 }
 
 export const codeAgentState = new CodeAgentState();

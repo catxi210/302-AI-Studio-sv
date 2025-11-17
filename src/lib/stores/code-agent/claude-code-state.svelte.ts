@@ -1,6 +1,10 @@
 import { PersistedState } from "$lib/hooks/persisted-state.svelte";
+import { m } from "$lib/paraglide/messages";
 import { CodeAgentMetadata } from "@shared/storage/code-agent";
-import { nanoid } from "nanoid";
+import { toast } from "svelte-sonner";
+import { match } from "ts-pattern";
+
+const { checkClaudeCodeSandbox } = window.electronAPI.codeAgentService;
 
 const tab = window.tab ?? null;
 
@@ -14,14 +18,13 @@ const threadId =
 		: "shell";
 
 function getInitialData() {
-	const initialSessionId = nanoid();
 	const initialData = {
 		model: "claude-sonnet-4-5-20250929",
 		currentWorkspacePath: "",
 		workspacePaths: [],
 		variables: [],
-		currentSessionId: initialSessionId,
-		sessionIds: [initialSessionId],
+		currentSessionId: "",
+		sessionIds: [],
 		sandboxId: "",
 	};
 	return initialData;
@@ -33,12 +36,26 @@ export const persistedClaudeCodeAgentState = new PersistedState<CodeAgentMetadat
 );
 
 class ClaudeCodeAgentState {
+	baseUrl = "https://api.302.ai/302/claude-code/v1";
+
+	sessionMode = $state<"select-existing-agent" | "new-agent">("new-agent");
+	customSessionId = $state("");
+	customSandboxId = $state("");
+
 	model = $derived(persistedClaudeCodeAgentState.current.model);
 	currentSessionId = $derived(persistedClaudeCodeAgentState.current.currentSessionId);
 	sessionIds = $derived(persistedClaudeCodeAgentState.current.sessionIds);
 	sandboxId = $derived(persistedClaudeCodeAgentState.current.sandboxId);
-	baseUrl = $derived("https://api.302.ai/302/claude-code/v1");
-	ready = $derived(this.sandboxId !== "");
+
+	ready = $derived.by(() =>
+		match(this.sessionMode)
+			.with(
+				"select-existing-agent",
+				() => this.customSessionId !== "" && this.customSandboxId !== "",
+			)
+			.with("new-agent", () => this.customSessionId !== "")
+			.otherwise(() => false),
+	);
 
 	private updateState(partial: Partial<CodeAgentMetadata>): void {
 		persistedClaudeCodeAgentState.current = {
@@ -59,19 +76,30 @@ class ClaudeCodeAgentState {
 		this.updateState({ currentSessionId: sessionId });
 	}
 
-	// async createClaudeCodeSandbox(): Promise<CodeAgentCreateResult> {
-	// 	const sandboxExist = this.sandboxId !== "";
-	// 	if (sandboxExist) return "already-exist";
-	// 	const { isOK, sandboxId } = await createClaudeCodeSandbox(threadId);
-	// 	if (isOK) {
-	// 		this.updateState({ sandboxId });
-	// 		return "success";
-	// 	}
-	// 	return "failed";
-	// }
+	updateSandboxId(sandboxId: string): void {
+		this.updateState({ sandboxId });
+	}
 
-	// TODO: refresh session ids
-	async refreshSessionIds() {}
+	async handleAgentModeEnable(): Promise<boolean> {
+		if (this.sessionMode === "select-existing-agent") {
+			const { isOK, valid } = await checkClaudeCodeSandbox(this.customSandboxId);
+			if (!isOK || !valid) {
+				toast.error(m.error_verify_sandbox());
+				return false;
+			}
+			this.updateState({
+				sessionIds: [this.customSessionId],
+				currentSessionId: this.customSessionId,
+				sandboxId: this.customSandboxId,
+			});
+		} else if (this.sessionMode === "new-agent") {
+			this.updateState({
+				sessionIds: [this.customSessionId],
+				currentSessionId: this.customSessionId,
+			});
+		}
+		return true;
+	}
 }
 
 export const claudeCodeAgentState = new ClaudeCodeAgentState();

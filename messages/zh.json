@@ -651,8 +651,8 @@
 	"title_code_agent_type": "平台",
 	"title_agent": "Agent 框架",
 	"select_agent": "请选择一个代码代理",
-	"title_select_session": "选择会话",
-	"select_session": "请选择一个会话",
+	"title_select_session": "选择 Agent",
+	"select_session": "请选择一个 Agent",
 	"select_no_options": "当前选项为空...",
 	"unsupport": "暂未支持...",
 	"label_button_create_sandbox": "创建沙盒",
@@ -688,5 +688,14 @@
 	"writing": "写入：",
 	"write": "写入文件路径",
 	"text_button_open": "开启",
-	"toast_code_agent_model_change_failed": "更换沙盒模型失败"
+	"toast_code_agent_model_change_failed": "更换沙盒模型失败",
+	"title_select_existing_agent": "连接已有 Agent",
+	"title_new_agent": "新建一个 Agent",
+	"title_sandbox_id_to_be_associated": "请输入需要关联的沙盒 ID",
+	"title_session_id_to_be_associated": "请输入需要关联的会话 ID",
+	"title_sandbox_id": "沙盒 ID",
+	"title_session_id": "会话 ID",
+	"title_custom_session_id": "请自定义会话ID",
+	"text_button_checking": "校验中...",
+	"error_verify_sandbox": "当前API KEY下不存在所输入的沙盒 ID，请重新输入..."
 }

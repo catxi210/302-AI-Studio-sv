@@ -200,7 +200,7 @@
 	}
 
 	async function handleModelSelect(model: Model) {
-		if (codeAgentState.enabled) {
+		if (codeAgentState.inCodeAgentMode) {
 			isCodeAgentModelChanging = true;
 			const isOK = await codeAgentState.handleCodeAgentModelChange(model);
 			if (!isOK) {
