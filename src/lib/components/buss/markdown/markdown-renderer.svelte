@@ -524,6 +524,9 @@
 					if (nextToken.content.includes("🔧 **Tool Call: Write**")) {
 						return { hasMarker: true, type: "write" };
 					}
+					if (nextToken.content.includes("🔧 **Tool Call: Edit**")) {
+						return { hasMarker: true, type: "write" };
+					}
 				}
 			}
 			return { hasMarker: false, type: null };
