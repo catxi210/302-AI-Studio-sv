@@ -1,3 +1,27 @@
+<script lang="ts" module>
+	export const platformOptions = [
+		{
+			key: "remote",
+			label: m.title_remote(),
+		},
+		{
+			key: "local",
+			label: m.title_local(),
+		},
+	];
+	export const options: SelectOption[] = [
+		{
+			key: "claude-code",
+			label: "Claude Code",
+			value: "claude-code",
+		},
+	];
+
+	export interface Props {
+		onClose: () => void;
+	}
+</script>
+
 <script lang="ts">
 	import SegButton from "$lib/components/buss/settings/seg-button.svelte";
 	import type { SelectOption } from "$lib/components/buss/settings/setting-select.svelte";
@@ -12,29 +36,7 @@
 	import type { CodeAgentType } from "@shared/storage/code-agent";
 	import ClaudeCodeAgentPanel from "./claude-code-agent-panel.svelte";
 
-	interface Props {
-		onClose: () => void;
-	}
-
 	let { onClose }: Props = $props();
-
-	const platformOptions = [
-		{
-			key: "remote",
-			label: m.title_remote(),
-		},
-		{
-			key: "local",
-			label: m.title_local(),
-		},
-	];
-	const options: SelectOption[] = [
-		{
-			key: "claude-code",
-			label: "Claude Code",
-			value: "claude-code",
-		},
-	];
 
 	let isChecking = $state(false);
 

@@ -1,9 +1,35 @@
+<script lang="ts" module>
+	export const options = [
+		{
+			key: "select-existing-agent",
+			label: m.title_select_existing_agent(),
+			value: "select-existing-agent",
+		},
+		{
+			key: "new-agent",
+			label: m.title_new_agent(),
+			value: "new-agent",
+		},
+	];
+</script>
+
 <script lang="ts">
 	import { SettingSelect } from "$lib/components/buss/settings";
 	import Input from "$lib/components/ui/input/input.svelte";
 	import Label from "$lib/components/ui/label/label.svelte";
 	import { m } from "$lib/paraglide/messages";
 	import { claudeCodeAgentState } from "$lib/stores/code-agent";
+	import { onMount } from "svelte";
+
+	onMount(() => {
+		const { currentSessionId, sandboxId } = claudeCodeAgentState;
+		if (currentSessionId) {
+			claudeCodeAgentState.customSessionId = currentSessionId;
+		}
+		if (sandboxId) {
+			claudeCodeAgentState.customSandboxId = sandboxId;
+		}
+	});
 </script>
 
 {#snippet newAgentPanel()}
@@ -34,18 +60,7 @@
 <SettingSelect
 	name="session"
 	value={claudeCodeAgentState.sessionMode}
-	options={[
-		{
-			key: "select-existing-agent",
-			label: m.title_select_existing_agent(),
-			value: "select-existing-agent",
-		},
-		{
-			key: "new-agent",
-			label: m.title_new_agent(),
-			value: "new-agent",
-		},
-	]}
+	{options}
 	placeholder={m.select_session()}
 	onValueChange={(v) =>
 		(claudeCodeAgentState.sessionMode = v as "select-existing-agent" | "new-agent")}
