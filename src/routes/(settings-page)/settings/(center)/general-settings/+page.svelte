@@ -1,4 +1,5 @@
 <script lang="ts">
+	import AccountLogin from "./account-login.svelte";
 	import DarkLightMode from "./dark-light-mode.svelte";
 	import Language from "./language.svelte";
 	import LayoutMode from "./layout-mode.svelte";
@@ -11,3 +12,4 @@
 <LayoutMode />
 <PrivacyMode />
 <VersionUpdate />
+<AccountLogin />

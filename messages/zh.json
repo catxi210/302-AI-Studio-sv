@@ -697,5 +697,21 @@
 	"title_session_id": "会话 ID",
 	"title_custom_session_id": "请自定义会话ID",
 	"text_button_checking": "校验中...",
-	"error_verify_sandbox": "当前API KEY下不存在所输入的沙盒 ID，请重新输入..."
+	"error_verify_sandbox": "当前API KEY下不存在所输入的沙盒 ID，请重新输入...",
+	"login_sms": "短信登录",
+	"login_password": "密码登录",
+	"login_phone_number": "手机号码",
+	"login_verification_code": "验证码",
+	"login_enter_verification_code": "请输入验证码",
+	"login_get_code": "获取验证码",
+	"login_now": "立即登录",
+	"login_password_label": "密码",
+	"login_enter_password": "请输入密码",
+	"login_quick_login": "一键快速登陆",
+	"login_no_account": "没有账号？",
+	"login_register_now": "立即注册",
+	"login_auto_register_hint": "未注册的手机号验证通过后将自动注册",
+	"login_account_management": "账户管理",
+	"login_button": "登录",
+	"login_button_desc": "登录302.AI账户以享受更多功能"
 }

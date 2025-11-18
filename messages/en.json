@@ -701,5 +701,21 @@
 	"title_session_id": "Session ID",
 	"title_custom_session_id": "Please customize session ID",
 	"text_button_checking": "Verifying...",
-	"error_verify_sandbox": "The entered sandbox ID does not exist under the current API KEY, please re-enter..."
+	"error_verify_sandbox": "The entered sandbox ID does not exist under the current API KEY, please re-enter...",
+	"login_sms": "SMS Login",
+	"login_password": "Password Login",
+	"login_phone_number": "Phone Number",
+	"login_verification_code": "Verification Code",
+	"login_enter_verification_code": "Enter verification code",
+	"login_get_code": "Get Code",
+	"login_now": "Login Now",
+	"login_password_label": "Password",
+	"login_enter_password": "Enter password",
+	"login_quick_login": "Quick Login",
+	"login_no_account": "No account?",
+	"login_register_now": "Register Now",
+	"login_auto_register_hint": "Unregistered phone numbers will be auto-registered after verification",
+	"login_account_management": "Account Management",
+	"login_button": "Login",
+	"login_button_desc": "Login to 302.AI account for more features"
 }
