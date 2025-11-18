@@ -1,6 +1,6 @@
 import { PersistedState } from "$lib/hooks/persisted-state.svelte";
 import { m } from "$lib/paraglide/messages";
-import { CodeAgentMetadata } from "@shared/storage/code-agent";
+import { type CodeAgentMetadata } from "@shared/storage/code-agent";
 import { toast } from "svelte-sonner";
 import { match } from "ts-pattern";
 

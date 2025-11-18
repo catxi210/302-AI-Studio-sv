@@ -2,9 +2,9 @@ import { PersistedState } from "$lib/hooks/persisted-state.svelte";
 import { chatState } from "$lib/stores/chat-state.svelte";
 import type { Model } from "@302ai/studio-plugin-sdk";
 import {
-	CodeAgentCfgs,
 	CodeAgentConfigMetadata,
-	CodeAgentSandboxStatus,
+	type CodeAgentCfgs,
+	type CodeAgentSandboxStatus,
 	type CodeAgentType,
 } from "@shared/storage/code-agent";
 import { match } from "ts-pattern";

@@ -10,7 +10,7 @@ export const CodeAgentConfigMetadata = type({
 });
 export type CodeAgentConfigMetadata = typeof CodeAgentConfigMetadata.infer;
 
-export const CodeAgentMetadata = type({
+export const codeAgentMetadata = type({
 	model: "string",
 	/**
 	 * local agent only
@@ -25,16 +25,33 @@ export const CodeAgentMetadata = type({
 	sessionIds: "string[]",
 	sandboxId: "string",
 });
-export type CodeAgentMetadata = typeof CodeAgentMetadata.infer;
+export type CodeAgentMetadata = typeof codeAgentMetadata.infer;
 
-export const CodeAgentCfgs = type({
+export const codeAgentCfgs = type({
 	baseUrl: "string",
 	model: "string",
 });
-export type CodeAgentCfgs = typeof CodeAgentCfgs.infer;
+export type CodeAgentCfgs = typeof codeAgentCfgs.infer;
 
-export const CodeAgentCreateResult = type("'already-exist' | 'success' | 'failed'");
-export type CodeAgentCreateResult = typeof CodeAgentCreateResult.infer;
+export const codeAgentCreateResult = type("'already-exist' | 'success' | 'failed'");
+export type CodeAgentCreateResult = typeof codeAgentCreateResult.infer;
 
-export const CodeAgentSandboxStatus = type("'waiting-for-sandbox' | 'sandbox-created'");
-export type CodeAgentSandboxStatus = typeof CodeAgentSandboxStatus.infer;
+export const codeAgentSandboxStatus = type("'waiting-for-sandbox' | 'sandbox-created'");
+export type CodeAgentSandboxStatus = typeof codeAgentSandboxStatus.infer;
+
+export const claudeCodeSessionInfo = type({
+	sessionId: "string",
+	workspacePath: "string",
+});
+export type ClaudeCodeSessionInfo = typeof claudeCodeSessionInfo.infer;
+
+export const claudeCodeSandboxInfo = type({
+	sandboxId: "string",
+	status: "'killed' | 'running' | 'paused'",
+	llmModel: "string",
+	createdAt: "string",
+	updatedAt: "string",
+	deletedAt: "string",
+	sessionInfos: claudeCodeSessionInfo.array(),
+});
+export type ClaudeCodeSandboxInfo = typeof claudeCodeSandboxInfo.infer;

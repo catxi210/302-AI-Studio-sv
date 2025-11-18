@@ -73,7 +73,7 @@ export async function updateClaudeCodeSandbox(
 
 const sandboxInfoSchema = type({
 	sandbox_id: "string",
-	status: "string",
+	status: "'killed' | 'running' | 'paused'",
 	llm_model: "string",
 	created_at: "string",
 	updated_at: "string",
@@ -95,8 +95,6 @@ export type ListClaudeCodeSandboxesResponse = typeof listClaudeCodeSandboxesResp
 export async function listClaudeCodeSandboxes(): Promise<ListClaudeCodeSandboxesResponse> {
 	try {
 		const response = await _302AIKy.get("302/claude-code/sandbox/list").json();
-
-		console.debug(response);
 
 		const validated = listClaudeCodeSandboxesResponse(response);
 		if (validated instanceof type.errors) {

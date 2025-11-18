@@ -155,6 +155,9 @@ export function registerIpcHandlers() {
 	ipcMain.handle("codeAgentService:checkClaudeCodeSandbox", (event, sandboxId) =>
 		codeAgentService.checkClaudeCodeSandbox(event, sandboxId),
 	);
+	ipcMain.handle("codeAgentService:updateClaudeCodeSandboxesByIpc", (event) =>
+		codeAgentService.updateClaudeCodeSandboxesByIpc(event),
+	);
 
 	// ghostWindowService service registration
 	ipcMain.handle("ghostWindowService:startTracking", (event) =>
@@ -381,6 +384,7 @@ export function removeIpcHandlers() {
 	ipcMain.removeHandler("generalSettingsService:handleLanguageChanged");
 	ipcMain.removeHandler("codeAgentService:updateClaudeCodeSandbox");
 	ipcMain.removeHandler("codeAgentService:checkClaudeCodeSandbox");
+	ipcMain.removeHandler("codeAgentService:updateClaudeCodeSandboxesByIpc");
 	ipcMain.removeHandler("ghostWindowService:startTracking");
 	ipcMain.removeHandler("ghostWindowService:stopTracking");
 	ipcMain.removeHandler("ghostWindowService:updateInsertIndex");

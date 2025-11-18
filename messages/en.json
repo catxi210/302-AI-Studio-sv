@@ -717,5 +717,7 @@
 	"login_auto_register_hint": "Unregistered phone numbers will be auto-registered after verification",
 	"login_account_management": "Account Management",
 	"login_button": "Login",
-	"login_button_desc": "Login to 302.AI account for more features"
+	"login_button_desc": "Login to 302.AI account for more features",
+	"refresh_sandboxes_failed": "Sandbox list refresh failed, please try again...",
+	"refresh_sandboxes_success": "The sandbox list is refreshed successfully!"
 }

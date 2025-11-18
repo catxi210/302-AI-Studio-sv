@@ -1,5 +1,5 @@
 <script lang="ts" module>
-	export const options = [
+	export const sessionModeOptions = [
 		{
 			key: "select-existing-agent",
 			label: m.title_select_existing_agent(),
@@ -20,6 +20,10 @@
 	import { m } from "$lib/paraglide/messages";
 	import { claudeCodeAgentState } from "$lib/stores/code-agent";
 	import { onMount } from "svelte";
+
+	function handleSessionModeChange(sessionMode: "select-existing-agent" | "new-agent") {
+		claudeCodeAgentState.sessionMode = sessionMode;
+	}
 
 	onMount(() => {
 		const { currentSessionId, sandboxId } = claudeCodeAgentState;
@@ -43,12 +47,44 @@
 
 {#snippet selectExistingAgentPanel()}
 	<Label class="text-label-fg">{m.title_sandbox_id()}</Label>
+	<!-- <div class="flex flex-row gap-2 items-center">
+		<SettingSelect
+			name="session"
+			value={claudeCodeAgentState.customSandboxId}
+			options={claudeCodeSandboxState.sandboxes}
+			placeholder={m.select_session()}
+			onValueChange={() => {}}
+		/>
+		<ButtonWithTooltip
+			class="hover:!bg-chat-action-hover"
+			tooltip={m.label_button_reload()}
+			onclick={() => claudeCodeSandboxState.refreshSandboxes()}
+		>
+			<RefreshCcw />
+		</ButtonWithTooltip>
+	</div> -->
 	<Input
 		class="!bg-settings-item-bg dark:!bg-settings-item-bg h-10 rounded-[10px]"
 		bind:value={claudeCodeAgentState.customSandboxId}
 		placeholder={m.title_sandbox_id_to_be_associated()}
 	/>
 	<Label class="text-label-fg">{m.title_session_id()}</Label>
+	<!-- <div class="flex flex-row gap-2 items-center">
+		<SettingSelect
+			name="session"
+			value={claudeCodeAgentState.sessionMode}
+			options={[]}
+			placeholder={m.select_session()}
+			onValueChange={() => {}}
+		/>
+		<ButtonWithTooltip
+			class="hover:!bg-chat-action-hover"
+			tooltip={m.label_button_reload()}
+			onclick={() => {}}
+		>
+			<RefreshCcw />
+		</ButtonWithTooltip>
+	</div> -->
 	<Input
 		class="!bg-settings-item-bg dark:!bg-settings-item-bg h-10 rounded-[10px]"
 		bind:value={claudeCodeAgentState.customSessionId}
@@ -60,10 +96,9 @@
 <SettingSelect
 	name="session"
 	value={claudeCodeAgentState.sessionMode}
-	{options}
+	options={sessionModeOptions}
 	placeholder={m.select_session()}
-	onValueChange={(v) =>
-		(claudeCodeAgentState.sessionMode = v as "select-existing-agent" | "new-agent")}
+	onValueChange={(v) => handleSessionModeChange(v as "select-existing-agent" | "new-agent")}
 />
 
 {#if claudeCodeAgentState.sessionMode === "select-existing-agent"}

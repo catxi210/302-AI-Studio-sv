@@ -1,4 +1,4 @@
-import { claudeCodeStorage } from "./claude-code-storage";
+import { claudeCodeSandboxStorage, claudeCodeStorage } from "./claude-code-storage";
 import { codeAgentStorage } from "./code-agent-storage";
 
-export { claudeCodeStorage, codeAgentStorage };
+export { claudeCodeSandboxStorage, claudeCodeStorage, codeAgentStorage };
