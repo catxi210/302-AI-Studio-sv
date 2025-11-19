@@ -88,11 +88,7 @@ export const withExternalLinkHandler = (view: WebContentsView): void => {
 	// Handle links opened via window.open or target="_blank"
 	view.webContents.setWindowOpenHandler(({ url }) => {
 		// Allow Firebase authentication popups
-		if (
-			url.includes("firebaseapp.com/__/auth/handler") ||
-			url.includes("accounts.google.com") ||
-			url.includes("github.com/login")
-		) {
+		if (url.includes("firebaseapp.com/__/auth/handler") || url.includes("accounts.google.com")) {
 			return { action: "allow" };
 		}
 
@@ -111,11 +107,7 @@ export const withExternalLinkHandler = (view: WebContentsView): void => {
 		const currentUrl = view.webContents.getURL();
 
 		// Allow Firebase authentication redirects
-		if (
-			url.includes("firebaseapp.com") ||
-			url.includes("accounts.google.com") ||
-			url.includes("github.com/login")
-		) {
+		if (url.includes("firebaseapp.com") || url.includes("accounts.google.com")) {
 			return; // Allow navigation for auth flows
 		}
 
