@@ -26,6 +26,7 @@
 		deployedUrl: string | null;
 		compactDeployButton?: boolean;
 		isPinned: boolean;
+		isStreaming?: boolean;
 		onTabChange: (tab: string) => void;
 		onDeviceModeChange: (mode: "desktop" | "mobile") => void;
 		onDeploy: () => void;
@@ -44,6 +45,7 @@
 		deployedUrl,
 		compactDeployButton = false,
 		isPinned,
+		isStreaming = false,
 		onTabChange,
 		onDeviceModeChange,
 		onDeploy,
@@ -129,7 +131,7 @@
 						type="button"
 						class="flex items-center gap-1.5 px-2.5 py-1 rounded border border-border/40 bg-background text-foreground text-xs font-medium shadow-none transition-colors hover:bg-muted/70 disabled:opacity-50 disabled:cursor-not-allowed"
 						title={isDeploying ? m.tooltip_deploying() : m.tooltip_deploy_to_302()}
-						disabled={isDeploying}
+						disabled={isDeploying || isStreaming}
 						onclick={onDeploy}
 					>
 						<Rocket class="size-4 shrink-0" />
@@ -140,7 +142,7 @@
 						tooltip={isDeploying ? m.tooltip_deploying() : m.tooltip_deploy_to_302()}
 						class="hover:!bg-icon-btn-hover shrink-0"
 						tooltipSide="bottom"
-						disabled={isDeploying}
+						disabled={isDeploying || isStreaming}
 						onclick={onDeploy}
 					>
 						<Rocket class="size-4" />

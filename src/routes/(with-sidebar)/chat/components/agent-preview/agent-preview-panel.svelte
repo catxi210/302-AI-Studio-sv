@@ -386,6 +386,7 @@
 				deployedUrl={isAgentMode ? deployment.url : null}
 				compactDeployButton={false}
 				isPinned={agentPreviewState.isPinned}
+				isStreaming={chatState.isStreaming}
 				onTabChange={(t) => (activeTab = t as TabType)}
 				onDeviceModeChange={(d) => (deviceMode = d)}
 				onDeploy={isAgentMode ? handleDeploySandbox : handleDeploy}
