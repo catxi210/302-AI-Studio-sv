@@ -1,6 +1,7 @@
 <script lang="ts">
 	import * as Resizable from "$lib/components/ui/resizable/index.js";
 	import { m } from "$lib/paraglide/messages.js";
+	import { agentPreviewState } from "$lib/stores/agent-preview-state.svelte";
 	import { chat, chatState } from "$lib/stores/chat-state.svelte";
 	import { htmlPreviewState } from "$lib/stores/html-preview-state.svelte";
 	import { preferencesSettings } from "$lib/stores/preferences-settings.state.svelte";
@@ -14,6 +15,7 @@
 	import { onMount } from "svelte";
 	import { toast } from "svelte-sonner";
 	import PageHeader from "../../components/page-header.svelte";
+	import AgentPreviewPanel from "../components/agent-preview/agent-preview-panel.svelte";
 	import { AiApplicationItems } from "../components/ai-applications";
 	import { ChatInputBox } from "../components/chat-input";
 	import { FileUploadOverlay } from "../components/file-upload-overlay";
@@ -100,6 +102,26 @@
 			},
 		);
 
+		// Listen for sandbox created event
+		const unsubSandboxCreated = window.electronAPI?.onSandboxCreated?.(
+			({ threadId, sandboxId }: { threadId: string; sandboxId: string }) => {
+				console.log("[Chat Page] Received sandbox-created event:", { threadId, sandboxId });
+
+				// Only process if this is the target thread
+				if (threadId === chatState.id) {
+					// Update the claude code agent state with the sandboxId
+					import("$lib/stores/code-agent").then(({ claudeCodeAgentState }) => {
+						claudeCodeAgentState.updateSandboxId(sandboxId);
+						console.log("[Chat Page] Updated claudeCodeAgentState with sandboxId:", sandboxId);
+					});
+
+					// Open the agent preview panel
+					agentPreviewState.openPreview(sandboxId);
+					console.log("[Chat Page] Opened agent preview panel with sandboxId:", sandboxId);
+				}
+			},
+		);
+
 		// Check if we should auto-send on load (for branch and send functionality)
 		const checkAutoSend = async () => {
 			const threadKey = `app-thread:${chatState.id}`;
@@ -155,7 +177,13 @@
 			unsubGenerateTitle?.();
 			unsubTriggerSend?.();
 			unsubShowToast?.();
+			unsubSandboxCreated?.();
 		};
+	});
+
+	$effect(() => {
+		const sandBoxId = agentPreviewState.sandBoxId;
+		console.log("sandBoxIdsandBoxId", sandBoxId);
 	});
 
 	async function handleNewExploration() {
@@ -213,9 +241,48 @@
 						<HtmlPreviewPanel />
 					</Resizable.Pane>
 				</Resizable.PaneGroup>
+			{:else if agentPreviewState.isVisible && agentPreviewState.isPinned}
+				<div class="h-full overflow-hidden flex flex-col">
+					<PageHeader />
+					<MessageList messages={chatState.messages} />
+				</div>
+				<div
+					class="absolute right-0 top-0 bottom-0 h-full flex flex-col bg-background border-l border-border z-[100]"
+					style="width: 50%;"
+				>
+					<button
+						type="button"
+						aria-label="Resize panel"
+						class="bg-border focus-visible:ring-ring absolute -left-px top-0 bottom-0 flex w-px cursor-col-resize items-center justify-center after:absolute after:inset-y-0 after:left-1/2 after:w-1 after:-translate-x-1/2 focus-visible:ring-1 focus-visible:ring-offset-1 focus-visible:outline-hidden"
+						onmousedown={setupPanelResize}
+					>
+						<div class="bg-border z-10 flex h-4 w-3 items-center justify-center rounded-xs border">
+							<GripVerticalIcon class="size-2.5" />
+						</div>
+					</button>
+					<AgentPreviewPanel />
+				</div>
+			{:else if agentPreviewState.isVisible}
+				<Resizable.PaneGroup direction="horizontal" class="h-full">
+					<Resizable.Pane defaultSize={50} minSize={20} class="min-w-0">
+						<div class="h-full overflow-hidden relative">
+							<PageHeader />
+							<MessageList messages={chatState.messages} />
+						</div>
+					</Resizable.Pane>
+					<Resizable.Handle withHandle />
+					<Resizable.Pane defaultSize={50} minSize={20} class="min-w-0" style="min-width: 240px;">
+						<AgentPreviewPanel />
+					</Resizable.Pane>
+				</Resizable.PaneGroup>
 			{:else}
 				<PageHeader />
 				<MessageList messages={chatState.messages} />
+			{/if}
+
+			<!-- AgentPreviewPanel 需要始终挂载以监听状态，但当不在 Resizable 布局时隐藏 -->
+			{#if !htmlPreviewState.isVisible && !agentPreviewState.isVisible}
+				<AgentPreviewPanel />
 			{/if}
 		</div>
 		<div

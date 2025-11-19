@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { deployHtmlTo302, validate302Provider } from "$lib/api/webserve-deploy";
+	import PreviewHeader, { type PreviewTab } from "$lib/components/chat/preview-header.svelte";
 	import PreviewPanel from "$lib/components/html-preview/preview-panel.svelte";
 	import * as m from "$lib/paraglide/messages";
 	import { chatState } from "$lib/stores/chat-state.svelte";
@@ -13,7 +14,6 @@
 	import { tabBarState } from "$lib/stores/tab-bar-state.svelte";
 	import { toast } from "svelte-sonner";
 	import EditorPanel from "./editor-panel.svelte";
-	import PreviewHeader from "./preview-header.svelte";
 
 	const LANGUAGE_OPTIONS = [
 		{ label: "Markdown", value: "markdown" },
@@ -41,6 +41,12 @@
 	);
 	const deployedUrl = $derived(latestDeployment ? latestDeployment.url : null);
 	const isAgentMode = $derived(codeAgentState.enabled);
+
+	// Tabs definition
+	const tabs: PreviewTab[] = [
+		{ id: "preview", label: m.label_tab_preview() },
+		{ id: "code", label: m.label_tab_code() },
+	];
 
 	// 获取当前语言的显示标签
 	const _currentLanguageLabel = $derived(() => {
@@ -260,16 +266,19 @@
 		<!-- Header -->
 		<PreviewHeader
 			{activeTab}
+			{tabs}
 			{deviceMode}
 			{isDeploying}
 			{deployedUrl}
-			onTabChange={handleTabChange}
+			isPinned={htmlPreviewState.isPinned}
+			onTabChange={(t) => handleTabChange(t as "preview" | "code")}
 			onDeviceModeChange={handleDeviceModeChange}
 			onDeploy={handleDeploy}
 			onClose={() => htmlPreviewState.closePreview()}
 			onOpenDeployedUrl={openDeployedUrl}
 			onOpenInNewTab={handleOpenInNewTab}
 			onCopyDeployedUrl={handleCopyDeploymentUrl}
+			onPin={() => htmlPreviewState.togglePin()}
 		/>
 
 		<!-- Content area -->

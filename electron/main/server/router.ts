@@ -21,7 +21,7 @@ import {
 } from "ai";
 import getPort from "get-port";
 import { Hono } from "hono";
-import { codeAgentService } from "../services";
+import { codeAgentService, tabService } from "../services";
 import { mcpService } from "../services/mcp-service";
 import { storageService } from "../services/storage-service";
 import { createCitationsFetch } from "./citations-processor";
@@ -794,7 +794,7 @@ app.post("/chat/302ai-code-agent", async (c) => {
 		fetch: createCitationsFetch(),
 	});
 
-	const { sandboxId } = await codeAgentService.createClaudeCodeSandbox(threadId);
+	const { sandboxId, createdResult } = await codeAgentService.createClaudeCodeSandbox(threadId);
 
 	console.log(
 		"Received request for 302ai-code-agent",
@@ -805,7 +805,13 @@ app.post("/chat/302ai-code-agent", async (c) => {
 		speedOptions,
 		threadId,
 		sessionId,
+		createdResult,
 	);
+
+	// Notify the frontend that sandbox was created (for new sandboxes or existing ones)
+	if (sandboxId && (createdResult === "success" || createdResult === "already-exist")) {
+		tabService.notifySandboxCreated(threadId, sandboxId);
+	}
 
 	const wrapModel = wrapLanguageModel({
 		model: openai.chatModel(sandboxId ?? model),

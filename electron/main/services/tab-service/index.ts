@@ -1108,6 +1108,34 @@ export class TabService {
 			return false;
 		}
 	}
+
+	/**
+	 * Notify sandbox created event to the tab associated with the given threadId
+	 */
+	notifySandboxCreated(threadId: string, sandboxId: string): void {
+		console.log(
+			`[TabService] Notifying sandbox created: threadId=${threadId}, sandboxId=${sandboxId}`,
+		);
+
+		// Find the tab with matching threadId
+		let targetView: WebContentsView | undefined;
+		for (const [tabId, tab] of this.tabMap.entries()) {
+			if (tab.threadId === threadId) {
+				targetView = this.tabViewMap.get(tabId);
+				break;
+			}
+		}
+
+		if (targetView && !targetView.webContents.isDestroyed()) {
+			targetView.webContents.send("code-agent:sandbox-created", {
+				threadId,
+				sandboxId,
+			});
+			console.log(`[TabService] Sandbox created event sent to tab with threadId=${threadId}`);
+		} else {
+			console.warn(`[TabService] Could not find active tab for threadId=${threadId}`);
+		}
+	}
 }
 
 export const tabService = new TabService();

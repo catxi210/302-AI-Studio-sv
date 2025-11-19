@@ -1,6 +1,6 @@
 <script lang="ts">
-	import * as m from "$lib/paraglide/messages";
 	import PreviewPanel from "$lib/components/html-preview/preview-panel.svelte";
+	import * as m from "$lib/paraglide/messages";
 	import { persistedTabState } from "$lib/stores/tab-bar-state.svelte";
 
 	let deviceMode = $state<"desktop" | "mobile">("desktop");
@@ -53,7 +53,6 @@
 					<div class="text-lg font-medium text-muted-foreground">
 						{m.empty_html_preview_title()}
 					</div>
-					<div class="text-sm text-muted-foreground">{m.empty_html_preview_description()}</div>
 				</div>
 			</div>
 		{/if}

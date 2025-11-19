@@ -51,6 +51,9 @@ declare global {
 			onTabGenerateTitle: (
 				callback: (data: { tabId: string; threadId: string }) => void,
 			) => () => void;
+			onSandboxCreated: (
+				callback: (data: { threadId: string; sandboxId: string }) => void,
+			) => () => void;
 			onPersistedStateSync: <T>(key: string, callback: (syncValue: T) => void) => () => void;
 			updater: {
 				onUpdateChecking: (callback: () => void) => () => void;

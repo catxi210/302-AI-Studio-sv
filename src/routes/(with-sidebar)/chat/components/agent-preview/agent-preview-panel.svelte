@@ -1,0 +1,475 @@
+<script lang="ts">
+	import { deploySandboxProject } from "$lib/api/sandbox-deploy";
+	import { getFileContent, type SandboxFileInfo } from "$lib/api/sandbox-file";
+	import { deployHtmlTo302, validate302Provider } from "$lib/api/webserve-deploy";
+	import CodeMirrorEditor from "$lib/components/buss/editor/codemirror-editor.svelte";
+	import PreviewHeader, { type PreviewTab } from "$lib/components/chat/preview-header.svelte";
+	import PreviewPanel from "$lib/components/html-preview/preview-panel.svelte";
+	import { Empty, EmptyContent, EmptyTitle } from "$lib/components/ui/empty";
+	import * as m from "$lib/paraglide/messages";
+	import { agentPreviewState } from "$lib/stores/agent-preview-state.svelte";
+	import { chatState } from "$lib/stores/chat-state.svelte";
+	import { claudeCodeAgentState, codeAgentState } from "$lib/stores/code-agent";
+	import { htmlPreviewState } from "$lib/stores/html-preview-state.svelte";
+	import { persistedProviderState } from "$lib/stores/provider-state.svelte";
+	import { tabBarState } from "$lib/stores/tab-bar-state.svelte";
+	import { Loader2 } from "@lucide/svelte";
+	import type { ModelProvider } from "@shared/types";
+	import { onDestroy } from "svelte";
+	import { toast } from "svelte-sonner";
+	import {
+		DEVICE_MODE_DESKTOP,
+		DEVICE_MODE_MOBILE,
+		TAB_CODE,
+		TAB_PREVIEW,
+		TAB_TERMINAL,
+		type DeviceMode,
+		type TabType,
+	} from "./constants";
+	import FileTree from "./file-tree.svelte";
+	import Terminal from "./terminal.svelte";
+	import { handleError, isFileStillSelected, withRetry } from "./utils";
+
+	// --- Utils (Move strictly pure functions outside) ---
+	const LANGUAGE_MAP: Record<string, string> = {
+		js: "javascript",
+		jsx: "javascript",
+		ts: "typescript",
+		tsx: "typescript",
+		py: "python",
+		md: "markdown",
+		json: "json",
+		html: "html",
+		css: "css",
+		xml: "xml",
+		svg: "svg",
+		sh: "shell",
+		bash: "shell",
+		txt: "text",
+	};
+
+	function detectLanguage(filename: string): string {
+		const ext = filename.split(".").pop()?.toLowerCase();
+		return LANGUAGE_MAP[ext || ""] || "text";
+	}
+
+	// --- State ---
+	let activeTab = $state<TabType>(TAB_PREVIEW);
+	let deviceMode = $state<DeviceMode>(DEVICE_MODE_DESKTOP);
+
+	// Grouped Deployment State
+	let deployment = $state({
+		isDeploying: false,
+		url: null as string | null,
+		deploymentId: null as string | null,
+	});
+
+	// Grouped File Viewer State
+	let fileViewer = $state({
+		selectedFile: null as SandboxFileInfo | null,
+		content: "",
+		isLoading: false,
+		language: "text",
+	});
+
+	let refreshTrigger = $state(0);
+
+	// Internal logic variables (non-reactive)
+	let abortController: AbortController | null = null;
+	let isRestoringState = false; // 替代原先的 restoreState.running
+	let previousStreamingState = false; // 用于追踪流式状态边缘
+
+	// --- Derived ---
+	const isAgentMode = $derived(codeAgentState.enabled);
+	const currentSandboxId = $derived(claudeCodeAgentState.sandboxId);
+	const currentSessionId = $derived(claudeCodeAgentState.currentSessionId);
+
+	// Tabs definition
+	let tabs: PreviewTab[] = $derived.by(() => {
+		const t = [
+			{ id: "preview", label: m.label_tab_preview() },
+			{ id: "code", label: m.label_tab_file() },
+		];
+		if (isAgentMode) {
+			t.push({ id: TAB_TERMINAL, label: m.label_tab_terminal() });
+		}
+		return t;
+	});
+
+	// --- Effects & Logic ---
+
+	// 1. State Restoration Logic
+	const restoreState = async () => {
+		if (isRestoringState || !currentSandboxId || !currentSessionId) return;
+
+		isRestoringState = true;
+		try {
+			const [info, savedPath] = await Promise.all([
+				agentPreviewState.getDeploymentInfo(currentSandboxId, currentSessionId),
+				agentPreviewState.getSelectedFilePath(currentSandboxId, currentSessionId),
+			]);
+
+			deployment.url = info?.url ?? null;
+			deployment.deploymentId = info?.deploymentId ?? null;
+
+			if (savedPath) {
+				const storage = await agentPreviewState.loadFromStorage(currentSandboxId, currentSessionId);
+				const file = storage?.fileList?.find((f) => f.path === savedPath);
+				if (file) await handleFileSelect(file);
+			}
+		} catch (e) {
+			console.warn("[AgentPreview] State restore failed (ignored):", e);
+		} finally {
+			isRestoringState = false;
+		}
+	};
+
+	$effect(() => {
+		// Track sandboxId and sessionId to detect changes
+		// Accessing these derived values ensures the effect re-runs when they change
+		const sandboxId = currentSandboxId;
+		const sessionId = currentSessionId;
+
+		// Only restore state when panel is visible and all conditions are met
+		if (agentPreviewState.isVisible && isAgentMode && sandboxId && sessionId) {
+			restoreState();
+		}
+	});
+
+	// 2. File Tree Refresh Trigger (Detecting stream end)
+	$effect(() => {
+		const isStreaming = chatState.isStreaming;
+		// 类似于 React 的 usePrevious + useEffect 组合
+		if (previousStreamingState && !isStreaming) {
+			if (isAgentMode && agentPreviewState.isVisible && currentSandboxId) {
+				console.log("[AgentPreview] Task completed, triggering refresh");
+				refreshTrigger++;
+			}
+		}
+		previousStreamingState = isStreaming;
+	});
+
+	// Cleanup on unmount
+	onDestroy(() => {
+		abortController?.abort();
+	});
+
+	// --- Handlers ---
+
+	const get302ApiKey = () => {
+		const provider = persistedProviderState.current.find((p) => p.name === "302.AI" && p.enabled);
+		return provider?.apiKey || "";
+	};
+
+	async function handleFileSelect(file: SandboxFileInfo) {
+		abortController?.abort();
+		abortController = new AbortController();
+		const signal = abortController.signal;
+
+		// 立即更新 UI 状态
+		fileViewer.selectedFile = file;
+		fileViewer.isLoading = true;
+		fileViewer.language = detectLanguage(file.name);
+		const currentFilePath = file.path;
+
+		try {
+			if (!currentSandboxId || !currentSessionId) throw new Error("No sandbox/session");
+
+			// 1. Try Cache
+			const cachedContent = await agentPreviewState.getFileContent(
+				currentSandboxId,
+				currentSessionId,
+				file.path,
+				file.modified_time,
+			);
+
+			if (signal.aborted) return;
+
+			if (cachedContent && isFileStillSelected(currentFilePath, fileViewer.selectedFile)) {
+				await agentPreviewState.setSelectedFilePath(currentSandboxId, currentSessionId, file.path);
+				fileViewer.content = cachedContent;
+				fileViewer.isLoading = false;
+				return;
+			}
+
+			// 2. Fetch from API
+			const apiKey = get302ApiKey();
+			if (!apiKey) throw new Error("302.AI API key not found");
+
+			const content = await withRetry(
+				() => getFileContent(currentSandboxId!, file.path, apiKey, undefined, signal),
+				3,
+				1000,
+			);
+
+			if (signal.aborted) return;
+
+			// 3. Update State & Cache
+			// 无论当前是否选中，都写入缓存
+			await agentPreviewState.setFileContent(
+				currentSandboxId,
+				currentSessionId,
+				file.path,
+				content,
+				file.modified_time,
+			);
+
+			if (isFileStillSelected(currentFilePath, fileViewer.selectedFile)) {
+				await agentPreviewState.setSelectedFilePath(currentSandboxId, currentSessionId, file.path);
+				fileViewer.content = content;
+			}
+		} catch (e) {
+			if (!signal.aborted && isFileStillSelected(currentFilePath, fileViewer.selectedFile)) {
+				handleError(e, "Failed to load file content");
+				console.error("[AgentPreview] File load error:", e);
+			}
+		} finally {
+			if (!signal.aborted) fileViewer.isLoading = false;
+		}
+	}
+
+	// 提取通用的 Deploy 验证逻辑
+	function validateDeployPreconditions() {
+		const validation = validate302Provider(persistedProviderState.current);
+		if (!validation.valid || !validation.provider) {
+			const errorMsg =
+				validation.error === "toast_deploy_no_302_provider"
+					? m.toast_deploy_no_302_provider()
+					: validation.error === "toast_deploy_302_provider_disabled"
+						? m.toast_deploy_302_provider_disabled()
+						: validation.error || m.toast_deploy_failed();
+			toast.error(errorMsg);
+			return null;
+		}
+		return validation.provider;
+	}
+
+	async function handleDeployCommon(
+		deployAction: (
+			provider: ModelProvider,
+		) => Promise<{ success: boolean; data?: { url: string; id?: string }; error?: string }>,
+		successMsg: string,
+	) {
+		const provider = validateDeployPreconditions();
+		if (!provider) return;
+
+		deployment.isDeploying = true;
+		try {
+			const result = await deployAction(provider);
+
+			if (!result.success || !result.data) {
+				throw new Error(result.error || "Unknown error");
+			}
+
+			// Update local state
+			if (result.data.url) {
+				deployment.url = result.data.url;
+				if (result.data.id) deployment.deploymentId = result.data.id;
+
+				try {
+					await navigator.clipboard.writeText(result.data.url);
+				} catch (e) {
+					console.warn("Clipboard write failed:", e);
+				}
+				toast.success(successMsg);
+			}
+			return result.data;
+		} catch (error) {
+			console.error("Deploy failed:", error);
+			toast.error(m.toast_deploy_failed());
+		} finally {
+			deployment.isDeploying = false;
+		}
+	}
+
+	const handleDeploy = () =>
+		handleDeployCommon(
+			(provider) =>
+				deployHtmlTo302(provider, {
+					html: htmlPreviewState.editedHtml,
+					title: "HTML Preview Deploy",
+					description: "Deployed from 302 AI Studio",
+				}),
+			m.toast_deploy_success(),
+		);
+
+	const handleDeploySandbox = async () => {
+		if (!currentSandboxId) {
+			toast.error("Sandbox ID not available");
+			return;
+		}
+
+		const data = await handleDeployCommon(
+			(provider) =>
+				withRetry(
+					() =>
+						deploySandboxProject(provider, {
+							sandbox_id: currentSandboxId!, // Non-null asserted due to check above
+							session_id: currentSessionId,
+						}),
+					3,
+					1000,
+				),
+			m.toast_deploy_sandbox_success(),
+		);
+
+		// Sandbox specific post-deploy logic
+		if (data && currentSandboxId) {
+			await agentPreviewState.setDeploymentInfo(
+				currentSandboxId,
+				currentSessionId || "",
+				data.url,
+				data.id || "",
+			);
+		}
+	};
+
+	const handleOpenInNewTab = async () => {
+		// In agent mode, if we have a deployment URL, create a new tab with iframe
+		if (isAgentMode && deployment.url && currentSandboxId && currentSessionId) {
+			// Create HTML content with iframe pointing to deployment URL
+			const htmlContent = `<iframe src="${deployment.url}" style="width: 100%; height: 100%; border: 0;" sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-modals" referrerpolicy="no-referrer"></iframe>`;
+
+			// Generate unique previewId based on sandboxId and sessionId
+			const previewId = `agent-preview-${currentSandboxId}-${currentSessionId}`;
+
+			await tabBarState.handleNewTab(
+				m.title_html_preview(),
+				"htmlPreview",
+				true,
+				"/html-preview",
+				htmlContent,
+				previewId,
+			);
+			return;
+		}
+
+		// Otherwise, use the HTML preview logic (for non-agent mode)
+		const previewId = htmlPreviewState.context
+			? `${htmlPreviewState.context.messageId}-${htmlPreviewState.context.messagePartIndex}-${htmlPreviewState.context.blockId}`
+			: undefined;
+
+		await tabBarState.handleNewTab(
+			m.title_html_preview(),
+			"htmlPreview",
+			true,
+			"/html-preview",
+			htmlPreviewState.editedHtml,
+			previewId,
+		);
+	};
+
+	const handleCopyDeploymentUrl = async () => {
+		if (!isAgentMode || !deployment.url) return;
+		try {
+			await navigator.clipboard.writeText(deployment.url);
+			toast.success(m.toast_deploy_url_copied());
+		} catch (_e) {
+			toast.error(m.toast_copied_failed());
+		}
+	};
+</script>
+
+<div class="h-full">
+	{#if agentPreviewState.isVisible}
+		<div
+			class="flex flex-col h-full min-w-0 max-w-full overflow-hidden border-l border-border bg-background"
+			style="container-type: inline-size;"
+		>
+			<PreviewHeader
+				{activeTab}
+				{tabs}
+				{deviceMode}
+				isDeploying={deployment.isDeploying}
+				deployedUrl={isAgentMode ? deployment.url : null}
+				compactDeployButton={false}
+				isPinned={agentPreviewState.isPinned}
+				onTabChange={(t) => (activeTab = t as TabType)}
+				onDeviceModeChange={(d) => (deviceMode = d)}
+				onDeploy={isAgentMode ? handleDeploySandbox : handleDeploy}
+				onClose={() => agentPreviewState.closePreview()}
+				onOpenDeployedUrl={() =>
+					isAgentMode && deployment.url && window.open(deployment.url, "_blank")}
+				onOpenInNewTab={handleOpenInNewTab}
+				onCopyDeployedUrl={handleCopyDeploymentUrl}
+				onPin={() => agentPreviewState.togglePin()}
+			/>
+
+			<div class="flex flex-1 min-w-0 min-h-0">
+				<div
+					class="flex-shrink flex-1 max-w-64 min-w-[100px] border-r border-border overflow-hidden {activeTab ===
+					TAB_CODE
+						? ''
+						: 'hidden'}"
+				>
+					<FileTree sandboxId={currentSandboxId} onFileSelect={handleFileSelect} {refreshTrigger} />
+				</div>
+
+				<div class="flex-1 flex flex-col min-w-[140px] min-h-0">
+					{#if activeTab === TAB_PREVIEW}
+						{#if isAgentMode}
+							{#if deployment.url}
+								<div class="flex-1 overflow-auto bg-muted/30 min-h-0">
+									<div
+										class="h-full w-full mx-auto transition-all duration-300 ease-in-out
+                              {deviceMode === DEVICE_MODE_MOBILE ? 'max-w-[375px]' : ''}"
+									>
+										<iframe
+											class="w-full h-full border-0 {deviceMode === DEVICE_MODE_MOBILE
+												? 'shadow-lg border-x border-border'
+												: ''}"
+											sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-modals"
+											referrerpolicy="no-referrer"
+											title="Sandbox Preview"
+											src={deployment.url}
+										></iframe>
+									</div>
+								</div>
+							{:else}
+								<Empty class="border-0">
+									<EmptyContent>
+										<EmptyTitle>{m.empty_agent_preview_title()}</EmptyTitle>
+									</EmptyContent>
+								</Empty>
+							{/if}
+						{:else if fileViewer.selectedFile}
+							<PreviewPanel html={fileViewer.content} {deviceMode} />
+						{:else}
+							<div class="flex h-full items-center justify-center text-muted-foreground text-sm">
+								{m.empty_html_preview_title()}
+							</div>
+						{/if}
+					{:else if activeTab === TAB_CODE}
+						{#if fileViewer.selectedFile}
+							<div class="flex-1 min-h-0">
+								{#if fileViewer.isLoading}
+									<div class="flex h-full items-center justify-center">
+										<Loader2 class="h-6 w-6 animate-spin text-muted-foreground" />
+									</div>
+								{:else}
+									<CodeMirrorEditor
+										value={fileViewer.content}
+										language={fileViewer.language}
+										readOnly={true}
+									/>
+								{/if}
+							</div>
+						{:else}
+							<div class="flex h-full items-center justify-center text-muted-foreground text-sm">
+								{m.empty_html_preview_title()}
+							</div>
+						{/if}
+					{:else if activeTab === TAB_TERMINAL && isAgentMode}
+						{#if currentSandboxId}
+							<Terminal sandboxId={currentSandboxId} sessionId={currentSessionId} />
+						{:else}
+							<div class="flex h-full items-center justify-center text-muted-foreground text-sm">
+								Sandbox not available
+							</div>
+						{/if}
+					{/if}
+				</div>
+			</div>
+		</div>
+	{/if}
+</div>

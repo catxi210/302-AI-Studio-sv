@@ -3,12 +3,33 @@
 	import * as Sidebar from "$lib/components/ui/sidebar";
 	import { useSidebar } from "$lib/components/ui/sidebar";
 	import { m } from "$lib/paraglide/messages";
+	import { agentPreviewState } from "$lib/stores/agent-preview-state.svelte";
 	import { chatState } from "$lib/stores/chat-state.svelte";
+	import { claudeCodeAgentState, codeAgentState } from "$lib/stores/code-agent";
 	import { cn } from "$lib/utils";
-	import { Ghost, Settings } from "@lucide/svelte";
+	import { Ghost, Server, Settings } from "@lucide/svelte";
 
 	async function handleNewSettingsTab() {
 		await window.electronAPI.windowService.handleOpenSettingsWindow();
+	}
+
+	// Check if agent preview button should be shown
+	const showAgentPreviewButton = $derived(
+		codeAgentState.enabled &&
+			codeAgentState.currentAgentId === "claude-code" &&
+			claudeCodeAgentState.sandboxId !== "",
+	);
+
+	// Handle agent preview toggle
+	function handleAgentPreviewToggle() {
+		if (agentPreviewState.isVisible) {
+			agentPreviewState.closePreview();
+		} else {
+			const sandboxId = claudeCodeAgentState.sandboxId;
+			if (sandboxId) {
+				agentPreviewState.openPreview(sandboxId);
+			}
+		}
 	}
 </script>
 
@@ -23,6 +44,22 @@
 	</ButtonWithTooltip>
 
 	<div class="flex flex-row items-center gap-2">
+		{#if showAgentPreviewButton}
+			<ButtonWithTooltip
+				class={cn(
+					"hover:!bg-icon-btn-hover",
+					agentPreviewState.isVisible && "!bg-icon-btn-active hover:!bg-icon-btn-active",
+				)}
+				tooltipSide="bottom"
+				tooltip={agentPreviewState.isVisible
+					? m.tooltip_close_agent_preview()
+					: m.tooltip_open_agent_preview()}
+				onclick={handleAgentPreviewToggle}
+			>
+				<Server class={cn("size-5", agentPreviewState.isVisible && "!text-icon-btn-active-fg")} />
+			</ButtonWithTooltip>
+		{/if}
+
 		<ButtonWithTooltip
 			class={cn(
 				"hover:!bg-icon-btn-hover",
