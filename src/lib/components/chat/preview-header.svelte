@@ -124,6 +124,29 @@
 		<div class="grid h-10 w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-2 px-2 min-w-0">
 			<!-- 左侧：部署按钮 -->
 			<div class="flex items-center gap-2 min-w-0">
+				{#if !deployedUrl && !compactDeployButton}
+					<button
+						type="button"
+						class="flex items-center gap-1.5 px-2.5 py-1 rounded border border-border/40 bg-background text-foreground text-xs font-medium shadow-none transition-colors hover:bg-muted/70 disabled:opacity-50 disabled:cursor-not-allowed"
+						title={isDeploying ? m.tooltip_deploying() : m.tooltip_deploy_to_302()}
+						disabled={isDeploying}
+						onclick={onDeploy}
+					>
+						<Rocket class="size-4 shrink-0" />
+						<span class="shrink-0">{m.text_button_deploy()}</span>
+					</button>
+				{:else}
+					<ButtonWithTooltip
+						tooltip={isDeploying ? m.tooltip_deploying() : m.tooltip_deploy_to_302()}
+						class="hover:!bg-icon-btn-hover shrink-0"
+						tooltipSide="bottom"
+						disabled={isDeploying}
+						onclick={onDeploy}
+					>
+						<Rocket class="size-4" />
+					</ButtonWithTooltip>
+				{/if}
+
 				{#if deployedUrl}
 					<div class="flex-1 min-w-0 max-w-[200px]">
 						<button
@@ -144,27 +167,6 @@
 					>
 						<Copy class="size-4" />
 					</ButtonWithTooltip>
-				{:else if compactDeployButton}
-					<ButtonWithTooltip
-						tooltip={isDeploying ? m.tooltip_deploying() : m.tooltip_deploy_to_302()}
-						class="hover:!bg-icon-btn-hover shrink-0"
-						tooltipSide="bottom"
-						disabled={isDeploying}
-						onclick={onDeploy}
-					>
-						<Rocket class="size-4" />
-					</ButtonWithTooltip>
-				{:else}
-					<button
-						type="button"
-						class="flex items-center gap-1.5 px-2.5 py-1 rounded border border-border/40 bg-background text-foreground text-xs font-medium shadow-none transition-colors hover:bg-muted/70 disabled:opacity-50 disabled:cursor-not-allowed"
-						title={isDeploying ? m.tooltip_deploying() : m.tooltip_deploy_to_302()}
-						disabled={isDeploying}
-						onclick={onDeploy}
-					>
-						<Rocket class="size-4 shrink-0" />
-						<span class="shrink-0">{m.text_button_deploy()}</span>
-					</button>
 				{/if}
 			</div>
 

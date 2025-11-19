@@ -73,6 +73,7 @@
 	});
 
 	let refreshTrigger = $state(0);
+	let iframeRefreshKey = $state(0);
 
 	// Internal logic variables (non-reactive)
 	let abortController: AbortController | null = null;
@@ -264,6 +265,7 @@
 			// Update local state
 			if (result.data.url) {
 				deployment.url = result.data.url;
+				iframeRefreshKey++;
 				if (result.data.id) deployment.deploymentId = result.data.id;
 
 				try {
@@ -414,15 +416,17 @@
 										class="h-full w-full mx-auto transition-all duration-300 ease-in-out
                               {deviceMode === DEVICE_MODE_MOBILE ? 'max-w-[375px]' : ''}"
 									>
-										<iframe
-											class="w-full h-full border-0 {deviceMode === DEVICE_MODE_MOBILE
-												? 'shadow-lg border-x border-border'
-												: ''}"
-											sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-modals"
-											referrerpolicy="no-referrer"
-											title="Sandbox Preview"
-											src={deployment.url}
-										></iframe>
+										{#key iframeRefreshKey}
+											<iframe
+												class="w-full h-full border-0 {deviceMode === DEVICE_MODE_MOBILE
+													? 'shadow-lg border-x border-border'
+													: ''}"
+												sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-modals"
+												referrerpolicy="no-referrer"
+												title="Sandbox Preview"
+												src={deployment.url}
+											></iframe>
+										{/key}
 									</div>
 								</div>
 							{:else}
