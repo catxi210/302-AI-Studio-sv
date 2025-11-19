@@ -1,16 +1,14 @@
 <script lang="ts">
+	import LoginDialog from "$lib/components/buss/login/login-dialog.svelte";
 	import { Button } from "$lib/components/ui/button";
 	import { Label } from "$lib/components/ui/label/index.js";
 	import { m } from "$lib/paraglide/messages.js";
-	import LoginDialog from "$lib/components/buss/login/login-dialog.svelte";
 	import { userState } from "$lib/stores/user-state.svelte";
 
 	let showLoginDialog = $state(false);
-
-	const { isLoggedIn } = $derived(userState.state);
 </script>
 
-{#if !isLoggedIn}
+{#if !userState.isLoggedIn}
 	<div class="gap-settings-gap flex flex-col">
 		<Label id="account" class="text-label-fg">{m.login_account_management()}</Label>
 		<div class="flex items-center gap-4">

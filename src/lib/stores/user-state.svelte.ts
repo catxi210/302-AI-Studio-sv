@@ -1,7 +1,7 @@
-import { PersistedState } from "$lib/hooks/persisted-state.svelte";
-import type { UserInfo, UserState } from "@shared/storage/user";
 import { API_BASE_URL } from "$lib/constants/api";
+import { PersistedState } from "$lib/hooks/persisted-state.svelte";
 import { m } from "$lib/paraglide/messages.js";
+import type { UserInfo, UserState } from "@shared/storage/user";
 
 const getDefaults = (): UserState => ({
 	token: null,
@@ -25,14 +25,14 @@ class UserStateManager {
 	}
 
 	get isLoggedIn(): boolean {
-		return persistedUserState.current.isLoggedIn;
+		// isLoggedIn should only be true when we have both token AND userInfo
+		return !!(persistedUserState.current.token && persistedUserState.current.userInfo);
 	}
 
 	setToken(token: string): void {
 		persistedUserState.current = {
 			...persistedUserState.current,
 			token,
-			isLoggedIn: true,
 		};
 	}
 
@@ -49,6 +49,8 @@ class UserStateManager {
 			return { success: false, error: m.error_no_token() };
 		}
 
+		console.log("fetchUserInfo 使用的 token:", token);
+
 		try {
 			const res = await fetch(`${API_BASE_URL}/user/info`, {
 				method: "GET",
@@ -64,6 +66,7 @@ class UserStateManager {
 			});
 
 			const data = await res.json();
+			console.log("fetchUserInfo 响应:", data);
 			if (data.code === 0 || data.code === 200) {
 				this.setUserInfo(data.data);
 				return { success: true };

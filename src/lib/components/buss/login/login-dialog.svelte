@@ -77,6 +77,7 @@
 				// Save token
 				const token = data.data?.token;
 				if (token) {
+					console.log("短信登录返回的 token:", token);
 					userState.setToken(token);
 
 					// Fetch user info
@@ -85,7 +86,8 @@
 						toast.success("登录成功");
 						open = false;
 					} else {
-						toast.error("获取用户信息失败");
+						console.error("获取用户信息失败:", result.error);
+						toast.error(`获取用户信息失败: ${result.error}`);
 					}
 				} else {
 					toast.error("登录响应缺少 token");
@@ -102,7 +104,7 @@
 
 	const handlePasswordLogin = async () => {
 		if (!phoneNumber || !password || !captchaCode) {
-			toast.error(m.login_error_missing_phone_password_captcha());
+			toast.error(m.login_error_missing_account_password_captcha());
 			return;
 		}
 		if (!captchaKey) {
@@ -111,8 +113,10 @@
 		}
 		isLoading = true;
 		try {
-			const formattedPhone = formatPhoneNumber(phoneNumber, countryCode);
-			const res = await fetch(`${API_BASE_URL}/user/login/phone`, {
+			// Use the account as-is (can be phone number or email)
+			const account = phoneNumber.trim();
+
+			const res = await fetch(`${API_BASE_URL}/user/login/all`, {
 				method: "POST",
 				headers: {
 					"Content-Type": "application/json",
@@ -124,21 +128,20 @@
 					referer: "https://302.ai/",
 				},
 				body: JSON.stringify({
-					phone: formattedPhone,
+					account: account,
 					password: password,
 					captcha: captchaCode,
 					code: captchaKey,
-					email: "",
-					ref: "",
-					event: "",
-					login_from: "web",
+					phone: "",
 				}),
 			});
 			const data = await res.json();
+			console.log("密码登录完整响应:", data);
 			if (data.code === 200 || data.code === 0) {
 				// Save token
 				const token = data.data?.token;
 				if (token) {
+					console.log("密码登录返回的 token:", token);
 					userState.setToken(token);
 
 					// Fetch user info
@@ -147,7 +150,8 @@
 						toast.success("登录成功");
 						open = false;
 					} else {
-						toast.error("获取用户信息失败");
+						console.error("获取用户信息失败:", result.error);
+						toast.error(`获取用户信息失败: ${result.error}`);
 					}
 				} else {
 					toast.error("登录响应缺少 token");
@@ -347,28 +351,15 @@
 
 				<!-- Password Login Tab -->
 				<Tabs.Content value="password" class="space-y-4">
-					<!-- Phone Number -->
+					<!-- Account (Phone or Email) -->
 					<div class="space-y-2">
-						<Label for="phone-password" class="font-bold">{m.login_phone_number()}</Label>
-						<div class="flex gap-2">
-							<Select.Root type="single" bind:value={countryCode}>
-								<Select.Trigger class="w-28">
-									{countryOptions.find((o) => o.value === countryCode)?.label || countryCode}
-								</Select.Trigger>
-								<Select.Content>
-									{#each countryOptions as option (option.value)}
-										<Select.Item value={option.value} label={option.label} />
-									{/each}
-								</Select.Content>
-							</Select.Root>
-							<Input
-								id="phone-password"
-								type="tel"
-								bind:value={phoneNumber}
-								placeholder={countryCode}
-								class="flex-1"
-							/>
-						</div>
+						<Label for="account-password" class="font-bold">{m.login_account_label()}</Label>
+						<Input
+							id="account-password"
+							type="text"
+							bind:value={phoneNumber}
+							placeholder={m.login_account_placeholder()}
+						/>
 					</div>
 
 					<!-- Password -->

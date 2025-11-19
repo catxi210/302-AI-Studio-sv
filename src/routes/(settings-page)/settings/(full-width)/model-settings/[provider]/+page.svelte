@@ -10,6 +10,7 @@
 	import * as Select from "$lib/components/ui/select/index.js";
 	import { m } from "$lib/paraglide/messages.js";
 	import { persistedModelState, providerState } from "$lib/stores/provider-state.svelte.js";
+	import { userState } from "$lib/stores/user-state.svelte";
 	import { Eye, EyeOff } from "@lucide/svelte";
 	import type { Model, ModelCreateInput, ModelProvider } from "@shared/types";
 	import { onMount } from "svelte";
@@ -135,6 +136,15 @@
 
 		await providerState.fetchModelsForProvider(currentProvider);
 		isLoadingModels = false;
+	}
+
+	function fillApiKeyFromAccount() {
+		if (userState.userInfo?.api_key) {
+			formData.apiKey = userState.userInfo.api_key;
+			handleInputChange();
+			// @ts-expect-error - text_provider_update_success may not exist in all locales
+			toast.success(m.text_provider_update_success?.({ name: formData.name }) || "API Key updated");
+		}
 	}
 
 	function handleAddModel() {
@@ -345,7 +355,7 @@
 					</Button>
 				</div>
 				{#if !formData.custom && formData.websites.apiKey}
-					<p class="text-muted-foreground text-xs">
+					<p class="text-muted-foreground flex items-center gap-2 text-xs">
 						<a
 							href={formData.websites.apiKey}
 							target="_blank"
@@ -357,6 +367,22 @@
 						>
 							{m.text_get_api_key()}
 						</a>
+						{#if formData.id === "302AI"}
+							<span class="text-muted-foreground/50">|</span>
+							{#if userState.isLoggedIn}
+								<button
+									class="text-primary cursor-pointer hover:underline"
+									onclick={fillApiKeyFromAccount}
+								>
+									<!-- @ts-expect-error - text_use_account_api_key may not exist in all locales -->
+									{m.text_use_account_api_key()}
+								</button>
+							{:else}
+								<a href="/settings/account-settings" class="text-primary hover:underline">
+									{m.text_login_to_get_api_key()}
+								</a>
+							{/if}
+						{/if}
 					</p>
 				{/if}
 			</div>
