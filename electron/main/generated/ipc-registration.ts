@@ -284,6 +284,9 @@ export function registerIpcHandlers() {
 	ipcMain.handle("dataService:checkOldVersionData", (event) =>
 		dataService.checkOldVersionData(event),
 	);
+	ipcMain.handle("dataService:zipFolderForUpload", (event) =>
+		dataService.zipFolderForUpload(event),
+	);
 
 	// externalLinkService service registration
 	ipcMain.handle("externalLinkService:openExternalLink", (event, url) =>
@@ -430,6 +433,7 @@ export function removeIpcHandlers() {
 	ipcMain.removeHandler("dataService:deleteBackup");
 	ipcMain.removeHandler("dataService:openBackupDirectory");
 	ipcMain.removeHandler("dataService:checkOldVersionData");
+	ipcMain.removeHandler("dataService:zipFolderForUpload");
 	ipcMain.removeHandler("externalLinkService:openExternalLink");
 	ipcMain.removeHandler("mcpService:getToolsFromServer");
 	ipcMain.removeHandler("mcpService:closeServer");

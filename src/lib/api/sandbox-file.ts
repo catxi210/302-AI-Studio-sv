@@ -351,3 +351,42 @@ export async function copySandboxFile(
 ): Promise<SandboxFileOperationResponse> {
 	return sandboxFileOperation(sandboxId, Operation.Copy, sourcePath, destPath, apiKey, baseUrl);
 }
+
+/**
+ * 上传文件到沙盒
+ */
+export async function uploadSandboxFile(
+	sandboxId: string,
+	path: string,
+	file: File,
+	apiKey: string,
+	baseUrl: string = "https://api.302.ai",
+	auto_unzip: boolean = false,
+): Promise<SandboxFileOperationResponse> {
+	try {
+		const formData = new FormData();
+		formData.append("sandbox_id", sandboxId);
+		formData.append("path", path);
+		formData.append("file", file);
+		if (auto_unzip) {
+			formData.append("auto_unzip", "true");
+		}
+
+		const response = await fetch(`${baseUrl}/302/claude-code/sandbox/file/upload`, {
+			method: "POST",
+			headers: {
+				Authorization: `Bearer ${apiKey}`,
+			},
+			body: formData,
+		});
+
+		const data = await response.json();
+		return data;
+	} catch (error) {
+		console.error("Error uploading sandbox file:", error);
+		return {
+			success: false,
+			error: error instanceof Error ? error.message : "Unknown error",
+		};
+	}
+}

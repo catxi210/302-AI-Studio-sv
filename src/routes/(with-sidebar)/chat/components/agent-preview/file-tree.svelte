@@ -19,6 +19,7 @@
 		Pencil,
 		Scissors,
 		Trash2,
+		Upload,
 	} from "@lucide/svelte";
 	import { toast } from "svelte-sonner";
 	import { DEFAULT_WORKSPACE_PATH } from "./constants";
@@ -208,6 +209,29 @@
 			}
 		}
 	});
+
+	// File upload
+	let fileInput: HTMLInputElement;
+
+	async function handleFileUpload(e: Event) {
+		const target = e.target as HTMLInputElement;
+		if (target.files && target.files.length > 0) {
+			const file = target.files[0];
+			// Upload to root by default for now, or we could track the current directory
+			// But since we don't have a "current directory" concept in the UI selection (only expanded dirs),
+			// uploading to root is a safe default, or we could use the selected file's parent if available.
+			// For simplicity as requested "Upload to root directory", we use DEFAULT_WORKSPACE_PATH.
+			await fileTreeState.uploadFile(file, DEFAULT_WORKSPACE_PATH);
+
+			// Reset input
+			target.value = "";
+		}
+	}
+
+	// Folder upload - uses Electron dialog
+	async function handleFolderUpload() {
+		await fileTreeState.uploadFolder(DEFAULT_WORKSPACE_PATH);
+	}
 </script>
 
 {#snippet contextMenuContent(node: TreeNode)}
@@ -255,7 +279,7 @@
 				{:else}
 					<Scissors class="mr-2 h-4 w-4" />
 				{/if}
-				<span>{m.common_paste()}</span>
+				<span>{m.label_file_tree_paste()}</span>
 			</ContextMenu.Item>
 		{/if}
 
@@ -380,30 +404,27 @@
 			</button> -->
 
 			<!-- Upload File -->
-			<!-- <button
+			<button
 				type="button"
-				onclick={() => {
-					// TODO: Implement upload file functionality
-				}}
+				onclick={() => fileInput.click()}
 				class="rounded p-1 hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
 				disabled={fileTreeState.loading || fileTreeState.isStreaming}
 				title="Upload File"
 			>
 				<Upload class="h-3.5 w-3.5" />
-			</button> -->
+			</button>
+			<input bind:this={fileInput} type="file" class="hidden" onchange={handleFileUpload} />
 
 			<!-- Upload Folder -->
-			<!-- <button
+			<button
 				type="button"
-				onclick={() => {
-					// TODO: Implement upload folder functionality
-				}}
+				onclick={handleFolderUpload}
 				class="rounded p-1 hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
 				disabled={fileTreeState.loading || fileTreeState.isStreaming}
 				title="Upload Folder"
 			>
-				<FolderUp class="h-3.5 w-3.5" />
-			</button> -->
+				<FolderInput class="h-3.5 w-3.5" />
+			</button>
 
 			<button
 				type="button"

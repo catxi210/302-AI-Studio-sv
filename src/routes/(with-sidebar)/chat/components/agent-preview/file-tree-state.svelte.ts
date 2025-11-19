@@ -4,6 +4,7 @@ import {
 	downloadSandboxFile,
 	listSandboxFiles,
 	renameSandboxFile,
+	uploadSandboxFile,
 	type SandboxFileInfo,
 } from "$lib/api/sandbox-file";
 import { m } from "$lib/paraglide/messages";
@@ -280,19 +281,23 @@ export class FileTreeState {
 	/**
 	 * Load files from API
 	 */
-	async loadFiles(path: string = DEFAULT_WORKSPACE_PATH, merge: boolean = false): Promise<void> {
+	async loadFiles(
+		path: string = DEFAULT_WORKSPACE_PATH,
+		merge: boolean = false,
+		force: boolean = false,
+	): Promise<void> {
 		if (!this.sandboxId) {
 			console.log("[FileTree] No sandboxId provided");
 			return;
 		}
 
 		if (!validateSandboxId(this.sandboxId)) {
-			handleError(new Error("Invalid sandbox ID format"), "Load files");
+			handleError(new Error(m.toast_file_operation_invalid_sandbox_id()), "Load files");
 			return;
 		}
 
 		if (!validatePath(path)) {
-			handleError(new Error("Invalid path format"), "Load files");
+			handleError(new Error(m.toast_file_operation_invalid_path()), "Load files");
 			return;
 		}
 
@@ -302,8 +307,8 @@ export class FileTreeState {
 			return;
 		}
 
-		// Skip if already loaded (for lazy loading)
-		if (merge && this.loadedDirs.has(path)) {
+		// Skip if already loaded (for lazy loading), unless forced
+		if (!force && merge && this.loadedDirs.has(path)) {
 			console.log("[FileTree] Directory already loaded:", path);
 			return;
 		}
@@ -316,7 +321,8 @@ export class FileTreeState {
 
 		this.loadingDirs = addToSet(this.loadingDirs, path);
 
-		if (!merge) {
+		// If we are forcing a refresh or not merging (initial load), show loading state
+		if (!merge || force) {
 			this.loading = true;
 		}
 		this.error = null;
@@ -332,7 +338,7 @@ export class FileTreeState {
 		try {
 			const apiKey = this.get302ApiKey();
 			if (!apiKey) {
-				this.error = "302.AI API key not found";
+				this.error = m.toast_file_operation_api_key_not_found();
 				handleError(new Error(this.error), "Load files");
 				return;
 			}
@@ -346,16 +352,30 @@ export class FileTreeState {
 
 			if (response.success && response.filelist) {
 				if (merge) {
-					// Merge new files into existing files array, avoiding duplicates
+					// Merge new files into existing files array
+					// 1. Update existing files if they are in the new list
+					// 2. Add new files that are not in the existing list
+					const newFilesMap = new SvelteMap(response.filelist.map((f) => [f.path, f]));
 					const existingPaths = new SvelteSet(this.files.map((f) => f.path));
+
+					// Update existing files
+					const updatedFiles = this.files.map((f) => {
+						if (newFilesMap.has(f.path)) {
+							return newFilesMap.get(f.path)!;
+						}
+						return f;
+					});
+
+					// Add new files
 					const newFiles = response.filelist.filter((f) => !existingPaths.has(f.path));
-					this.files = [...this.files, ...newFiles];
+					this.files = [...updatedFiles, ...newFiles];
+
 					console.log(
-						"[FileTree] Merged",
-						newFiles.length,
-						"new files into existing",
+						"[FileTree] Merged files: updated",
 						this.files.length - newFiles.length,
-						"files",
+						"existing, added",
+						newFiles.length,
+						"new",
 					);
 				} else {
 					// Replace all files (initial load or refresh)
@@ -381,7 +401,7 @@ export class FileTreeState {
 				}
 			}
 		} catch (e) {
-			this.error = e instanceof Error ? e.message : "Failed to load files";
+			this.error = e instanceof Error ? e.message : m.toast_file_operation_load_failed();
 			handleError(e, "Load sandbox files", false);
 			if (!merge) {
 				this.files = [];
@@ -390,7 +410,7 @@ export class FileTreeState {
 			}
 		} finally {
 			this.loadingDirs = removeFromSet(this.loadingDirs, path);
-			if (!merge) {
+			if (!merge || force) {
 				this.loading = false;
 			}
 		}
@@ -403,7 +423,7 @@ export class FileTreeState {
 		this.loadedDirs = new SvelteSet();
 		this.treeNodesCache = null;
 		this.expandedDirs = new SvelteSet([DEFAULT_WORKSPACE_PATH]);
-		await this.loadFiles(DEFAULT_WORKSPACE_PATH, false);
+		await this.loadFiles(DEFAULT_WORKSPACE_PATH, false, true);
 	}
 
 	/**
@@ -690,6 +710,142 @@ export class FileTreeState {
 			return false;
 		} finally {
 			this.operatingPaths = removeFromSet(this.operatingPaths, sourcePath);
+		}
+	}
+
+	/**
+	 * Upload file
+	 */
+	async uploadFile(file: File, targetPath: string = DEFAULT_WORKSPACE_PATH): Promise<boolean> {
+		if (!this.sandboxId) {
+			toast.error(m.toast_file_operation_sandbox_id_not_available());
+			return false;
+		}
+
+		const apiKey = this.get302ApiKey();
+		if (!apiKey) {
+			toast.error(m.toast_file_operation_api_key_not_found());
+			return false;
+		}
+
+		this.operatingPaths = addToSet(this.operatingPaths, targetPath);
+		const toastId = toast.loading(m.toast_file_uploading());
+
+		try {
+			// Construct full path including filename
+			// The API expects the full path of the file, not just the directory
+			const fullPath = targetPath.endsWith("/")
+				? `${targetPath}${file.name}`
+				: `${targetPath}/${file.name}`;
+
+			const response = await uploadSandboxFile(this.sandboxId, fullPath, file, apiKey);
+
+			if (response.success) {
+				toast.success(m.toast_file_upload_success(), { id: toastId });
+
+				// Refresh the target directory to show the new file
+				// If targetPath is the root or a loaded directory, we need to refresh it
+				if (targetPath === DEFAULT_WORKSPACE_PATH || this.loadedDirs.has(targetPath)) {
+					// Add a small delay to ensure the server has processed the upload
+					await new Promise((resolve) => setTimeout(resolve, 500));
+					await this.loadFiles(targetPath, true, true); // Merge mode + Force update
+				} else {
+					// If we uploaded to a subdirectory that isn't loaded, we might want to load it
+					// or just let the user expand it later.
+					// For now, let's try to refresh the parent of the uploaded file location if possible
+					// But since we upload to a 'path' which is a directory, we just refresh that directory.
+				}
+
+				return true;
+			} else {
+				const errorMsg = response.error || m.toast_file_upload_failed();
+				toast.error(errorMsg, { id: toastId });
+				return false;
+			}
+		} catch (e) {
+			const errorMsg = e instanceof Error ? e.message : m.toast_file_upload_failed();
+			toast.error(errorMsg, { id: toastId });
+			console.error("[FileTree] Failed to upload:", file.name, e);
+			return false;
+		} finally {
+			this.operatingPaths = removeFromSet(this.operatingPaths, targetPath);
+		}
+	}
+
+	/**
+	 * Upload folder (uses main process to zip, then uploads with auto_unzip)
+	 */
+	async uploadFolder(targetPath: string = DEFAULT_WORKSPACE_PATH): Promise<boolean> {
+		if (!this.sandboxId) {
+			toast.error(m.toast_file_operation_sandbox_id_not_available());
+			return false;
+		}
+
+		const apiKey = this.get302ApiKey();
+		if (!apiKey) {
+			toast.error(m.toast_file_operation_api_key_not_found());
+			return false;
+		}
+
+		this.operatingPaths = addToSet(this.operatingPaths, targetPath);
+		const uploadToastId = toast.loading(m.toast_file_upload_selecting_folder());
+
+		try {
+			// Use IPC to let user select folder and create zip in main process
+			const result = await window.electronAPI.dataService.zipFolderForUpload();
+
+			if (!result) {
+				// User cancelled
+				toast.dismiss(uploadToastId);
+				return false;
+			}
+
+			const { zipPath, folderName } = result;
+			toast.loading(m.toast_file_upload_reading_zip(), { id: uploadToastId });
+
+			// Read the zip file from the temp path using Electron IPC
+			const fileResponse = await fetch(`file://${zipPath}`);
+			const zipBlob = await fileResponse.blob();
+			const zipFile = new File([zipBlob], `${folderName}.zip`, { type: "application/zip" });
+
+			toast.loading(m.toast_file_upload_uploading_folder(), { id: uploadToastId });
+
+			// Construct path for the zip file
+			const zipUploadPath = targetPath.endsWith("/")
+				? `${targetPath}${zipFile.name}`
+				: `${targetPath}/${zipFile.name}`;
+
+			const response = await uploadSandboxFile(
+				this.sandboxId,
+				zipUploadPath,
+				zipFile,
+				apiKey,
+				undefined,
+				true, // auto_unzip
+			);
+
+			if (response.success) {
+				toast.success(m.toast_file_upload_folder_success(), { id: uploadToastId });
+
+				// Refresh the target directory
+				if (targetPath === DEFAULT_WORKSPACE_PATH || this.loadedDirs.has(targetPath)) {
+					await new Promise((resolve) => setTimeout(resolve, 1000)); // Wait for unzip
+					await this.loadFiles(targetPath, true, true);
+				}
+
+				return true;
+			} else {
+				const errorMsg = response.error || m.toast_file_upload_folder_failed();
+				toast.error(errorMsg, { id: uploadToastId });
+				return false;
+			}
+		} catch (e) {
+			const errorMsg = e instanceof Error ? e.message : m.toast_file_upload_folder_failed();
+			toast.error(errorMsg, { id: uploadToastId });
+			console.error("[FileTree] Failed to upload folder:", e);
+			return false;
+		} finally {
+			this.operatingPaths = removeFromSet(this.operatingPaths, targetPath);
 		}
 	}
 

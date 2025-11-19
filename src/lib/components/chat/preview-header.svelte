@@ -146,7 +146,7 @@
 					</ButtonWithTooltip>
 				{:else if compactDeployButton}
 					<ButtonWithTooltip
-						tooltip={isDeploying ? m.tooltip_deploying() : m.tooltip_deploy_sandbox()}
+						tooltip={isDeploying ? m.tooltip_deploying() : m.tooltip_deploy_to_302()}
 						class="hover:!bg-icon-btn-hover shrink-0"
 						tooltipSide="bottom"
 						disabled={isDeploying}
