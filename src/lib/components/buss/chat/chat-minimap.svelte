@@ -2,7 +2,6 @@
 	import type { ChatMessage } from "$lib/types/chat";
 	import { cn } from "$lib/utils";
 	import { onMount } from "svelte";
-	import { SvelteMap } from "svelte/reactivity";
 
 	interface Props {
 		messages: ChatMessage[];
@@ -19,144 +18,259 @@
 	let isHovered = $state(false);
 	let indicatorTop = $state(0);
 	let indicatorHeight = $state(0);
-	let messageHeights = $state<number[]>([]);
 
-	// Calculate the scale factor for minimap
+	// Store message metrics
+	let messageMetrics = $state<{ top: number; height: number }[]>([]);
+	let contentStartTop = $state(0);
+	let totalScrollableHeight = $state(0);
+
 	const MESSAGE_GAP = 2; // Gap between message previews in minimap
 	const PADDING_Y = 16; // py-4 = 16px top + 16px bottom
 
-	// Calculate dynamic scale factor to fit all messages in minimap
+	// Calculate dynamic scale factor based on total scrollable height
 	const getScaleFactor = (): number => {
-		if (!minimapRef || messageHeights.length === 0) return 0.08;
+		if (!minimapRef || totalScrollableHeight === 0) return 0.08;
 
 		const minimapHeight = minimapRef.offsetHeight;
 		const minimapAvailableHeight = minimapHeight - PADDING_Y * 2;
-		const totalActualHeight = messageHeights.reduce((sum, h) => sum + h, 0);
-		const totalGaps = Math.max(0, (messageHeights.length - 1) * MESSAGE_GAP);
 
-		if (totalActualHeight === 0) return 0.08;
+		// Effective content height is the total scrollable area minus the start offset
+		// This maps the "scrollable content" to the "minimap area"
+		// We subtract contentStartTop because the minimap starts rendering from the first message
+		// But wait, if we want to map the WHOLE scroll area, we should map totalScrollableHeight.
+		// However, the visual blocks only represent messages.
+		// If we map totalScrollableHeight to minimapAvailableHeight, the messages will be scaled down
+		// to make room for the padding.
 
-		// Calculate scale to fit content within available height
-		// The scale should ensure: totalActualHeight * scale + totalGaps = availableHeight
-		const scale = (minimapAvailableHeight - totalGaps) / totalActualHeight;
+		// Let's try to map the "content universe" to the "minimap universe".
+		// Content Universe: [0, totalScrollableHeight] (relative to viewport top + scrollTop)
+		// Actually, let's normalize to [0, totalScrollableHeight - contentStartTop] for the "content part"
+		// But we want the indicator to travel the full track.
+
+		// Let's use the "Distorted Space" approach.
+		// We have N messages.
+		// Total Message Height = sum(metrics.height)
+		// Total Gap Height (Minimap) = (N-1) * MESSAGE_GAP
+		// Head Height (DOM) = contentStartTop
+		// Tail Height (DOM) = totalScrollableHeight - (lastMsg.top + lastMsg.height + contentStartTop)
+
+		// We want to find a scale 's' such that:
+		// (Head + TotalMsg + Tail) * s + TotalGap(Minimap) = AvailableHeight
+		// Note: DOM gaps are implicitly handled because we map through the segments.
+		// Wait, if we use segments, we don't need a global linear scale for everything.
+		// We need a scale for the "content" parts (Head, Messages, Tail).
+		// The "Gap" parts in Minimap are fixed.
+
+		const totalMessageHeight = messageMetrics.reduce((sum, m) => sum + m.height, 0);
+		const totalMinimapGaps = Math.max(0, (messageMetrics.length - 1) * MESSAGE_GAP);
+
+		// Calculate tail height
+		let tailHeight = 0;
+		if (messageMetrics.length > 0) {
+			const lastMsg = messageMetrics[messageMetrics.length - 1];
+			// totalScrollableHeight is relative to viewport top (if we consider it as scrollHeight)
+			// messageMetrics.top is relative to viewport top + scrollTop (absolute doc position) - contentStartTop?
+			// No, let's check updateMetrics.
+
+			// In updateMetrics:
+			// top = el.getBoundingClientRect().top - viewportRect.top + viewport.scrollTop
+			// This is absolute document position.
+			// contentStartTop = messageMetrics[0].top
+
+			// So lastMsg.top is absolute.
+			tailHeight = Math.max(0, totalScrollableHeight - (lastMsg.top + lastMsg.height));
+		}
+
+		// Head height is contentStartTop (absolute top of first message)
+		const headHeight = contentStartTop;
+
+		const contentToScale = headHeight + totalMessageHeight + tailHeight;
+		const availableForContent = minimapAvailableHeight - totalMinimapGaps;
+
+		if (contentToScale <= 0) return 0.08;
+
+		const scale = availableForContent / contentToScale;
 
 		// Use a maximum scale to prevent messages from being too large
 		return Math.min(scale, 0.1);
 	};
 
-	// Get actual message heights from DOM
-	const updateMessageHeights = () => {
-		if (!scrollContainer) return;
+	// Update all metrics from DOM
+	const updateMetrics = () => {
+		if (!scrollContainer || !viewport) return;
 
-		const messageElements = scrollContainer.querySelectorAll("[data-message-id]");
-		const heights: number[] = [];
-
-		// Create a map of message IDs to heights
-		const heightMap = new SvelteMap<string, number>();
-		messageElements.forEach((el) => {
-			const id = el.getAttribute("data-message-id");
-			if (id) {
-				heightMap.set(id, (el as HTMLElement).offsetHeight);
-			}
-		});
-
-		// Match heights to messages in order
-		messages.forEach((message) => {
-			const height = heightMap.get(message.id) || 100; // Fallback to 100px
-			heights.push(height);
-		});
-
-		messageHeights = heights;
-	};
-
-	const updateIndicator = () => {
-		if (!viewport || !scrollContainer || !minimapRef) return;
-
-		const viewportHeight = viewport.offsetHeight;
-		const scrollHeight = viewport.scrollHeight;
-		const scrollTop = viewport.scrollTop;
-		const minimapHeight = minimapRef.offsetHeight;
-
-		// Safety check: avoid division by zero
-		if (scrollHeight === 0 || messageHeights.length === 0) return;
-
-		// Calculate the scale factor used for message previews
-		const scaleFactor = getScaleFactor();
-
-		// Calculate cumulative positions in minimap (matching message preview rendering)
-		let cumulativeMinimapHeight = 0;
-		const minimapPositions: number[] = [];
-		for (let i = 0; i < messageHeights.length; i++) {
-			minimapPositions.push(cumulativeMinimapHeight);
-			const scaledHeight = messageHeights[i] * scaleFactor;
-			cumulativeMinimapHeight += scaledHeight + MESSAGE_GAP;
-		}
-		const totalMinimapContentHeight = cumulativeMinimapHeight - MESSAGE_GAP; // Remove last gap
-
-		// Calculate cumulative positions in actual content
-		// Get actual positions from DOM to account for spacing and padding
 		const messageElements = Array.from(
 			scrollContainer.querySelectorAll("[data-message-id]"),
 		) as HTMLElement[];
 
-		if (messageElements.length === 0) return;
-
-		// Get the first message's offsetTop relative to viewport (accounts for pt-12)
-		const firstMessageTop = messageElements[0].offsetTop - scrollContainer.offsetTop;
-		const actualPositions: number[] = [];
-		for (let i = 0; i < messageElements.length; i++) {
-			const element = messageElements[i];
-			const position = element.offsetTop - scrollContainer.offsetTop - firstMessageTop;
-			actualPositions.push(position);
+		if (messageElements.length === 0) {
+			messageMetrics = [];
+			return;
 		}
-		const totalActualContentHeight =
-			actualPositions[actualPositions.length - 1] + messageHeights[messageHeights.length - 1];
 
-		// Map scrollTop to minimap position
-		// Find which message the scrollTop corresponds to
-		let targetMinimapTop = 0;
+		const viewportRect = viewport.getBoundingClientRect();
+		const scrollTop = viewport.scrollTop;
 
-		if (scrollTop <= 0) {
-			targetMinimapTop = 0;
-		} else if (scrollTop >= totalActualContentHeight) {
-			targetMinimapTop = totalMinimapContentHeight;
+		// 1. Measure all messages in absolute document coordinates
+		const metrics: { top: number; height: number }[] = [];
+
+		// Create a map for quick lookup if needed, but we iterate in order
+		// We need to match DOM elements to messages prop order
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity
+		const elementMap = new Map<string, HTMLElement>();
+		messageElements.forEach((el) => {
+			const id = el.getAttribute("data-message-id");
+			if (id) elementMap.set(id, el);
+		});
+
+		messages.forEach((msg) => {
+			const el = elementMap.get(msg.id);
+			if (el) {
+				const rect = el.getBoundingClientRect();
+				metrics.push({
+					top: rect.top - viewportRect.top + scrollTop,
+					height: rect.height,
+				});
+			} else {
+				// Fallback for missing elements (shouldn't happen often)
+				metrics.push({ top: 0, height: 0 });
+			}
+		});
+		messageMetrics = metrics;
+
+		// 2. Determine content start (absolute top of first message)
+		if (metrics.length > 0) {
+			contentStartTop = metrics[0].top;
 		} else {
-			// Find the message segment that contains scrollTop
-			for (let i = 0; i < actualPositions.length; i++) {
-				const messageStart = actualPositions[i];
-				const messageEnd =
-					i < actualPositions.length - 1 ? actualPositions[i + 1] : totalActualContentHeight;
+			contentStartTop = 0;
+		}
 
-				if (scrollTop >= messageStart && scrollTop <= messageEnd) {
-					// Interpolate within this message
-					const messageProgress = (scrollTop - messageStart) / (messageEnd - messageStart);
-					const minimapStart = minimapPositions[i];
-					const minimapEnd =
-						i < minimapPositions.length - 1 ? minimapPositions[i + 1] : totalMinimapContentHeight;
-					targetMinimapTop = minimapStart + (minimapEnd - minimapStart) * messageProgress;
-					break;
+		// 3. Get total scrollable height
+		totalScrollableHeight = viewport.scrollHeight;
+	};
+
+	// Map a document Y position to a Minimap Y position
+	const getMinimapY = (docY: number, scale: number): number => {
+		if (messageMetrics.length === 0) return 0;
+
+		// 1. Head Region
+		if (docY < contentStartTop) {
+			return docY * scale;
+		}
+
+		// 2. Message Regions
+		let currentMinimapY = contentStartTop * scale;
+
+		for (let i = 0; i < messageMetrics.length; i++) {
+			const metric = messageMetrics[i];
+			const msgEnd = metric.top + metric.height;
+
+			// If inside this message
+			if (docY >= metric.top && docY <= msgEnd) {
+				return currentMinimapY + (docY - metric.top) * scale;
+			}
+
+			currentMinimapY += metric.height * scale;
+
+			// If not last message, handle gap
+			if (i < messageMetrics.length - 1) {
+				const nextMetric = messageMetrics[i + 1];
+				// Gap region in DOM: [msgEnd, nextMetric.top]
+				// Gap region in Minimap: [currentMinimapY, currentMinimapY + MESSAGE_GAP]
+
+				if (docY > msgEnd && docY < nextMetric.top) {
+					const gapProgress = (docY - msgEnd) / (nextMetric.top - msgEnd);
+					return currentMinimapY + gapProgress * MESSAGE_GAP;
 				}
+
+				currentMinimapY += MESSAGE_GAP;
 			}
 		}
 
-		// Calculate indicator height (viewport height in minimap scale)
-		const viewportHeightInMinimap =
-			(viewportHeight / totalActualContentHeight) * totalMinimapContentHeight;
-		indicatorHeight = Math.max(viewportHeightInMinimap, 20);
-		indicatorTop = PADDING_Y + targetMinimapTop;
+		// 3. Tail Region
+		const lastMsg = messageMetrics[messageMetrics.length - 1];
+		const lastMsgEnd = lastMsg.top + lastMsg.height;
+
+		if (docY > lastMsgEnd) {
+			return currentMinimapY + (docY - lastMsgEnd) * scale;
+		}
+
+		return currentMinimapY;
+	};
+
+	// Inverse Map: Minimap Y -> Document Y
+	const getDocumentY = (minimapY: number, scale: number): number => {
+		if (messageMetrics.length === 0) return 0;
+
+		// 1. Head Region
+		const headHeightMinimap = contentStartTop * scale;
+		if (minimapY < headHeightMinimap) {
+			return minimapY / scale;
+		}
+
+		let currentMinimapY = headHeightMinimap;
+
+		for (let i = 0; i < messageMetrics.length; i++) {
+			const metric = messageMetrics[i];
+			const msgHeightMinimap = metric.height * scale;
+
+			// If inside this message
+			if (minimapY >= currentMinimapY && minimapY <= currentMinimapY + msgHeightMinimap) {
+				return metric.top + (minimapY - currentMinimapY) / scale;
+			}
+
+			currentMinimapY += msgHeightMinimap;
+
+			// If not last message, handle gap
+			if (i < messageMetrics.length - 1) {
+				const nextMetric = messageMetrics[i + 1];
+				// Gap region
+				if (minimapY > currentMinimapY && minimapY < currentMinimapY + MESSAGE_GAP) {
+					const gapProgress = (minimapY - currentMinimapY) / MESSAGE_GAP;
+					const domGapSize = nextMetric.top - (metric.top + metric.height);
+					return metric.top + metric.height + gapProgress * domGapSize;
+				}
+
+				currentMinimapY += MESSAGE_GAP;
+			}
+		}
+
+		// 3. Tail Region
+		return (
+			messageMetrics[messageMetrics.length - 1].top +
+			messageMetrics[messageMetrics.length - 1].height +
+			(minimapY - currentMinimapY) / scale
+		);
+	};
+
+	const updateIndicator = () => {
+		if (!viewport || !minimapRef) return;
+
+		const viewportHeight = viewport.clientHeight;
+		const scrollTop = viewport.scrollTop;
+		const minimapHeight = minimapRef.offsetHeight;
+
+		if (totalScrollableHeight === 0) return;
+
+		const scale = getScaleFactor();
+
+		// Calculate indicator position
+		const topY = getMinimapY(scrollTop, scale);
+		// We clamp the bottom scroll position to totalScrollableHeight to avoid overscroll issues
+		const bottomScrollPos = Math.min(totalScrollableHeight, scrollTop + viewportHeight);
+		const bottomY = getMinimapY(bottomScrollPos, scale);
+
+		indicatorTop = PADDING_Y + topY;
+		indicatorHeight = Math.max(bottomY - topY, 10);
 
 		// Boundary limits
 		const maxTop = minimapHeight - PADDING_Y - indicatorHeight;
-		if (indicatorTop > maxTop) {
-			indicatorTop = maxTop;
-		}
-		if (indicatorTop < PADDING_Y) {
-			indicatorTop = PADDING_Y;
-		}
+		if (indicatorTop > maxTop) indicatorTop = maxTop;
+		if (indicatorTop < PADDING_Y) indicatorTop = PADDING_Y;
 	};
 
 	const handleMinimapClick = (event: MouseEvent) => {
-		if (!viewport || !minimapRef || !scrollContainer || messageHeights.length === 0) return;
+		if (!viewport || !minimapRef) return;
 
 		const rect = minimapRef.getBoundingClientRect();
 		const clickY = event.clientY - rect.top;
@@ -168,7 +282,6 @@
 	const handleMinimapKeydown = (event: KeyboardEvent) => {
 		if (event.key === "Enter" || event.key === " ") {
 			event.preventDefault();
-			// Scroll to middle when activated via keyboard
 			if (!viewport) return;
 			viewport.scrollTo({
 				top: viewport.scrollHeight / 2,
@@ -177,77 +290,31 @@
 		}
 	};
 
-	const performScrollFromPosition = (relativeY: number) => {
-		if (!viewport || !minimapRef || !scrollContainer || messageHeights.length === 0) return;
+	const performScrollFromPosition = (relativeY: number, isDragging = false) => {
+		if (!viewport) return;
 
-		// Calculate scale factor and minimap positions (same as updateIndicator)
-		const scaleFactor = getScaleFactor();
-		let cumulativeMinimapHeight = 0;
-		const minimapPositions: number[] = [];
-		for (let i = 0; i < messageHeights.length; i++) {
-			minimapPositions.push(cumulativeMinimapHeight);
-			const scaledHeight = messageHeights[i] * scaleFactor;
-			cumulativeMinimapHeight += scaledHeight + MESSAGE_GAP;
-		}
-		const totalMinimapContentHeight = cumulativeMinimapHeight - MESSAGE_GAP;
+		const scale = getScaleFactor();
 
-		// Get actual positions from DOM
-		const messageElements = Array.from(
-			scrollContainer.querySelectorAll("[data-message-id]"),
-		) as HTMLElement[];
-		if (messageElements.length === 0) return;
+		// Map minimap position back to scroll position
+		// The click represents the center of the desired viewport
+		const targetDocY = getDocumentY(relativeY, scale);
+		const targetScrollTop = targetDocY - viewport.clientHeight / 2;
 
-		const firstMessageTop = messageElements[0].offsetTop - scrollContainer.offsetTop;
-		const actualPositions: number[] = [];
-		for (let i = 0; i < messageElements.length; i++) {
-			const position = messageElements[i].offsetTop - scrollContainer.offsetTop - firstMessageTop;
-			actualPositions.push(position);
-		}
-		const totalActualContentHeight =
-			actualPositions[actualPositions.length - 1] + messageHeights[messageHeights.length - 1];
-
-		// Map click position in minimap to actual scroll position
-		let targetScrollTop = 0;
-
-		if (relativeY <= 0) {
-			targetScrollTop = 0;
-		} else if (relativeY >= totalMinimapContentHeight) {
-			targetScrollTop = totalActualContentHeight;
-		} else {
-			// Find which message segment contains the click
-			for (let i = 0; i < minimapPositions.length; i++) {
-				const minimapStart = minimapPositions[i];
-				const minimapEnd =
-					i < minimapPositions.length - 1 ? minimapPositions[i + 1] : totalMinimapContentHeight;
-
-				if (relativeY >= minimapStart && relativeY <= minimapEnd) {
-					// Interpolate within this message
-					const minimapProgress = (relativeY - minimapStart) / (minimapEnd - minimapStart);
-					const actualStart = actualPositions[i];
-					const actualEnd =
-						i < actualPositions.length - 1 ? actualPositions[i + 1] : totalActualContentHeight;
-					targetScrollTop = actualStart + (actualEnd - actualStart) * minimapProgress;
-					break;
-				}
-			}
-		}
-
-		// Scroll to target position (centered on click)
 		viewport.scrollTo({
-			top: targetScrollTop - viewport.offsetHeight / 2,
-			behavior: "smooth",
+			top: targetScrollTop,
+			behavior: isDragging ? "instant" : "smooth",
 		});
 	};
 
 	const handleDragStart = (event: MouseEvent) => {
 		event.preventDefault();
 		isDragging = true;
+		document.body.classList.add("dragging-minimap");
 	};
 
 	const handleSliderKeydown = (event: KeyboardEvent) => {
 		if (!viewport) return;
-
-		const step = 100; // Scroll step in pixels
+		const step = 100;
 		let handled = false;
 
 		switch (event.key) {
@@ -285,12 +352,9 @@
 				break;
 		}
 
-		if (handled) {
-			event.preventDefault();
-		}
+		if (handled) event.preventDefault();
 	};
 
-	// Get current scroll position as percentage for ARIA
 	const getScrollPercentage = (): number => {
 		if (!viewport) return 0;
 		const max = viewport.scrollHeight - viewport.offsetHeight;
@@ -299,75 +363,18 @@
 	};
 
 	const handleDragMove = (event: MouseEvent) => {
-		if (!isDragging || !viewport || !minimapRef || !scrollContainer || messageHeights.length === 0)
-			return;
+		if (!isDragging || !viewport || !minimapRef) return;
 
 		const rect = minimapRef.getBoundingClientRect();
 		const dragY = event.clientY - rect.top;
 		const relativeY = Math.max(0, dragY - PADDING_Y);
 
-		// Calculate scale factor and minimap positions (same as updateIndicator)
-		const scaleFactor = getScaleFactor();
-		let cumulativeMinimapHeight = 0;
-		const minimapPositions: number[] = [];
-		for (let i = 0; i < messageHeights.length; i++) {
-			minimapPositions.push(cumulativeMinimapHeight);
-			const scaledHeight = messageHeights[i] * scaleFactor;
-			cumulativeMinimapHeight += scaledHeight + MESSAGE_GAP;
-		}
-		const totalMinimapContentHeight = cumulativeMinimapHeight - MESSAGE_GAP;
-
-		// Get actual positions from DOM
-		const messageElements = Array.from(
-			scrollContainer.querySelectorAll("[data-message-id]"),
-		) as HTMLElement[];
-		if (messageElements.length === 0) return;
-
-		const firstMessageTop = messageElements[0].offsetTop - scrollContainer.offsetTop;
-		const actualPositions: number[] = [];
-		for (let i = 0; i < messageElements.length; i++) {
-			const position = messageElements[i].offsetTop - scrollContainer.offsetTop - firstMessageTop;
-			actualPositions.push(position);
-		}
-		const totalActualContentHeight =
-			actualPositions[actualPositions.length - 1] + messageHeights[messageHeights.length - 1];
-
-		// Map drag position in minimap to actual scroll position
-		let targetScrollTop = 0;
-
-		if (relativeY <= 0) {
-			targetScrollTop = 0;
-		} else if (relativeY >= totalMinimapContentHeight) {
-			targetScrollTop = totalActualContentHeight;
-		} else {
-			// Find which message segment contains the drag position
-			for (let i = 0; i < minimapPositions.length; i++) {
-				const minimapStart = minimapPositions[i];
-				const minimapEnd =
-					i < minimapPositions.length - 1 ? minimapPositions[i + 1] : totalMinimapContentHeight;
-
-				if (relativeY >= minimapStart && relativeY <= minimapEnd) {
-					// Interpolate within this message
-					const minimapProgress = (relativeY - minimapStart) / (minimapEnd - minimapStart);
-					const actualStart = actualPositions[i];
-					const actualEnd =
-						i < actualPositions.length - 1 ? actualPositions[i + 1] : totalActualContentHeight;
-					targetScrollTop = actualStart + (actualEnd - actualStart) * minimapProgress;
-					break;
-				}
-			}
-		}
-
-		// Apply scroll with boundary limits
-		targetScrollTop = targetScrollTop - viewport.offsetHeight / 2;
-		viewport.scrollTop = Math.max(
-			0,
-			Math.min(viewport.scrollHeight - viewport.offsetHeight, targetScrollTop),
-		);
+		performScrollFromPosition(relativeY, true);
 	};
 
 	const handleDragEnd = () => {
 		isDragging = false;
+		document.body.classList.remove("dragging-minimap");
 	};
 
 	onMount(() => {
@@ -378,7 +385,7 @@
 		};
 
 		const handleResize = () => {
-			updateMessageHeights();
+			updateMetrics();
 			updateIndicator();
 		};
 
@@ -386,21 +393,18 @@
 		window.addEventListener("resize", handleResize);
 
 		// Initial update
-		updateMessageHeights();
+		updateMetrics();
 		updateIndicator();
 
-		// Setup drag handlers
 		document.addEventListener("mousemove", handleDragMove);
 		document.addEventListener("mouseup", handleDragEnd);
 
 		return () => {
-			// viewport.removeEventListener("scroll", handleScroll);
-			if (viewport) {
-				viewport.removeEventListener("scroll", handleScroll);
-			}
+			if (viewport) viewport.removeEventListener("scroll", handleScroll);
 			window.removeEventListener("resize", handleResize);
 			document.removeEventListener("mousemove", handleDragMove);
 			document.removeEventListener("mouseup", handleDragEnd);
+			document.body.classList.remove("dragging-minimap");
 		};
 	});
 
@@ -409,34 +413,77 @@
 		// eslint-disable-next-line @typescript-eslint/no-unused-expressions
 		messages;
 
-		// Use double requestAnimationFrame to ensure DOM is fully updated
 		requestAnimationFrame(() => {
 			requestAnimationFrame(() => {
-				updateMessageHeights();
+				updateMetrics();
 				updateIndicator();
 			});
 		});
+	});
+
+	// Watch for scrollContainer and viewport resize
+	$effect(() => {
+		const elementsToObserve = [];
+		if (scrollContainer) {
+			elementsToObserve.push(scrollContainer);
+			const messageElements = scrollContainer.querySelectorAll("[data-message-id]");
+			messageElements.forEach((el) => elementsToObserve.push(el));
+		}
+		if (viewport) elementsToObserve.push(viewport);
+
+		if (elementsToObserve.length === 0) return;
+
+		const resizeObserver = new ResizeObserver(() => {
+			requestAnimationFrame(() => {
+				updateMetrics();
+				updateIndicator();
+			});
+		});
+
+		elementsToObserve.forEach((el) => resizeObserver.observe(el));
+
+		let mutationObserver: MutationObserver | null = null;
+		if (scrollContainer) {
+			mutationObserver = new MutationObserver((mutations) => {
+				let shouldUpdate = false;
+				mutations.forEach((mutation) => {
+					if (mutation.type === "childList") {
+						shouldUpdate = true;
+						mutation.addedNodes.forEach((node) => {
+							if (node instanceof HTMLElement && node.hasAttribute("data-message-id")) {
+								resizeObserver.observe(node);
+							}
+						});
+					}
+				});
+
+				if (shouldUpdate) {
+					requestAnimationFrame(() => {
+						updateMetrics();
+						updateIndicator();
+					});
+				}
+			});
+			mutationObserver.observe(scrollContainer, { childList: true, subtree: true });
+		}
+
+		return () => {
+			resizeObserver.disconnect();
+			mutationObserver?.disconnect();
+		};
 	});
 
 	// Watch for minimap ref changes
 	$effect(() => {
 		if (!minimapRef) return;
 
-		// Update when minimap is mounted or resized
 		const resizeObserver = new ResizeObserver(() => {
 			updateIndicator();
 		});
 
 		resizeObserver.observe(minimapRef);
-
-		// Initial update
-		requestAnimationFrame(() => {
-			updateIndicator();
-		});
-
-		return () => {
-			resizeObserver.disconnect();
-		};
+		requestAnimationFrame(() => updateIndicator());
+		return () => resizeObserver.disconnect();
 	});
 </script>
 
@@ -470,18 +517,28 @@
 		<div class="relative w-full h-full overflow-hidden px-2 py-4 pointer-events-none">
 			{#each messages as message, index (message.id)}
 				{@const scaleFactor = getScaleFactor()}
-				{@const height = messageHeights[index] ? messageHeights[index] * scaleFactor : 6}
-				<div
-					class={cn(
-						"w-full rounded-[2px]",
-						message.role === "user"
-							? "bg-primary/40 dark:bg-primary/30 shadow-sm"
-							: "bg-gray-500/30 dark:bg-gray-600/25",
-						isHovered && "hover:brightness-110",
-					)}
-					style="height: {Math.max(height, 3)}px; margin-bottom: {MESSAGE_GAP}px;"
-					title={message.role === "user" ? "User Message" : "Assistant Message"}
-				></div>
+				{@const metric = messageMetrics[index]}
+				{#if metric}
+					{@const height = metric.height * scaleFactor}
+					<!-- We need to map the top position using getMinimapY logic, but simplified for blocks -->
+					<!-- Actually, getMinimapY(metric.top) should give the exact top position in minimap -->
+					<!-- But wait, getMinimapY includes Head scaling. -->
+					<!-- The container starts at PADDING_Y. -->
+					<!-- So style top should be getMinimapY(metric.top) -->
+
+					<div
+						class={cn(
+							"absolute left-2 right-2 rounded-[2px]",
+							message.role === "user"
+								? "bg-primary/40 dark:bg-primary/30 shadow-sm"
+								: "bg-gray-500/30 dark:bg-gray-600/25",
+							isHovered && "hover:brightness-110",
+						)}
+						style="height: {Math.max(height, 2)}px; top: {getMinimapY(metric.top, scaleFactor) +
+							PADDING_Y}px;"
+						title={message.role === "user" ? "User Message" : "Assistant Message"}
+					></div>
+				{/if}
 			{/each}
 		</div>
 	</div>
