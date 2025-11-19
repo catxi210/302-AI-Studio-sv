@@ -148,9 +148,9 @@ export function registerIpcHandlers() {
 
 	// codeAgentService service registration
 	ipcMain.handle(
-		"codeAgentService:updateClaudeCodeSandbox",
+		"codeAgentService:updateClaudeCodeSandboxModel",
 		(event, threadId, sandbox_id, llm_model) =>
-			codeAgentService.updateClaudeCodeSandbox(event, threadId, sandbox_id, llm_model),
+			codeAgentService.updateClaudeCodeSandboxModel(event, threadId, sandbox_id, llm_model),
 	);
 	ipcMain.handle("codeAgentService:checkClaudeCodeSandbox", (event, sandboxId) =>
 		codeAgentService.checkClaudeCodeSandbox(event, sandboxId),
@@ -160,6 +160,14 @@ export function registerIpcHandlers() {
 	);
 	ipcMain.handle("codeAgentService:updateClaudeCodeSessions", (event, sandboxId) =>
 		codeAgentService.updateClaudeCodeSessions(event, sandboxId),
+	);
+	ipcMain.handle(
+		"codeAgentService:updateClaudeCodeCurrentSessionIdByThreadId",
+		(event, threadId, sessionId) =>
+			codeAgentService.updateClaudeCodeCurrentSessionIdByThreadId(event, threadId, sessionId),
+	);
+	ipcMain.handle("codeAgentService:updateClaudeCodeSandboxRemark", (event, sandbox_id, remark) =>
+		codeAgentService.updateClaudeCodeSandboxRemark(event, sandbox_id, remark),
 	);
 
 	// ghostWindowService service registration
@@ -388,10 +396,12 @@ export function removeIpcHandlers() {
 	ipcMain.removeHandler("pluginService:executeAfterSendMessageHook");
 	ipcMain.removeHandler("pluginService:executeErrorHook");
 	ipcMain.removeHandler("generalSettingsService:handleLanguageChanged");
-	ipcMain.removeHandler("codeAgentService:updateClaudeCodeSandbox");
+	ipcMain.removeHandler("codeAgentService:updateClaudeCodeSandboxModel");
 	ipcMain.removeHandler("codeAgentService:checkClaudeCodeSandbox");
 	ipcMain.removeHandler("codeAgentService:updateClaudeCodeSandboxesByIpc");
 	ipcMain.removeHandler("codeAgentService:updateClaudeCodeSessions");
+	ipcMain.removeHandler("codeAgentService:updateClaudeCodeCurrentSessionIdByThreadId");
+	ipcMain.removeHandler("codeAgentService:updateClaudeCodeSandboxRemark");
 	ipcMain.removeHandler("ghostWindowService:startTracking");
 	ipcMain.removeHandler("ghostWindowService:stopTracking");
 	ipcMain.removeHandler("ghostWindowService:updateInsertIndex");

@@ -79,6 +79,25 @@ class ClaudeCodeStorage extends StorageService<CodeAgentMetadata> {
 			return { isOK: false };
 		}
 	}
+
+	async updateClaudeCodeCurrentSessionIdByThreadId(
+		threadId: string,
+		sessionId: string,
+	): Promise<{ isOK: boolean }> {
+		const key = `${this.prefix}-${threadId}`;
+		try {
+			const codeAgentMetadata = await this.getItemInternal(key);
+			if (isNull(codeAgentMetadata)) return { isOK: false };
+			if (codeAgentMetadata.sandboxId !== "") {
+				codeAgentMetadata.currentSessionId = sessionId;
+			}
+			await this.setItemInternal(key, codeAgentMetadata);
+			return { isOK: true };
+		} catch (error) {
+			console.error("Error updating Claude code sessions:", error);
+			return { isOK: false };
+		}
+	}
 }
 
 class ClaudeCodeSandboxStorage extends StorageService<ClaudeCodeSandboxInfo[]> {

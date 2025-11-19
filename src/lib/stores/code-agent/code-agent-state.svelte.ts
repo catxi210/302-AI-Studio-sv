@@ -31,7 +31,7 @@ export const persistedCodeAgentConfigState = new PersistedState<CodeAgentConfigM
 	},
 );
 
-const { updateClaudeCodeSandbox } = window.electronAPI.codeAgentService;
+const { updateClaudeCodeSandboxModel } = window.electronAPI.codeAgentService;
 
 class CodeAgentState {
 	enabled = $derived.by(() => persistedCodeAgentConfigState.current.enabled);
@@ -93,6 +93,12 @@ class CodeAgentState {
 		return false;
 	}
 
+	async updateCurrentSessionId(sessionId: string): Promise<void> {
+		if (this.currentAgentId === "claude-code") {
+			claudeCodeAgentState.updateCurrentSessionId(sessionId);
+		}
+	}
+
 	getCurrentSessionId(): string {
 		return match(this.currentAgentId)
 			.with("claude-code", () => claudeCodeAgentState.currentSessionId)
@@ -105,9 +111,15 @@ class CodeAgentState {
 			.otherwise(() => "");
 	}
 
+	get sessionId(): string {
+		return match(this.currentAgentId)
+			.with("claude-code", () => claudeCodeAgentState.currentSessionId)
+			.otherwise(() => "");
+	}
+
 	async handleCodeAgentModelChange(model: Model): Promise<boolean> {
 		if (this.currentAgentId === "claude-code") {
-			const { isOK } = await updateClaudeCodeSandbox(threadId, this.getSandboxId(), model.id);
+			const { isOK } = await updateClaudeCodeSandboxModel(threadId, this.getSandboxId(), model.id);
 			return isOK;
 		}
 

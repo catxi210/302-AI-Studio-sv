@@ -49,6 +49,9 @@ export type RouterRequestBody = {
 	language?: string;
 	threadId: string;
 	sessionId?: string;
+	systemPrompt?: string;
+	mcpServers?: string[];
+	sandboxName?: string;
 };
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -785,6 +788,9 @@ app.post("/chat/302ai-code-agent", async (c) => {
 		speedOptions,
 		threadId,
 		sessionId,
+		systemPrompt,
+		mcpServers,
+		sandboxName,
 	} = await c.req.json<RouterRequestBody>();
 
 	const openai = createOpenAICompatible({
@@ -794,7 +800,16 @@ app.post("/chat/302ai-code-agent", async (c) => {
 		fetch: createCitationsFetch(),
 	});
 
-	const { sandboxId, createdResult } = await codeAgentService.createClaudeCodeSandbox(threadId);
+	const cfg = {
+		llm_model: model,
+		system_prompt: systemPrompt,
+		mcp_servers: mcpServers,
+		sandbox_name: sandboxName,
+	};
+	const { sandboxId, createdResult } = await codeAgentService.createClaudeCodeSandbox(
+		threadId,
+		cfg,
+	);
 
 	console.log(
 		"Received request for 302ai-code-agent",

@@ -13,15 +13,19 @@ const { updateClaudeCodeSandboxesByIpc, updateClaudeCodeSessions } =
 	window.electronAPI.codeAgentService;
 
 class ClaudeCodeSandboxState {
-	sandboxes = $derived.by(() =>
-		persistedClaudeCodeSandboxState.current.map((sandbox) => {
+	sandboxRemarkMap = $state(new Map<string, string>());
+
+	sandboxes = $derived.by(() => {
+		const _sanboxes = persistedClaudeCodeSandboxState.current;
+		return persistedClaudeCodeSandboxState.current.map((sandbox) => {
+			this.sandboxRemarkMap.set(sandbox.sandboxId, sandbox.sandboxRemark);
 			return {
 				key: sandbox.sandboxId,
-				label: sandbox.sandboxId,
+				label: `${sandbox.sandboxId} (${m.remark()}: ${sandbox.sandboxRemark === "" ? m.remark_null() : sandbox.sandboxRemark})`,
 				value: sandbox.sandboxId,
 			};
-		}),
-	);
+		});
+	});
 	sessions = $derived.by(() => {
 		const sandbox = persistedClaudeCodeSandboxState.current.find(
 			(sandbox) => sandbox.sandboxId === claudeCodeAgentState.customSandboxId,

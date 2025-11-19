@@ -139,7 +139,7 @@
 		)}
 		tooltip={m.title_code_agent()}
 		onclick={() => handleCodeAgentClick()}
-		disabled={codeAgentState.isFreshTab ? false : !codeAgentState.inCodeAgentMode}
+		disabled={!codeAgentState.isFreshTab}
 		size="sm"
 	>
 		<div class="flex items-center">

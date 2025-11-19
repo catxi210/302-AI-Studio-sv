@@ -114,7 +114,7 @@
 		{#if codeAgentState.type === "local"}
 			<!-- TODO: local agent -->
 			<Empty.Root>
-				<Empty.Content>
+				<Empty.Content class="h-[200px] flex flex-col items-center justify-center">
 					<Empty.Description>
 						{m.unsupport()}
 					</Empty.Description>

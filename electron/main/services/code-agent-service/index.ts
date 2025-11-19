@@ -3,6 +3,7 @@ import {
 	listClaudeCodeSandboxes,
 	listClaudeCodeSessions,
 	updateClaudeCodeSandbox,
+	type CreateClaudeCodeSandboxRequest,
 } from "@electron/main/apis/code-agent";
 import type { CodeAgentCreateResult } from "@shared/storage/code-agent";
 import type { IpcMainInvokeEvent } from "electron";
@@ -14,22 +15,14 @@ import {
 } from "../storage-service/code-agent";
 
 export class CodeAgentService {
-	private codeAgentStorage;
-	private claudeCodeStorage;
-	private claudeCodeSandboxStorage;
-
 	constructor() {
-		this.codeAgentStorage = codeAgentStorage;
-		this.claudeCodeStorage = claudeCodeStorage;
-		this.claudeCodeSandboxStorage = claudeCodeSandboxStorage;
-
 		this.updateClaudeCodeSandboxes();
 	}
 
 	private async _updateClaudeCodeSandboxes(): Promise<void> {
 		try {
 			const { isOK, sandboxes: existingSandboxes } =
-				await this.claudeCodeSandboxStorage.getClaudeCodeSandboxes();
+				await claudeCodeSandboxStorage.getClaudeCodeSandboxes();
 			const isFirstInit = !isOK || existingSandboxes.length === 0;
 
 			const response = await listClaudeCodeSandboxes();
@@ -39,6 +32,7 @@ export class CodeAgentService {
 
 					return {
 						sandboxId: sandbox.sandbox_id,
+						sandboxRemark: sandbox.sandbox_name,
 						status: sandbox.status,
 						llmModel: sandbox.llm_model,
 						createdAt: sandbox.created_at,
@@ -47,7 +41,7 @@ export class CodeAgentService {
 						sessionInfos: isFirstInit ? [] : (existingSandbox?.sessionInfos ?? []),
 					};
 				});
-				await this.claudeCodeSandboxStorage.setClaudeCodeSandboxes(list);
+				await claudeCodeSandboxStorage.setClaudeCodeSandboxes(list);
 			}
 		} catch (error) {
 			console.error("Error listing Claude code sandboxes:", error);
@@ -59,31 +53,33 @@ export class CodeAgentService {
 	}
 
 	async removeCodeAgentState(threadId: string): Promise<void> {
-		await this.codeAgentStorage.removeCodeAgentState(threadId);
+		await codeAgentStorage.removeCodeAgentState(threadId);
 	}
 
 	async createClaudeCodeSandbox(
 		threadId: string,
-		llm_model?: string,
+		sandboxCfg: CreateClaudeCodeSandboxRequest,
 	): Promise<{ createdResult: CodeAgentCreateResult; sandboxId: string }> {
-		const { isOK, sandboxId } = await this.claudeCodeStorage.getClaudeCodeSandboxId(threadId);
+		const { isOK, sandboxId } = await claudeCodeStorage.getClaudeCodeSandboxId(threadId);
 		if (isOK && sandboxId !== "") {
 			this.notifySandboxUpdated(threadId, sandboxId);
 			return { createdResult: "already-exist", sandboxId };
 		}
 
-		const response = await createClaudeCodeSandbox(llm_model);
+		const response = await createClaudeCodeSandbox(sandboxCfg);
 		if (response.success) {
 			const sandboxId = response.data.sandbox_id;
-			await this.claudeCodeStorage.setClaudeCodeSandboxId(threadId, sandboxId);
+
 			this.notifySandboxUpdated(threadId, sandboxId);
+			await claudeCodeStorage.setClaudeCodeSandboxId(threadId, sandboxId);
+
 			return { createdResult: "success", sandboxId };
 		}
 		return { createdResult: "failed", sandboxId: "" };
 	}
 
 	// ******************************* IPC Methods ******************************* //
-	async updateClaudeCodeSandbox(
+	async updateClaudeCodeSandboxModel(
 		_event: IpcMainInvokeEvent,
 		threadId: string,
 		sandbox_id: string,
@@ -92,7 +88,7 @@ export class CodeAgentService {
 		try {
 			const response = await updateClaudeCodeSandbox(sandbox_id, llm_model);
 			if (response.success) {
-				await this.claudeCodeStorage.setClaudeCodeModel(threadId, llm_model);
+				await claudeCodeStorage.setClaudeCodeModel(threadId, llm_model);
 				return { isOK: true, llm_model };
 			}
 			return { isOK: false, llm_model: "" };
@@ -155,6 +151,37 @@ export class CodeAgentService {
 			threadId,
 			sandboxId,
 		});
+	}
+
+	async updateClaudeCodeCurrentSessionIdByThreadId(
+		_event: IpcMainInvokeEvent,
+		threadId: string,
+		sessionId: string,
+	): Promise<{ isOK: boolean }> {
+		try {
+			await claudeCodeStorage.updateClaudeCodeCurrentSessionIdByThreadId(threadId, sessionId);
+			return { isOK: true };
+		} catch (error) {
+			console.error("Error updating Claude code sessions:", error);
+			return { isOK: false };
+		}
+	}
+
+	async updateClaudeCodeSandboxRemark(
+		_event: IpcMainInvokeEvent,
+		sandbox_id: string,
+		remark: string,
+	): Promise<{ isOK: boolean; remark: string }> {
+		try {
+			const response = await updateClaudeCodeSandbox(sandbox_id, undefined, remark);
+			if (response.success) {
+				return { isOK: true, remark };
+			}
+			return { isOK: false, remark: "" };
+		} catch (error) {
+			console.error("Error updating Claude code sandbox:", error);
+			return { isOK: false, remark: "" };
+		}
 	}
 }
 

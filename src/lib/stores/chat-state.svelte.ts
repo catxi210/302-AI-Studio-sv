@@ -731,6 +731,8 @@ class ChatState {
 	async generateTitleManually(): Promise<void> {
 		const titleModel = preferencesSettings.titleGenerationModel;
 
+		const codeAgentEnabled = codeAgentState.enabled;
+
 		if (!titleModel) {
 			console.warn("No title generation model configured");
 			toast.warning(m.toast_no_title_generation_model());
@@ -752,6 +754,10 @@ class ChatState {
 			if (generatedTitle) {
 				persistedChatParamsState.current.title = generatedTitle;
 				tabBarState.updateTabTitle(persistedChatParamsState.current.id, generatedTitle);
+
+				if (codeAgentEnabled) {
+					codeAgentState.updateCurrentSessionId(generatedTitle);
+				}
 
 				// Force flush to ensure all changes are persisted before broadcasting
 				persistedChatParamsState.flush();
@@ -1080,6 +1086,8 @@ export const chat = new Chat({
 
 		sessionState.latestUsedModel = chatState.selectedModel ?? null;
 
+		const codeAgentEnabled = codeAgentState.enabled;
+
 		// Execute after send message hook
 		try {
 			const lastMessage = messages[messages.length - 1];
@@ -1151,6 +1159,13 @@ export const chat = new Chat({
 			shouldGenerateTitle = messages.length >= 2;
 		}
 
+		if (codeAgentEnabled) {
+			if (codeAgentState.sessionId !== "") {
+				shouldGenerateTitle = false;
+				persistedChatParamsState.current.title = codeAgentState.sessionId;
+			}
+		}
+
 		if (shouldGenerateTitle && titleModel) {
 			try {
 				const provider = persistedProviderState.current.find((p) => p.id === titleModel.providerId);
@@ -1158,6 +1173,11 @@ export const chat = new Chat({
 
 				const generatedTitle = await generateTitle(messages, titleModel, provider, serverPort);
 				persistedChatParamsState.current.title = generatedTitle;
+
+				if (codeAgentEnabled) {
+					codeAgentState.updateCurrentSessionId(generatedTitle);
+				}
+
 				tabBarState.updateTabTitle(persistedChatParamsState.current.id, generatedTitle);
 			} catch (error) {
 				console.error("Failed to generate title:", error);
@@ -1172,6 +1192,11 @@ export const chat = new Chat({
 					const titleText = [...text].slice(0, 10).join("");
 					if (titleText) {
 						persistedChatParamsState.current.title = titleText;
+
+						if (codeAgentEnabled) {
+							codeAgentState.updateCurrentSessionId(titleText);
+						}
+
 						tabBarState.updateTabTitle(persistedChatParamsState.current.id, titleText);
 					}
 				}

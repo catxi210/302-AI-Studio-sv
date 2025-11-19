@@ -201,6 +201,12 @@
 
 		await threadsState.renameThread(renameTargetThreadId, trimmedName);
 		tabBarState.updateTabTitle(renameTargetThreadId, trimmedName);
+
+		window.electronAPI.codeAgentService.updateClaudeCodeCurrentSessionIdByThreadId(
+			renameTargetThreadId,
+			trimmedName,
+		);
+
 		closeRenameDialog();
 	}
 

@@ -26,6 +26,7 @@ function getInitialData() {
 		currentSessionId: "",
 		sessionIds: [],
 		sandboxId: "",
+		sandboxRemark: "",
 	};
 	return initialData;
 }
@@ -46,6 +47,7 @@ class ClaudeCodeAgentState {
 	currentSessionId = $derived(persistedClaudeCodeAgentState.current.currentSessionId);
 	sessionIds = $derived(persistedClaudeCodeAgentState.current.sessionIds);
 	sandboxId = $derived(persistedClaudeCodeAgentState.current.sandboxId);
+	sandboxRemark = $derived(persistedClaudeCodeAgentState.current.sandboxRemark);
 
 	ready = $derived.by(() =>
 		match(this.sessionMode)
@@ -53,7 +55,7 @@ class ClaudeCodeAgentState {
 				"select-existing-agent",
 				() => this.customSessionId !== "" && this.customSandboxId !== "",
 			)
-			.with("new-agent", () => this.customSessionId !== "")
+			.with("new-agent", () => true)
 			.otherwise(() => false),
 	);
 
@@ -80,6 +82,10 @@ class ClaudeCodeAgentState {
 		this.updateState({ sandboxId });
 	}
 
+	updateSandboxRemark(sandboxRemark: string): void {
+		this.updateState({ sandboxRemark });
+	}
+
 	async handleAgentModeEnable(): Promise<boolean> {
 		if (this.sessionMode === "select-existing-agent") {
 			const { isOK, valid } = await checkClaudeCodeSandbox(this.customSandboxId);
@@ -96,6 +102,7 @@ class ClaudeCodeAgentState {
 			this.updateState({
 				sessionIds: [this.customSessionId],
 				currentSessionId: this.customSessionId,
+				sandboxRemark: this.customSandboxId,
 			});
 		}
 		return true;

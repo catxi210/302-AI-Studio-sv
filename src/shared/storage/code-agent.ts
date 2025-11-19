@@ -24,6 +24,7 @@ export const codeAgentMetadata = type({
 	currentSessionId: "string",
 	sessionIds: "string[]",
 	sandboxId: "string",
+	sandboxRemark: "string",
 });
 export type CodeAgentMetadata = typeof codeAgentMetadata.infer;
 
@@ -47,6 +48,7 @@ export type ClaudeCodeSessionInfo = typeof claudeCodeSessionInfo.infer;
 
 export const claudeCodeSandboxInfo = type({
 	sandboxId: "string",
+	sandboxRemark: "string",
 	status: "'killed' | 'running' | 'paused'",
 	llmModel: "string",
 	createdAt: "string",

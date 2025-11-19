@@ -1,13 +1,21 @@
 import { type } from "arktype";
 import { _302AIKy } from "./core/_302ai-ky";
 
-const createClaudeCodeSandboxSchema = type({
+export const createClaudeCodeSandboxRequest = type({
+	llm_model: "string",
+	system_prompt: "string?",
+	mcp_servers: "string[]?",
+	sandbox_name: "string?",
+});
+export type CreateClaudeCodeSandboxRequest = typeof createClaudeCodeSandboxRequest.infer;
+const createClaudeCodeSandboxResponse = type({
 	success: "boolean",
 	data: {
 		sandbox_id: "string",
+		sandbox_name: "string",
 	},
 });
-export type CreateClaudeCodeSandboxResponse = typeof createClaudeCodeSandboxSchema.infer;
+export type CreateClaudeCodeSandboxResponse = typeof createClaudeCodeSandboxResponse.infer;
 
 /**
  * Create a claude code sandbox
@@ -15,18 +23,18 @@ export type CreateClaudeCodeSandboxResponse = typeof createClaudeCodeSandboxSche
  * @returns The created claude code sandbox
  */
 export async function createClaudeCodeSandbox(
-	llm_model?: string,
+	request: CreateClaudeCodeSandboxRequest,
 ): Promise<CreateClaudeCodeSandboxResponse> {
 	try {
 		const response = await _302AIKy
 			.post("302/claude-code/sandbox/create", {
-				json: { llm_model: llm_model ?? "claude-sonnet-4-5-20250929" },
+				json: request,
 			})
 			.json();
 
 		console.debug(response);
 
-		const validated = createClaudeCodeSandboxSchema(response);
+		const validated = createClaudeCodeSandboxResponse(response);
 		if (validated instanceof type.errors) {
 			console.error("Failed to validate create claude code sandbox:", validated.summary);
 			throw new Error("Invalid response format from create claude code sandbox API");
@@ -38,13 +46,14 @@ export async function createClaudeCodeSandbox(
 	}
 }
 
-const updateClaudeCodeSandboxSchema = type({
+const updateClaudeCodeSandboxResponse = type({
 	success: "boolean",
 	data: {
 		message: "string",
+		sandbox_id: "string",
 	},
 });
-export type UpdateClaudeCodeSandboxResponse = typeof updateClaudeCodeSandboxSchema.infer;
+export type UpdateClaudeCodeSandboxResponse = typeof updateClaudeCodeSandboxResponse.infer;
 
 /**
  * Update a claude code sandbox
@@ -54,18 +63,19 @@ export type UpdateClaudeCodeSandboxResponse = typeof updateClaudeCodeSandboxSche
  */
 export async function updateClaudeCodeSandbox(
 	sandbox_id: string,
-	llm_model: string,
+	llm_model?: string,
+	sandbox_name?: string,
 ): Promise<UpdateClaudeCodeSandboxResponse> {
 	try {
 		const response = await _302AIKy
 			.post("302/claude-code/sandbox/reset", {
-				json: { sandbox_id, llm_model },
+				json: { sandbox_id, llm_model, sandbox_name },
 			})
 			.json();
 
 		console.debug(response);
 
-		const validated = updateClaudeCodeSandboxSchema(response);
+		const validated = updateClaudeCodeSandboxResponse(response);
 		if (validated instanceof type.errors) {
 			console.error("Failed to validate update claude code sandbox:", validated.summary);
 			throw new Error("Invalid response format from update claude code sandbox API");
@@ -79,6 +89,7 @@ export async function updateClaudeCodeSandbox(
 
 const sandboxInfoSchema = type({
 	sandbox_id: "string",
+	sandbox_name: "string",
 	status: "'killed' | 'running' | 'paused'",
 	llm_model: "string",
 	created_at: "string",
