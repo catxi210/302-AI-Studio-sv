@@ -678,6 +678,7 @@
 	"label_tab_preview": "Preview",
 	"label_tab_code": "Code",
 	"label_tab_terminal": "Terminal",
+	"label_tab_file": "Files",
 	"label_agent_mode_badge": "Agent Mode",
 	"label_button_enable_agent_mode": "Switch to Agent Mode",
 	"tooltip_copy_deploy_url": "Copy deployment link",
