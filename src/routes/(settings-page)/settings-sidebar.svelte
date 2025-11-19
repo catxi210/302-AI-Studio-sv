@@ -11,6 +11,11 @@
 			labelKey: m.text_button_settings_general(),
 		},
 		{
+			name: "account-settings",
+			path: "/settings/account-settings",
+			labelKey: m.text_button_settings_account(),
+		},
+		{
 			name: "preferences-settings",
 			path: "/settings/preferences-settings",
 			labelKey: m.text_button_settings_preferences(),

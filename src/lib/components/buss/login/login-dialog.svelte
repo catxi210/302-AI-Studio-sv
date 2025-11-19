@@ -5,7 +5,12 @@
 	import { Label } from "$lib/components/ui/label";
 	import * as Select from "$lib/components/ui/select";
 	import * as Tabs from "$lib/components/ui/tabs";
+	import { API_BASE_URL } from "$lib/constants/api";
+	import { getErrorMessage } from "$lib/constants/error-codes";
 	import { m } from "$lib/paraglide/messages.js";
+	import { userState } from "$lib/stores/user-state.svelte";
+	import { toast } from "svelte-sonner";
+	import Captcha from "./captcha.svelte";
 
 	let { open = $bindable(false) } = $props();
 
@@ -13,6 +18,20 @@
 	let verificationCode = $state("");
 	let password = $state("");
 	let countryCode = $state("+86");
+	let captchaCode = $state("");
+	let captchaKey = $state("");
+	let isLoading = $state(false);
+
+	// Format phone number for API
+	function formatPhoneNumber(phone: string, countryCode: string): string {
+		// Remove all non-digit characters
+		const digits = phone.replace(/\D/g, "");
+		// Format: +86 187 5963 2113 (groups of 3-4-4)
+		if (digits.length === 11) {
+			return `${countryCode} ${digits.slice(0, 3)} ${digits.slice(3, 7)} ${digits.slice(7)}`;
+		}
+		return `${countryCode} ${digits}`;
+	}
 
 	const countryOptions = [
 		{ value: "+86", label: "🇨🇳 +86" },
@@ -21,16 +40,175 @@
 		{ value: "+81", label: "🇯🇵 +81" },
 	];
 
-	const handleSmsLogin = () => {
-		console.log("SMS Login:", { countryCode, phoneNumber, verificationCode });
+	const handleSmsLogin = async () => {
+		if (!phoneNumber || !verificationCode) {
+			toast.error(m.login_error_missing_phone_code());
+			return;
+		}
+		isLoading = true;
+		try {
+			const formattedPhone = formatPhoneNumber(phoneNumber, countryCode);
+
+			const formData = new FormData();
+			formData.append("phone_number", formattedPhone);
+			formData.append("sms_code", verificationCode);
+			formData.append("captcha", captchaCode);
+			formData.append("code", captchaKey);
+			formData.append("email", "");
+			formData.append("id_token", "");
+			formData.append("ref", "");
+			formData.append("event", "");
+			formData.append("login_from", "web");
+
+			const res = await fetch(`${API_BASE_URL}/user/sms/phone`, {
+				method: "POST",
+				headers: {
+					authorization: "Basic null",
+					isgpt: "1",
+					lang: "zh-CN",
+					tz: "Asia/Shanghai",
+					origin: "https://302.ai",
+					referer: "https://302.ai/",
+				},
+				body: formData,
+			});
+			const data = await res.json();
+			if (data.code === 200 || data.code === 0) {
+				// Save token
+				const token = data.data?.token;
+				if (token) {
+					userState.setToken(token);
+
+					// Fetch user info
+					const result = await userState.fetchUserInfo();
+					if (result.success) {
+						toast.success("登录成功");
+						open = false;
+					} else {
+						toast.error("获取用户信息失败");
+					}
+				} else {
+					toast.error("登录响应缺少 token");
+				}
+			} else {
+				toast.error(getErrorMessage(data.code) || data.message || "登录失败");
+			}
+		} catch (_e) {
+			toast.error("网络错误");
+		} finally {
+			isLoading = false;
+		}
 	};
 
-	const handlePasswordLogin = () => {
-		console.log("Password Login:", { countryCode, phoneNumber, password });
+	const handlePasswordLogin = async () => {
+		if (!phoneNumber || !password || !captchaCode) {
+			toast.error(m.login_error_missing_phone_password_captcha());
+			return;
+		}
+		if (!captchaKey) {
+			toast.error(m.login_error_captcha_not_loaded());
+			return;
+		}
+		isLoading = true;
+		try {
+			const formattedPhone = formatPhoneNumber(phoneNumber, countryCode);
+			const res = await fetch(`${API_BASE_URL}/user/login/phone`, {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+					authorization: "Basic null",
+					isgpt: "1",
+					lang: "zh-CN",
+					tz: "Asia/Shanghai",
+					origin: "https://302.ai",
+					referer: "https://302.ai/",
+				},
+				body: JSON.stringify({
+					phone: formattedPhone,
+					password: password,
+					captcha: captchaCode,
+					code: captchaKey,
+					email: "",
+					ref: "",
+					event: "",
+					login_from: "web",
+				}),
+			});
+			const data = await res.json();
+			if (data.code === 200 || data.code === 0) {
+				// Save token
+				const token = data.data?.token;
+				if (token) {
+					userState.setToken(token);
+
+					// Fetch user info
+					const result = await userState.fetchUserInfo();
+					if (result.success) {
+						toast.success("登录成功");
+						open = false;
+					} else {
+						toast.error("获取用户信息失败");
+					}
+				} else {
+					toast.error("登录响应缺少 token");
+				}
+			} else {
+				toast.error(getErrorMessage(data.code) || data.message || "登录失败");
+			}
+		} catch (_e) {
+			toast.error("网络错误");
+		} finally {
+			isLoading = false;
+		}
 	};
 
-	const handleGetVerificationCode = () => {
-		console.log("Get verification code for:", countryCode + phoneNumber);
+	const handleGetVerificationCode = async () => {
+		if (!phoneNumber || !captchaCode) {
+			toast.error(m.login_error_missing_phone_captcha());
+			return;
+		}
+		if (!captchaKey) {
+			toast.error(m.login_error_captcha_not_loaded());
+			return;
+		}
+
+		console.log("发送验证码请求:", {
+			mobile: formatPhoneNumber(phoneNumber, countryCode),
+			captcha: captchaCode,
+			code: captchaKey,
+		});
+
+		isLoading = true;
+		try {
+			const formattedPhone = formatPhoneNumber(phoneNumber, countryCode);
+			const res = await fetch(`${API_BASE_URL}/user/sms/rny`, {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+					authorization: "Basic null",
+					isgpt: "1",
+					lang: "zh-CN",
+					tz: "Asia/Shanghai",
+					origin: "https://302.ai",
+					referer: "https://302.ai/",
+				},
+				body: JSON.stringify({
+					mobile: formattedPhone,
+					captcha: captchaCode,
+					code: captchaKey,
+				}),
+			});
+			const data = await res.json();
+			if (data.code === 200 || data.code === 0) {
+				toast.success(m.login_verification_code_sent());
+			} else {
+				toast.error(getErrorMessage(data.code) || data.message || m.login_send_failed());
+			}
+		} catch (_e) {
+			toast.error(m.network_error());
+		} finally {
+			isLoading = false;
+		}
 	};
 
 	const handleQuickLogin = () => {
@@ -126,6 +304,21 @@
 
 					<!-- Verification Code -->
 					<div class="space-y-2">
+						<Label for="captcha" class="font-bold">{m.login_captcha_label()}</Label>
+						<div class="flex gap-2">
+							<Input
+								id="captcha"
+								type="text"
+								bind:value={captchaCode}
+								placeholder={m.login_captcha_placeholder()}
+								class="flex-1"
+							/>
+							<Captcha bind:code={captchaKey} />
+						</div>
+					</div>
+
+					<!-- Verification Code -->
+					<div class="space-y-2">
 						<Label for="code" class="font-bold">{m.login_verification_code()}</Label>
 						<div class="flex gap-2">
 							<Input
@@ -135,14 +328,19 @@
 								placeholder={m.login_enter_verification_code()}
 								class="flex-1"
 							/>
-							<Button variant="default" class="w-32 shrink-0" onclick={handleGetVerificationCode}>
+							<Button
+								variant="default"
+								class="w-32 shrink-0"
+								onclick={handleGetVerificationCode}
+								disabled={isLoading}
+							>
 								{m.login_get_code()}
 							</Button>
 						</div>
 					</div>
 
 					<!-- Login Button -->
-					<Button class="w-full" onclick={handleSmsLogin}>
+					<Button class="w-full" onclick={handleSmsLogin} disabled={isLoading}>
 						{m.login_now()}
 					</Button>
 				</Tabs.Content>
@@ -184,8 +382,23 @@
 						/>
 					</div>
 
+					<!-- Captcha -->
+					<div class="space-y-2">
+						<Label for="captcha-password" class="font-bold">{m.login_captcha_label()}</Label>
+						<div class="flex gap-2">
+							<Input
+								id="captcha-password"
+								type="text"
+								bind:value={captchaCode}
+								placeholder={m.login_captcha_placeholder()}
+								class="flex-1"
+							/>
+							<Captcha bind:code={captchaKey} />
+						</div>
+					</div>
+
 					<!-- Login Button -->
-					<Button class="w-full" onclick={handlePasswordLogin}>
+					<Button class="w-full" onclick={handlePasswordLogin} disabled={isLoading}>
 						{m.login_now()}
 					</Button>
 				</Tabs.Content>
