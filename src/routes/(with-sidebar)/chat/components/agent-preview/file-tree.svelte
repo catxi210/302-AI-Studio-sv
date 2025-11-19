@@ -416,7 +416,7 @@
 				}}
 				class="rounded p-1 hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
 				disabled={fileTreeState.loading || fileTreeState.isStreaming}
-				title="Download"
+				title={m.label_file_tree_download_all()}
 			>
 				<FolderInput class="h-3.5 w-3.5" />
 			</button>

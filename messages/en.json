@@ -702,6 +702,7 @@
 	"label_file_tree_empty": "No files",
 	"label_file_tree_upload": "Upload",
 	"label_file_tree_download": "Download",
+	"label_file_tree_download_all": "Download All Files",
 	"label_file_tree_delete": "Delete",
 	"label_file_tree_rename": "Rename",
 	"label_file_tree_copy": "Copy",

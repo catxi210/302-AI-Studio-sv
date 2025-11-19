@@ -5,7 +5,7 @@
 	import CodeMirrorEditor from "$lib/components/buss/editor/codemirror-editor.svelte";
 	import PreviewHeader, { type PreviewTab } from "$lib/components/chat/preview-header.svelte";
 	import PreviewPanel from "$lib/components/html-preview/preview-panel.svelte";
-	import { Empty, EmptyContent, EmptyTitle } from "$lib/components/ui/empty";
+
 	import * as m from "$lib/paraglide/messages";
 	import { agentPreviewState } from "$lib/stores/agent-preview-state.svelte";
 	import { chatState } from "$lib/stores/chat-state.svelte";
@@ -13,7 +13,7 @@
 	import { htmlPreviewState } from "$lib/stores/html-preview-state.svelte";
 	import { persistedProviderState } from "$lib/stores/provider-state.svelte";
 	import { tabBarState } from "$lib/stores/tab-bar-state.svelte";
-	import { Loader2 } from "@lucide/svelte";
+	import { Bot, Loader2 } from "@lucide/svelte";
 	import type { ModelProvider } from "@shared/types";
 	import { onDestroy } from "svelte";
 	import { toast } from "svelte-sonner";
@@ -426,11 +426,12 @@
 									</div>
 								</div>
 							{:else}
-								<Empty class="border-0">
-									<EmptyContent>
-										<EmptyTitle>{m.empty_agent_preview_title()}</EmptyTitle>
-									</EmptyContent>
-								</Empty>
+								<div
+									class="flex h-full flex-col items-center justify-center gap-2 text-muted-foreground"
+								>
+									<Bot class="h-8 w-8" />
+									<p class="text-sm font-medium">{m.empty_agent_preview_title()}</p>
+								</div>
 							{/if}
 						{:else if fileViewer.selectedFile}
 							<PreviewPanel html={fileViewer.content} {deviceMode} />
