@@ -219,9 +219,124 @@
 		console.log("Quick login");
 	};
 
-	const handleGoogleLogin = () => {
-		console.log("Google login");
+	const handleGoogleLogin = async () => {
+		// 使用 Firebase Auth SDK，和 Android 保持一致
+		if (typeof window === "undefined") return;
+
+		try {
+			// 1. 确保 Firebase SDK 已加载
+			// @ts-expect-error Firebase is loaded dynamically
+			if (!window.firebase) {
+				await loadFirebaseSDK();
+			}
+
+			// 2. 初始化 Firebase（使用 compat API）
+			// @ts-expect-error Firebase is loaded dynamically
+			if (!window.firebase.apps || window.firebase.apps.length === 0) {
+				const firebaseConfig = {
+					apiKey: "AIzaSyAN79CZDfrtfT7oARZC2wsHJ2xH-Ry0RLQ",
+					authDomain: "gpt302-416320.firebaseapp.com",
+					projectId: "gpt302-416320",
+				};
+				// @ts-expect-error Firebase is loaded dynamically
+				window.firebase.initializeApp(firebaseConfig);
+			}
+
+			// 3. 创建 Google Provider
+			// @ts-expect-error Firebase is loaded dynamically
+			const provider = new window.firebase.auth.GoogleAuthProvider();
+
+			// 4. 弹出登录窗口
+			isLoading = true;
+			// @ts-expect-error Firebase is loaded dynamically
+			const result = await window.firebase.auth().signInWithPopup(provider);
+			const user = result.user;
+
+			// 获取 user_id 和 email
+			const user_id = user.uid;
+			const email = user.email;
+
+			if (!user_id || !email) {
+				toast.error("Google 登录失败：无法获取用户信息");
+				return;
+			}
+
+			console.log("Firebase Google login success:", { user_id, email });
+
+			// 调用后端登录接口
+			const formData = new FormData();
+			formData.append("user_id", user_id);
+			formData.append("email", email);
+
+			const res = await fetch(`${API_BASE_URL}/user/login/google`, {
+				method: "POST",
+				headers: {
+					authorization: "Basic null",
+					isgpt: "1",
+					lang: "zh-CN",
+					tz: "Asia/Shanghai",
+					origin: "https://302.ai",
+					referer: "https://302.ai/",
+				},
+				body: formData,
+			});
+
+			const data = await res.json();
+			console.log("Google login backend response:", data);
+
+			if (data.code === 200 || data.code === 0) {
+				const token = data.data?.token;
+				if (token) {
+					userState.setToken(token);
+
+					// Fetch user info
+					const result = await userState.fetchUserInfo();
+					if (result.success) {
+						toast.success("登录成功");
+						open = false;
+					} else {
+						toast.error("获取用户信息失败: " + result.error);
+					}
+				} else {
+					toast.error("登录响应缺少 token");
+				}
+			} else {
+				toast.error(getErrorMessage(data.code) || data.message || "Google 登录失败");
+			}
+		} catch (error: unknown) {
+			console.error("Firebase Google login error:", error);
+			const firebaseError = error as { code?: string; message?: string };
+			if (firebaseError.code === "auth/popup-closed-by-user") {
+				toast.error("登录已取消");
+			} else if (firebaseError.code === "auth/popup-blocked") {
+				toast.error("弹出窗口被阻止，请允许弹出窗口");
+			} else if (firebaseError.code === "auth/cancelled-popup-request") {
+				// 用户取消，不显示错误
+			} else {
+				toast.error("Google 登录失败: " + (firebaseError.message || "未知错误"));
+			}
+		} finally {
+			isLoading = false;
+		}
 	};
+
+	async function loadFirebaseSDK() {
+		return new Promise<void>((resolve, reject) => {
+			// 加载 Firebase App
+			const scriptApp = document.createElement("script");
+			scriptApp.src = "https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js";
+			scriptApp.onload = () => {
+				// 加载 Firebase Auth
+				const scriptAuth = document.createElement("script");
+				scriptAuth.src = "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js";
+				scriptAuth.onload = () => resolve();
+				scriptAuth.onerror = () => reject(new Error("Failed to load Firebase Auth SDK"));
+				document.head.appendChild(scriptAuth);
+			};
+			scriptApp.onerror = () => reject(new Error("Failed to load Firebase App SDK"));
+			document.head.appendChild(scriptApp);
+		});
+	}
 
 	const handleGithubLogin = () => {
 		console.log("Github login");
