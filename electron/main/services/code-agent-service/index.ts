@@ -1,6 +1,7 @@
 import {
 	createClaudeCodeSandbox,
 	listClaudeCodeSandboxes,
+	listClaudeCodeSessions,
 	updateClaudeCodeSandbox,
 } from "@electron/main/apis/code-agent";
 import type { CodeAgentCreateResult } from "@shared/storage/code-agent";
@@ -121,6 +122,27 @@ export class CodeAgentService {
 			return { isOK: true };
 		} catch (error) {
 			console.error("Error updating Claude code sandboxes:", error);
+			return { isOK: false };
+		}
+	}
+
+	async updateClaudeCodeSessions(
+		_event: IpcMainInvokeEvent,
+		sandboxId: string,
+	): Promise<{ isOK: boolean }> {
+		try {
+			const { success, session_list } = await listClaudeCodeSessions(sandboxId);
+			if (!success) {
+				return { isOK: false };
+			}
+			const list = session_list.map((session) => ({
+				sessionId: session.session_id,
+				workspacePath: session.workspace_path,
+			}));
+			await claudeCodeSandboxStorage.setClaudeCodeSessions(sandboxId, list);
+			return { isOK: true };
+		} catch (error) {
+			console.error("Error updating Claude code sessions:", error);
 			return { isOK: false };
 		}
 	}

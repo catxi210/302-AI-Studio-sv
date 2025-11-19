@@ -1,4 +1,8 @@
-import type { ClaudeCodeSandboxInfo, CodeAgentMetadata } from "@shared/storage/code-agent";
+import type {
+	ClaudeCodeSandboxInfo,
+	ClaudeCodeSessionInfo,
+	CodeAgentMetadata,
+} from "@shared/storage/code-agent";
 import { prefixStorage } from "@shared/types";
 import { isNull } from "es-toolkit";
 import { StorageService } from "..";
@@ -79,6 +83,27 @@ class ClaudeCodeSandboxStorage extends StorageService<ClaudeCodeSandboxInfo[]> {
 			return { isOK: true };
 		} catch (error) {
 			console.error("Error setting Claude code sandboxes:", error);
+			return { isOK: false };
+		}
+	}
+
+	async setClaudeCodeSessions(
+		sandboxId: string,
+		sessions: ClaudeCodeSessionInfo[],
+	): Promise<{ isOK: boolean }> {
+		try {
+			const { isOK, sandboxes } = await this.getClaudeCodeSandboxes();
+			if (!isOK) return { isOK: false };
+
+			const sandbox = sandboxes.find((s) => s.sandboxId === sandboxId);
+			if (!sandbox) return { isOK: false };
+
+			sandbox.sessionInfos = sessions;
+
+			await this.setItemInternal(this.prefix, sandboxes);
+			return { isOK: true };
+		} catch (error) {
+			console.error("Error setting Claude code sessions:", error);
 			return { isOK: false };
 		}
 	}

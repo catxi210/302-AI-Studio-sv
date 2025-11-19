@@ -46,6 +46,12 @@ const updateClaudeCodeSandboxSchema = type({
 });
 export type UpdateClaudeCodeSandboxResponse = typeof updateClaudeCodeSandboxSchema.infer;
 
+/**
+ * Update a claude code sandbox
+ * @param sandbox_id - The sandbox id to update
+ * @param llm_model - The llm model to use
+ * @returns The updated claude code sandbox
+ */
 export async function updateClaudeCodeSandbox(
 	sandbox_id: string,
 	llm_model: string,
@@ -92,6 +98,10 @@ export const listClaudeCodeSandboxesResponse = type({
 });
 export type ListClaudeCodeSandboxesResponse = typeof listClaudeCodeSandboxesResponse.infer;
 
+/**
+ * List all claude code sandboxes
+ * @returns The list of claude code sandboxes
+ */
 export async function listClaudeCodeSandboxes(): Promise<ListClaudeCodeSandboxesResponse> {
 	try {
 		const response = await _302AIKy.get("302/claude-code/sandbox/list").json();
@@ -104,6 +114,43 @@ export async function listClaudeCodeSandboxes(): Promise<ListClaudeCodeSandboxes
 		return validated;
 	} catch (error) {
 		console.error("Failed to list claude code sandboxes:", error);
+		throw error;
+	}
+}
+
+export const sessionInfoSchema = type({
+	session_id: "string",
+	workspace_path: "string",
+});
+export type SessionInfo = typeof sessionInfoSchema.infer;
+export const listClaudeCodeSessionsResponse = type({
+	success: "boolean",
+	sandbox_id: "string",
+	session_list: sessionInfoSchema.array(),
+});
+export type ListClaudeCodeSessionsResponse = typeof listClaudeCodeSessionsResponse.infer;
+
+/**
+ * List all claude code sessions
+ * @param sandbox_id - The sandbox id to list sessions for
+ * @returns The list of claude code sessions
+ */
+export async function listClaudeCodeSessions(
+	sandbox_id: string,
+): Promise<ListClaudeCodeSessionsResponse> {
+	try {
+		const response = await _302AIKy
+			.get(`302/claude-code/sandbox/session?sandbox_id=${sandbox_id}`)
+			.json();
+
+		const validated = listClaudeCodeSessionsResponse(response);
+		if (validated instanceof type.errors) {
+			console.error("Failed to validate list claude code sessions:", validated.summary);
+			throw new Error("Invalid response format from list claude code sessions API");
+		}
+		return validated;
+	} catch (error) {
+		console.error("Failed to list claude code sessions:", error);
 		throw error;
 	}
 }

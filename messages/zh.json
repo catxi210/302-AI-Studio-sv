@@ -715,5 +715,6 @@
 	"login_button": "登录",
 	"login_button_desc": "登录302.AI账户以享受更多功能",
 	"refresh_sandboxes_failed": "沙盒列表刷新失败，请重新尝试...",
-	"refresh_sandboxes_success": "沙盒列表刷新成功！"
+	"refresh_sandboxes_success": "沙盒列表刷新成功！",
+	"refresh_sessions_failed": "会话列表刷新失败，请重新尝试..."
 }
