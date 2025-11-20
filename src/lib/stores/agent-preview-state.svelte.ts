@@ -1,5 +1,6 @@
 import type { SandboxFileInfo } from "$lib/api/sandbox-file";
 import { PersistedState } from "$lib/hooks/persisted-state.svelte";
+import type { CodeAgentType } from "@shared/storage/code-agent";
 import { SvelteDate } from "svelte/reactivity";
 
 /**
@@ -42,6 +43,7 @@ export interface AgentPreviewStorage {
 	currentWorkingDirectory?: string;
 	// Terminal history (commands and outputs with their cwd)
 	terminalHistory?: TerminalHistoryLine[];
+	type?: CodeAgentType;
 }
 
 // Main storage structure: [sandboxId:sessionId] -> AgentPreviewStorage
@@ -187,6 +189,7 @@ export class AgentPreviewState {
 			selectedFilePath: storage?.selectedFilePath,
 			currentWorkingDirectory: storage?.currentWorkingDirectory,
 			terminalHistory: storage?.terminalHistory,
+			type: storage?.type,
 		};
 		await this.saveToStorage(sandboxId, sessionId, updatedStorage);
 	}
@@ -206,6 +209,7 @@ export class AgentPreviewState {
 				fileList: storage.fileList,
 				fileContents: {}, // Clear all file contents
 				lastUpdated: getISOString(),
+				type: storage.type,
 			});
 		}
 	}
@@ -234,6 +238,7 @@ export class AgentPreviewState {
 			selectedFilePath: storage?.selectedFilePath, // Preserve selected file path
 			currentWorkingDirectory: storage?.currentWorkingDirectory,
 			terminalHistory: storage?.terminalHistory,
+			type: storage?.type,
 		};
 		await this.saveToStorage(sandboxId, sessionId, updatedStorage);
 	}
@@ -280,6 +285,7 @@ export class AgentPreviewState {
 			selectedFilePath: filePath,
 			currentWorkingDirectory: storage?.currentWorkingDirectory,
 			terminalHistory: storage?.terminalHistory,
+			type: storage?.type,
 		};
 		await this.saveToStorage(sandboxId, sessionId, updatedStorage);
 	}
@@ -323,6 +329,7 @@ export class AgentPreviewState {
 			selectedFilePath: storage?.selectedFilePath,
 			currentWorkingDirectory: cwd,
 			terminalHistory: storage?.terminalHistory,
+			type: storage?.type,
 		};
 		await this.saveToStorage(sandboxId, sessionId, updatedStorage);
 	}
@@ -361,6 +368,7 @@ export class AgentPreviewState {
 			selectedFilePath: storage?.selectedFilePath,
 			currentWorkingDirectory: storage?.currentWorkingDirectory,
 			terminalHistory: history,
+			type: storage?.type,
 		};
 		await this.saveToStorage(sandboxId, sessionId, updatedStorage);
 	}

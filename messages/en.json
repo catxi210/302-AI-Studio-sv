@@ -781,6 +781,7 @@
 	"toast_file_deleting": "Deleting file...",
 	"toast_file_delete_success": "File deleted successfully",
 	"toast_file_delete_failed": "Failed to delete file",
+	"toast_copy_success": "Copy successful",
 	"toast_file_copy_success": "File path copied to clipboard",
 	"toast_file_paste_target_not_dir": "Target is not a directory",
 	"toast_file_paste_failed": "Failed to paste file",

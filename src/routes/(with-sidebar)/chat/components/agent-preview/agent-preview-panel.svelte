@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { deploySandboxProject } from "$lib/api/sandbox-deploy";
-	import { getFileContent, type SandboxFileInfo } from "$lib/api/sandbox-file";
+	import { getFileContent, uploadSandboxFile, type SandboxFileInfo } from "$lib/api/sandbox-file";
 	import { deployHtmlTo302, validate302Provider } from "$lib/api/webserve-deploy";
 	import CodeMirrorEditor from "$lib/components/buss/editor/codemirror-editor.svelte";
 	import PreviewHeader, { type PreviewTab } from "$lib/components/chat/preview-header.svelte";
@@ -13,7 +13,7 @@
 	import { htmlPreviewState } from "$lib/stores/html-preview-state.svelte";
 	import { persistedProviderState } from "$lib/stores/provider-state.svelte";
 	import { tabBarState } from "$lib/stores/tab-bar-state.svelte";
-	import { Bot, Loader2 } from "@lucide/svelte";
+	import { Bot, Loader2, Pencil, Save, X } from "@lucide/svelte";
 	import type { ModelProvider } from "@shared/types";
 	import { onDestroy } from "svelte";
 	import { toast } from "svelte-sonner";
@@ -75,6 +75,11 @@
 	let refreshTrigger = $state(0);
 	let iframeRefreshKey = $state(0);
 
+	// Edit State
+	let isEditing = $state(false);
+	let isSaving = $state(false);
+	let editContent = $state("");
+
 	// Internal logic variables (non-reactive)
 	let abortController: AbortController | null = null;
 	let isRestoringState = false; // 替代原先的 restoreState.running
@@ -83,7 +88,14 @@
 	// --- Derived ---
 	const isAgentMode = $derived(codeAgentState.enabled);
 	const currentSandboxId = $derived(claudeCodeAgentState.sandboxId);
-	const currentSessionId = $derived(claudeCodeAgentState.currentSessionId);
+	const currentSessionId = $derived.by(() => {
+		// If currentSessionId matches one of the known valid sessionIds, use it
+		if (claudeCodeAgentState.sessionIds.includes(claudeCodeAgentState.currentSessionId)) {
+			return claudeCodeAgentState.currentSessionId;
+		}
+		// Otherwise fallback to the first available session ID (assuming single active session in most cases)
+		return claudeCodeAgentState.sessionIds[0] ?? "";
+	});
 
 	// Tabs definition
 	let tabs: PreviewTab[] = $derived.by(() => {
@@ -370,6 +382,78 @@
 			toast.error(m.toast_copied_failed());
 		}
 	};
+
+	// --- Edit Handlers ---
+
+	const handleStartEdit = () => {
+		editContent = fileViewer.content;
+		isEditing = true;
+	};
+
+	const handleCancelEdit = () => {
+		isEditing = false;
+		editContent = "";
+	};
+
+	const handleSaveEdit = async () => {
+		if (!currentSandboxId || !currentSessionId || !fileViewer.selectedFile) return;
+
+		const apiKey = get302ApiKey();
+		if (!apiKey) {
+			toast.error(m.toast_deploy_no_302_provider());
+			return;
+		}
+
+		const loadingId = toast.loading(m.toast_file_uploading());
+		isSaving = true;
+
+		try {
+			// Ensure we have content to upload
+			if (typeof editContent !== "string") {
+				throw new Error("Invalid content type");
+			}
+
+			// Explicitly use the path from the selected file
+			const filePath = fileViewer.selectedFile.path;
+
+			// Convert editContent (string) to Blob, then to File
+			const blob = new Blob([editContent], { type: "text/plain" });
+			const file = new File([blob], fileViewer.selectedFile.name, {
+				type: "text/plain",
+				lastModified: Date.now(),
+			});
+
+			console.log("[AgentPreview] Uploading file:", {
+				path: filePath,
+				name: file.name,
+				size: file.size,
+				type: file.type,
+			});
+
+			const response = await uploadSandboxFile(currentSandboxId, filePath, file, apiKey);
+
+			if (response.success) {
+				// Update local cache and view
+				await agentPreviewState.setFileContent(
+					currentSandboxId,
+					currentSessionId,
+					filePath,
+					editContent,
+				);
+
+				// Update local viewer state
+				fileViewer.content = editContent;
+				isEditing = false;
+
+				toast.success(m.toast_file_upload_success(), { id: loadingId });
+			}
+		} catch (e) {
+			console.error("Save edit failed:", e);
+			toast.error(m.toast_file_upload_failed(), { id: loadingId });
+		} finally {
+			isSaving = false;
+		}
+	};
 </script>
 
 <div class="h-full">
@@ -447,18 +531,64 @@
 						{/if}
 					{:else if activeTab === TAB_CODE}
 						{#if fileViewer.selectedFile}
-							<div class="flex-1 min-h-0">
-								{#if fileViewer.isLoading}
-									<div class="flex h-full items-center justify-center">
-										<Loader2 class="h-6 w-6 animate-spin text-muted-foreground" />
+							<div class="flex-1 flex flex-col min-h-0">
+								{#if !fileViewer.isLoading}
+									<div
+										class="flex items-center justify-end gap-2 border-b border-border bg-background px-3 py-2"
+									>
+										{#if isEditing}
+											<div class="flex items-center gap-2">
+												<button
+													class="flex flex-shrink-0 items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground disabled:pointer-events-none disabled:opacity-50"
+													onclick={handleCancelEdit}
+													disabled={isSaving}
+												>
+													<X class="h-3.5 w-3.5 flex-shrink-0" />
+													<span class="whitespace-nowrap">{m.text_button_cancel()}</span>
+												</button>
+												<button
+													class="flex flex-shrink-0 items-center gap-1.5 rounded-md bg-primary px-2 py-1 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:pointer-events-none disabled:opacity-50"
+													onclick={handleSaveEdit}
+													disabled={isSaving}
+												>
+													{#if isSaving}
+														<Loader2 class="h-3.5 w-3.5 flex-shrink-0 animate-spin" />
+													{:else}
+														<Save class="h-3.5 w-3.5 flex-shrink-0" />
+													{/if}
+													<span class="whitespace-nowrap"
+														>{isSaving ? m.text_button_saving() : m.text_button_save()}</span
+													>
+												</button>
+											</div>
+										{:else}
+											<button
+												class="flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+												onclick={handleStartEdit}
+											>
+												<Pencil class="h-3.5 w-3.5" />
+												{m.text_button_edit()}
+											</button>
+										{/if}
 									</div>
-								{:else}
-									<CodeMirrorEditor
-										value={fileViewer.content}
-										language={fileViewer.language}
-										readOnly={true}
-									/>
 								{/if}
+
+								<div class="flex-1 min-h-0">
+									{#if fileViewer.isLoading}
+										<div class="flex h-full items-center justify-center">
+											<Loader2 class="h-6 w-6 animate-spin text-muted-foreground" />
+										</div>
+									{:else}
+										<CodeMirrorEditor
+											value={isEditing ? editContent : fileViewer.content}
+											language={fileViewer.language}
+											readOnly={!isEditing}
+											onChange={(val) => {
+												if (isEditing) editContent = val;
+											}}
+										/>
+									{/if}
+								</div>
 							</div>
 						{:else}
 							<div class="flex h-full items-center justify-center text-muted-foreground text-sm">

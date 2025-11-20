@@ -777,6 +777,7 @@
 	"toast_file_deleting": "正在删除文件...",
 	"toast_file_delete_success": "文件删除成功",
 	"toast_file_delete_failed": "删除文件失败",
+	"toast_copy_success": "复制成功",
 	"toast_file_copy_success": "文件路径已复制到剪贴板",
 	"toast_file_paste_target_not_dir": "目标位置不是目录",
 	"toast_file_paste_failed": "粘贴文件失败",

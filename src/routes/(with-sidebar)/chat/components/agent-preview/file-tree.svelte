@@ -295,21 +295,22 @@
 			<span>{m.label_file_tree_download()}</span>
 		</ContextMenu.Item>
 
-		<ContextMenu.Separator />
-
 		<!-- Delete -->
-		<ContextMenu.Item
-			onSelect={() => handleDelete(node)}
-			disabled={isOperating || fileTreeState.isStreaming}
-			class="text-destructive focus:text-destructive"
-		>
-			{#if isOperating}
-				<Loader2 class="mr-2 h-4 w-4 animate-spin" />
-			{:else}
-				<Trash2 class="mr-2 h-4 w-4" />
-			{/if}
-			<span>{m.text_button_delete()}</span>
-		</ContextMenu.Item>
+		{#if !isDir}
+			<ContextMenu.Separator />
+			<ContextMenu.Item
+				onSelect={() => handleDelete(node)}
+				disabled={isOperating || fileTreeState.isStreaming}
+				class="text-destructive focus:text-destructive"
+			>
+				{#if isOperating}
+					<Loader2 class="mr-2 h-4 w-4 animate-spin" />
+				{:else}
+					<Trash2 class="mr-2 h-4 w-4" />
+				{/if}
+				<span>{m.text_button_delete()}</span>
+			</ContextMenu.Item>
+		{/if}
 	</ContextMenu.Content>
 {/snippet}
 

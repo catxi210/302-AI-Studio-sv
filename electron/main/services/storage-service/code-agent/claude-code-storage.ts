@@ -32,6 +32,7 @@ class ClaudeCodeStorage extends StorageService<CodeAgentMetadata> {
 			currentSessionId: sessionId,
 			sessionIds: [sessionId],
 			sandboxId: "",
+			sandboxRemark: "",
 		};
 
 		await this.setItemInternal(key, initialMetadata);
