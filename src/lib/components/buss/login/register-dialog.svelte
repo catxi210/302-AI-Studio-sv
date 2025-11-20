@@ -21,7 +21,6 @@
 	let username = $state("");
 	let inviteCode = $state("");
 	let email = $state("");
-	let emailCode = $state("");
 	let password = $state("");
 	let passwordConfirm = $state("");
 	let captchaCode = $state("");
@@ -37,9 +36,7 @@
 	let phoneCaptchaKey = $state("");
 
 	let isLoading = $state(false);
-	let emailCodeSending = $state(false);
 	let smsCodeSending = $state(false);
-	let emailCodeCountdown = $state(0);
 	let smsCodeCountdown = $state(0);
 
 	const countryOptions = [
@@ -71,75 +68,16 @@
 	}
 
 	// Start countdown timer
-	function startCountdown(type: "email" | "sms") {
+	function startCountdown() {
 		const countdown = 60;
-		if (type === "email") {
-			emailCodeCountdown = countdown;
-			const timer = setInterval(() => {
-				emailCodeCountdown--;
-				if (emailCodeCountdown <= 0) {
-					clearInterval(timer);
-				}
-			}, 1000);
-		} else {
-			smsCodeCountdown = countdown;
-			const timer = setInterval(() => {
-				smsCodeCountdown--;
-				if (smsCodeCountdown <= 0) {
-					clearInterval(timer);
-				}
-			}, 1000);
-		}
-	}
-
-	// Get email verification code
-	const handleGetEmailCode = async () => {
-		if (!email) {
-			toast.error(m.register_error_email_empty());
-			return;
-		}
-		if (!isValidEmail(email)) {
-			toast.error(m.register_error_email_invalid());
-			return;
-		}
-		if (!captchaCode) {
-			toast.error(m.login_error_captcha_not_loaded());
-			return;
-		}
-
-		emailCodeSending = true;
-		try {
-			const res = await fetch(`${API_BASE_URL}/user/register/email/code`, {
-				method: "POST",
-				headers: {
-					"Content-Type": "application/json",
-					authorization: "Basic null",
-					isgpt: "1",
-					lang: "zh-CN",
-					tz: "Asia/Shanghai",
-					origin: "https://302.ai",
-					referer: "https://302.ai/",
-				},
-				body: JSON.stringify({
-					email: email,
-					captcha: captchaCode,
-					code: captchaKey,
-				}),
-			});
-
-			const data = await res.json();
-			if (data.code === 200 || data.code === 0) {
-				toast.success(m.login_verification_code_sent());
-				startCountdown("email");
-			} else {
-				toast.error(getErrorMessage(data.code) || data.message || m.login_send_failed());
+		smsCodeCountdown = countdown;
+		const timer = setInterval(() => {
+			smsCodeCountdown--;
+			if (smsCodeCountdown <= 0) {
+				clearInterval(timer);
 			}
-		} catch (_e) {
-			toast.error(m.network_error());
-		} finally {
-			emailCodeSending = false;
-		}
-	};
+		}, 1000);
+	}
 
 	// Get SMS verification code
 	const handleGetSmsCode = async () => {
@@ -176,7 +114,7 @@
 			const data = await res.json();
 			if (data.code === 200 || data.code === 0) {
 				toast.success(m.login_verification_code_sent());
-				startCountdown("sms");
+				startCountdown();
 			} else {
 				toast.error(getErrorMessage(data.code) || data.message || m.login_send_failed());
 			}
@@ -352,45 +290,6 @@
 			toast.error(m.network_error());
 		} finally {
 			isLoading = false;
-		}
-	};
-
-	// Auto login after email registration
-	const autoLogin = async (email: string, password: string) => {
-		try {
-			const res = await fetch(`${API_BASE_URL}/user/login/all`, {
-				method: "POST",
-				headers: {
-					"Content-Type": "application/json",
-					authorization: "Basic null",
-					isgpt: "1",
-					lang: "zh-CN",
-					tz: "Asia/Shanghai",
-					origin: "https://302.ai",
-					referer: "https://302.ai/",
-				},
-				body: JSON.stringify({
-					account: email,
-					password: password,
-					captcha: captchaCode,
-					code: captchaKey,
-					phone: "",
-				}),
-			});
-
-			const data = await res.json();
-			if (data.code === 200 || data.code === 0) {
-				const token = data.data?.token;
-				if (token) {
-					userState.setToken(token);
-					const result = await userState.fetchUserInfo();
-					if (result.success) {
-						open = false;
-					}
-				}
-			}
-		} catch (_e) {
-			// Silent fail, user can login manually
 		}
 	};
 </script>

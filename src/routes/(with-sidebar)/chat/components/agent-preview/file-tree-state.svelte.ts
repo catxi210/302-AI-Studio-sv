@@ -602,7 +602,7 @@ export class FileTreeState {
 	 */
 	copyFile(path: string): void {
 		this.copiedFilePath = path;
-		toast.success(m.toast_copy_success());
+		toast.success(m.toast_copied_success());
 	}
 
 	/**

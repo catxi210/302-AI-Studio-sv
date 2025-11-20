@@ -27,7 +27,7 @@
 			} else {
 				toast.error(res.error || "Failed to refresh");
 			}
-		} catch (e) {
+		} catch (_e) {
 			toast.error(m.network_error());
 		} finally {
 			isRefreshing = false;
@@ -131,7 +131,7 @@
 							onclick={() => copyToClipboard(userState.userInfo!.api_key, "api_key")}
 							class="relative"
 						>
-							{#each [{ Icon: Check, visible: copiedField === "api_key" }, { Icon: Copy, visible: copiedField !== "api_key" }] as { Icon, visible }}
+							{#each [{ Icon: Check, visible: copiedField === "api_key", id: "check" }, { Icon: Copy, visible: copiedField !== "api_key", id: "copy" }] as { Icon, visible, id } (id)}
 								<Icon
 									class={cn(
 										"absolute inset-0 m-auto size-4 transition-all duration-200 ease-in-out",
@@ -160,7 +160,7 @@
 						onclick={() => copyToClipboard(String(userState.userInfo!.uid), "uid")}
 						class="relative"
 					>
-						{#each [{ Icon: Check, visible: copiedField === "uid" }, { Icon: Copy, visible: copiedField !== "uid" }] as { Icon, visible }}
+						{#each [{ Icon: Check, visible: copiedField === "uid", id: "check" }, { Icon: Copy, visible: copiedField !== "uid", id: "copy" }] as { Icon, visible, id } (id)}
 							<Icon
 								class={cn(
 									"absolute inset-0 m-auto size-4 transition-all duration-200 ease-in-out",
@@ -188,7 +188,7 @@
 						onclick={() => copyToClipboard(userState.userInfo!.invite_code, "invite_code")}
 						class="relative"
 					>
-						{#each [{ Icon: Check, visible: copiedField === "invite_code" }, { Icon: Copy, visible: copiedField !== "invite_code" }] as { Icon, visible }}
+						{#each [{ Icon: Check, visible: copiedField === "invite_code", id: "check" }, { Icon: Copy, visible: copiedField !== "invite_code", id: "copy" }] as { Icon, visible, id } (id)}
 							<Icon
 								class={cn(
 									"absolute inset-0 m-auto size-4 transition-all duration-200 ease-in-out",
