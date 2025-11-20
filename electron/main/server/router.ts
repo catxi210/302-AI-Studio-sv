@@ -21,7 +21,7 @@ import {
 } from "ai";
 import getPort from "get-port";
 import { Hono } from "hono";
-import { codeAgentService, tabService } from "../services";
+import { codeAgentService, ssoService, tabService } from "../services";
 import { mcpService } from "../services/mcp-service";
 import { storageService } from "../services/storage-service";
 import { createCitationsFetch } from "./citations-processor";
@@ -878,6 +878,143 @@ app.post("/chat/302ai-code-agent", async (c) => {
 	});
 
 	return createUIMessageStreamResponse({ stream });
+});
+
+// SSO callback endpoint
+app.get("/sso/callback", async (c) => {
+	const apikey = c.req.query("apikey");
+	const uid = c.req.query("uid");
+	const username = c.req.query("username");
+	const lang = c.req.query("lang") || "zh"; // Get language from query param, default to zh
+
+	console.log("[SSO Callback] Received:", {
+		apikey: apikey ? "exists" : "missing",
+		uid,
+		username,
+		lang,
+	});
+
+	// Simple i18n for callback page
+	const i18n = {
+		zh: {
+			successTitle: "登录成功",
+			successMessage: "您可以关闭此页面，返回应用继续使用",
+			errorTitle: "登录失败",
+			errorMessage: "未收到有效的 API Key",
+		},
+		en: {
+			successTitle: "Login Successful",
+			successMessage: "You can close this page and return to the app",
+			errorTitle: "Login Failed",
+			errorMessage: "No valid API Key received",
+		},
+	};
+
+	const t = i18n[lang as "zh" | "en"] || i18n.zh;
+
+	if (apikey) {
+		// Notify SSO service
+		ssoService.handleSsoCallbackFromServer(apikey);
+
+		// Return success page
+		return c.html(`
+			<!DOCTYPE html>
+			<html>
+			<head>
+				<title>${t.successTitle}</title>
+				<meta charset="utf-8">
+				<style>
+					body {
+						font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+						display: flex;
+						align-items: center;
+						justify-content: center;
+						height: 100vh;
+						margin: 0;
+						background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+					}
+					.container {
+						text-align: center;
+						background: white;
+						padding: 40px;
+						border-radius: 20px;
+						box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+					}
+					.icon {
+						font-size: 64px;
+						margin-bottom: 20px;
+					}
+					h1 {
+						color: #333;
+						margin: 0 0 10px 0;
+					}
+					p {
+						color: #666;
+						margin: 0;
+					}
+				</style>
+			</head>
+			<body>
+				<div class="container">
+					<div class="icon">✓</div>
+					<h1>${t.successTitle}</h1>
+					<p>${t.successMessage}</p>
+				</div>
+				<script>
+					setTimeout(() => window.close(), 2000);
+				</script>
+			</body>
+			</html>
+		`);
+	}
+
+	return c.html(`
+		<!DOCTYPE html>
+		<html>
+		<head>
+			<title>${t.errorTitle}</title>
+			<meta charset="utf-8">
+			<style>
+				body {
+					font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+					display: flex;
+					align-items: center;
+					justify-content: center;
+					height: 100vh;
+					margin: 0;
+					background: #f5f5f5;
+				}
+				.container {
+					text-align: center;
+					background: white;
+					padding: 40px;
+					border-radius: 20px;
+					box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+				}
+				.icon {
+					font-size: 64px;
+					margin-bottom: 20px;
+					color: #f56c6c;
+				}
+				h1 {
+					color: #333;
+					margin: 0 0 10px 0;
+				}
+				p {
+					color: #666;
+					margin: 0;
+				}
+			</style>
+		</head>
+		<body>
+			<div class="container">
+				<div class="icon">✗</div>
+				<h1>${t.errorTitle}</h1>
+				<p>${t.errorMessage}</p>
+			</div>
+		</body>
+		</html>
+	`);
 });
 
 export async function initServer(preferredPort = 8089): Promise<number> {

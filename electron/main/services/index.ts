@@ -7,6 +7,7 @@ import { DataService, dataService } from "./data-service";
 import { ExternalLinkService, externalLinkService } from "./external-link-service";
 import { GhostWindowService, ghostWindowService } from "./ghost-window-service";
 import { McpService, mcpService } from "./mcp-service";
+import { SsoService, ssoService } from "./sso-service";
 import { PluginService, pluginService } from "./plugin-service";
 import { RegistryService, registryService } from "./registry-service";
 import { GeneralSettingsService, generalSettingsService } from "./settings-service";
@@ -33,6 +34,7 @@ export {
 	PluginService,
 	RegistryService,
 	ShortcutService,
+	SsoService,
 	StorageService,
 	TabService,
 	ThreadService,
@@ -56,6 +58,7 @@ export {
 	pluginService,
 	registryService,
 	shortcutService,
+	ssoService,
 	storageService,
 	tabService,
 	threadService,

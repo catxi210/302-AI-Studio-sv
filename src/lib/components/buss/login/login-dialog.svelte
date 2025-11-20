@@ -8,11 +8,14 @@
 	import { API_BASE_URL } from "$lib/constants/api";
 	import { getErrorMessage } from "$lib/constants/error-codes";
 	import { m } from "$lib/paraglide/messages.js";
+	import { ssoState } from "$lib/stores/sso-state.svelte";
 	import { userState } from "$lib/stores/user-state.svelte";
 	import { toast } from "svelte-sonner";
 	import Captcha from "./captcha.svelte";
+	import RegisterDialog from "./register-dialog.svelte";
 
 	let { open = $bindable(false) } = $props();
+	let showRegisterDialog = $state(false);
 
 	let phoneNumber = $state("");
 	let verificationCode = $state("");
@@ -216,7 +219,10 @@
 	};
 
 	const handleQuickLogin = () => {
-		console.log("Quick login");
+		// Close dialog and trigger SSO login
+		open = false;
+		// Use shared SSO state so the settings page can show the loading animation
+		ssoState.login();
 	};
 
 	const handleGoogleLogin = async () => {
@@ -339,7 +345,13 @@
 	}
 
 	const handleRegister = () => {
-		console.log("Register");
+		open = false;
+		showRegisterDialog = true;
+	};
+
+	const handleSwitchToLogin = () => {
+		showRegisterDialog = false;
+		open = true;
 	};
 </script>
 
@@ -556,3 +568,5 @@
 		</div>
 	</Dialog.Content>
 </Dialog.Root>
+
+<RegisterDialog bind:open={showRegisterDialog} onSwitchToLogin={handleSwitchToLogin} />

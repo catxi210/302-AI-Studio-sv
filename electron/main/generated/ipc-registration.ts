@@ -15,6 +15,7 @@ import {
 	dataService,
 	externalLinkService,
 	mcpService,
+	ssoService,
 	threadService,
 	updaterService,
 } from "../services";
@@ -309,6 +310,15 @@ export function registerIpcHandlers() {
 		mcpService.closeServer(event, serverId),
 	);
 
+	// ssoService service registration
+	ipcMain.handle("ssoService:openSsoLogin", (event, serverPort, language) =>
+		ssoService.openSsoLogin(event, serverPort, language),
+	);
+	ipcMain.handle("ssoService:waitForSsoCallback", (event, timeoutMs) =>
+		ssoService.waitForSsoCallback(event, timeoutMs),
+	);
+	ipcMain.handle("ssoService:cancelSsoLogin", (event) => ssoService.cancelSsoLogin(event));
+
 	// threadService service registration
 	ipcMain.handle("threadService:addThread", (event, threadId) =>
 		threadService.addThread(event, threadId),
@@ -447,6 +457,9 @@ export function removeIpcHandlers() {
 	ipcMain.removeHandler("externalLinkService:openExternalLink");
 	ipcMain.removeHandler("mcpService:getToolsFromServer");
 	ipcMain.removeHandler("mcpService:closeServer");
+	ipcMain.removeHandler("ssoService:openSsoLogin");
+	ipcMain.removeHandler("ssoService:waitForSsoCallback");
+	ipcMain.removeHandler("ssoService:cancelSsoLogin");
 	ipcMain.removeHandler("threadService:addThread");
 	ipcMain.removeHandler("threadService:getThreads");
 	ipcMain.removeHandler("threadService:getThread");
