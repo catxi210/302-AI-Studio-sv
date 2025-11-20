@@ -75,7 +75,7 @@
 					class={cn(
 						"text-xs font-medium transition-colors rounded whitespace-nowrap px-2.5 py-0.5 [@container(max-width:349px)]:px-1.5",
 						activeTab === tab.id
-							? "bg-background text-foreground shadow-sm"
+							? "bg-primary text-primary-foreground shadow-sm"
 							: "text-muted-foreground hover:text-foreground",
 					)}
 					onclick={() => onTabChange(tab.id)}
