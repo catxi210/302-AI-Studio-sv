@@ -555,14 +555,44 @@
 
 				// Check if this is a tool call JSON block
 				if (hasToolCallMarker && language?.toLowerCase() === "json") {
-					// Create loading state for tool call - will be detected and replaced
-					descriptors.push({
-						id: `tool-loading-${todoIndex}`,
-						kind: "tool-loading",
-						toolType: toolCallType,
-						code: token.content ?? "",
-						language: language,
-					});
+					// Try to detect the JSON content immediately
+					let processedBlock: BlockDescriptor | null = null;
+
+					if (toolCallType === "todo") {
+						const todoResult = detectTodoWriteJson(token.content ?? "", language);
+						if (todoResult.isTodoWrite && todoResult.todos) {
+							processedBlock = {
+								id: `todo-${todoIndex}`,
+								kind: "todo",
+								todos: todoResult.todos,
+							};
+						}
+					} else if (toolCallType === "write") {
+						const toolResult = detectToolWriteJson(token.content ?? "", language);
+						if (toolResult.isToolWrite && toolResult.data) {
+							processedBlock = {
+								id: `write-${todoIndex}`,
+								kind: "write",
+								filePath: toolResult.data.filePath,
+								code: toolResult.data.code,
+								language: toolResult.data.language,
+							};
+						}
+					}
+
+					if (processedBlock) {
+						descriptors.push(processedBlock);
+					} else {
+						// Create loading state if parsing failed (e.g. incomplete stream)
+						descriptors.push({
+							id: `tool-loading-${todoIndex}`,
+							kind: "tool-loading",
+							toolType: toolCallType,
+							code: token.content ?? "",
+							language: language,
+						});
+					}
+
 					todoIndex += 1;
 					hasToolCallMarker = false;
 					toolCallType = null;
@@ -609,50 +639,6 @@
 			lastConfigSignature = configSignature;
 			lastContentSnapshot = content;
 			collectBlocks(content);
-		}
-	});
-
-	// Detect and update loading blocks
-	$effect(() => {
-		if (blocks.length === 0) return;
-
-		const newBlocks = [...blocks];
-		let hasChanges = false;
-
-		for (let i = 0; i < newBlocks.length; i++) {
-			const block = newBlocks[i];
-
-			if (block.kind === "tool-loading") {
-				// Try to detect the JSON content based on tool type
-				if (block.toolType === "todo") {
-					const todoResult = detectTodoWriteJson(block.code, block.language);
-					if (todoResult.isTodoWrite && todoResult.todos) {
-						newBlocks[i] = {
-							id: block.id.replace("tool-loading-", "todo-"),
-							kind: "todo",
-							todos: todoResult.todos,
-						};
-						hasChanges = true;
-					}
-				} else if (block.toolType === "write") {
-					const toolResult = detectToolWriteJson(block.code, block.language);
-					if (toolResult.isToolWrite && toolResult.data) {
-						// It's a write-tool, convert to write block with file path and content
-						newBlocks[i] = {
-							id: block.id.replace("tool-loading-", "write-"),
-							kind: "write",
-							filePath: toolResult.data.filePath,
-							code: toolResult.data.code,
-							language: toolResult.data.language,
-						};
-						hasChanges = true;
-					}
-				}
-			}
-		}
-
-		if (hasChanges) {
-			blocks = newBlocks;
 		}
 	});
 
