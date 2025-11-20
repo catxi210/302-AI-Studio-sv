@@ -1,5 +1,6 @@
 import {
 	copySandboxFile,
+	createSandboxFolder,
 	deleteSandboxFile,
 	downloadSandboxFile,
 	listSandboxFiles,
@@ -714,6 +715,85 @@ export class FileTreeState {
 	}
 
 	/**
+	 * Create a new file
+	 */
+	async createFile(
+		filename: string,
+		parentPath: string = DEFAULT_WORKSPACE_PATH,
+	): Promise<SandboxFileInfo | null> {
+		if (!this.sandboxId) {
+			toast.error(m.toast_file_operation_sandbox_id_not_available());
+			return null;
+		}
+
+		const apiKey = this.get302ApiKey();
+		if (!apiKey) {
+			toast.error(m.toast_file_operation_api_key_not_found());
+			return null;
+		}
+
+		// Validate filename (duplicates check is handled by backend usually, but we can check local list too)
+		const fullPath = parentPath.endsWith("/")
+			? `${parentPath}${filename}`
+			: `${parentPath}/${filename}`;
+
+		if (this.files.some((f) => f.path === fullPath)) {
+			toast.error(m.toast_file_create_failed() + ": File already exists");
+			return null;
+		}
+
+		this.operatingPaths = addToSet(this.operatingPaths, parentPath);
+		const toastId = toast.loading(m.toast_file_creating());
+
+		try {
+			// Create an empty file
+			const file = new File([""], filename, { type: "text/plain" });
+
+			const response = await uploadSandboxFile(this.sandboxId, fullPath, file, apiKey);
+
+			if (response.success) {
+				toast.success(m.toast_file_create_success(), { id: toastId });
+
+				// Create new file info object
+				const newFile: SandboxFileInfo = {
+					name: filename,
+					path: fullPath,
+					type: "file",
+					size: 0,
+					modified_time: new SvelteDate().toISOString(), // Approximate
+				};
+
+				// Update file list
+				this.files = [...this.files, newFile];
+
+				// Ensure parent directory is marked as loaded so we don't overwrite with a fetch
+				if (parentPath !== DEFAULT_WORKSPACE_PATH) {
+					this.loadedDirs = addToSet(this.loadedDirs, parentPath);
+				}
+
+				// Expand parent directory
+				if (!this.expandedDirs.has(parentPath)) {
+					this.expandedDirs = addToSet(this.expandedDirs, parentPath);
+				}
+
+				await this.updateFilesAndRebuild(this.files);
+				return newFile;
+			} else {
+				const errorMsg = response.error || m.toast_file_create_failed();
+				toast.error(errorMsg, { id: toastId });
+				return null;
+			}
+		} catch (e) {
+			const errorMsg = e instanceof Error ? e.message : m.toast_file_create_failed();
+			toast.error(errorMsg, { id: toastId });
+			console.error("[FileTree] Failed to create file:", fullPath, e);
+			return null;
+		} finally {
+			this.operatingPaths = removeFromSet(this.operatingPaths, parentPath);
+		}
+	}
+
+	/**
 	 * Upload file
 	 */
 	async uploadFile(file: File, targetPath: string = DEFAULT_WORKSPACE_PATH): Promise<boolean> {
@@ -846,6 +926,62 @@ export class FileTreeState {
 			return false;
 		} finally {
 			this.operatingPaths = removeFromSet(this.operatingPaths, targetPath);
+		}
+	}
+
+	/**
+	 * Create new folder
+	 */
+	async createFolder(parentPath: string, folderName: string): Promise<boolean> {
+		if (!this.sandboxId) {
+			toast.error(m.toast_file_operation_sandbox_id_not_available());
+			return false;
+		}
+
+		const apiKey = this.get302ApiKey();
+		if (!apiKey) {
+			toast.error(m.toast_file_operation_api_key_not_found());
+			return false;
+		}
+
+		const targetPath = parentPath.endsWith("/")
+			? `${parentPath}${folderName}`
+			: `${parentPath}/${folderName}`;
+
+		this.operatingPaths = addToSet(this.operatingPaths, parentPath);
+		const toastId = toast.loading(m.toast_file_creating_folder());
+
+		try {
+			const response = await createSandboxFolder(this.sandboxId, targetPath, apiKey);
+
+			if (response.success) {
+				toast.success(m.toast_file_create_folder_success(), { id: toastId });
+
+				// Refresh the parent directory
+				if (parentPath === DEFAULT_WORKSPACE_PATH || this.loadedDirs.has(parentPath)) {
+					await new Promise((resolve) => setTimeout(resolve, 500));
+					await this.loadFiles(parentPath, true, true);
+
+					// Also expand the parent directory if not already expanded
+					if (!this.expandedDirs.has(parentPath)) {
+						this.expandedDirs = addToSet(this.expandedDirs, parentPath);
+						this.rebuildTree();
+					}
+				}
+
+				return true;
+			} else {
+				const errorMsg = response.error || m.toast_file_create_folder_failed();
+				toast.error(errorMsg, { id: toastId });
+				return false;
+			}
+		} catch (e) {
+			const errorMsg = e instanceof Error ? e.message : m.toast_file_create_folder_failed();
+			toast.error(errorMsg, { id: toastId });
+			console.error("[FileTree] Failed to create folder:", folderName, e);
+			return false;
+		} finally {
+			this.operatingPaths = removeFromSet(this.operatingPaths, parentPath);
 		}
 	}
 

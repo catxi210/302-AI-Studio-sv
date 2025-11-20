@@ -12,9 +12,11 @@
 		Copy,
 		Download,
 		File,
+		FilePlus,
 		Folder,
 		FolderInput,
 		FolderOpen,
+		FolderPlus,
 		Loader2,
 		Pencil,
 		Scissors,
@@ -42,6 +44,18 @@
 	let renameInputValue = $state("");
 	let renamingInProgress = $state(false);
 
+	// UI-specific state for create file dialog
+	let createFilePath = $state<string | null>(null); // The directory to create file in
+	let createFileDialogOpen = $state(false);
+	let createFileInputValue = $state("");
+	let creatingFileInProgress = $state(false);
+
+	// UI-specific state for create folder dialog
+	let createFolderParentPath = $state<string | null>(null);
+	let createFolderDialogOpen = $state(false);
+	let createFolderInputValue = $state("");
+	let createFolderInProgress = $state(false);
+
 	// Validate file name
 	function validateFileName(name: string): boolean {
 		if (!name || name.trim().length === 0) {
@@ -56,6 +70,43 @@
 	function handleFileClick(file: SandboxFileInfo) {
 		fileTreeState.selectFile(file);
 		onFileSelect?.(file);
+	}
+
+	// Handle create file start
+	function handleCreateFile(parentPath: string = DEFAULT_WORKSPACE_PATH) {
+		createFilePath = parentPath;
+		createFileInputValue = "";
+		createFileDialogOpen = true;
+	}
+
+	// Confirm create file
+	async function confirmCreateFile() {
+		if (!createFilePath) {
+			return;
+		}
+
+		const fileName = createFileInputValue.trim();
+		if (!validateFileName(fileName)) {
+			toast.error(m.toast_file_rename_invalid_name()); // Use same error for now or add specific one
+			return;
+		}
+
+		if (creatingFileInProgress) {
+			return;
+		}
+
+		creatingFileInProgress = true;
+		const newFile = await fileTreeState.createFile(fileName, createFilePath);
+		creatingFileInProgress = false;
+
+		if (newFile) {
+			createFileDialogOpen = false;
+			createFilePath = null;
+			createFileInputValue = "";
+
+			// Auto select the new file
+			handleFileClick(newFile);
+		}
 	}
 
 	// Handle rename
@@ -236,6 +287,40 @@
 	async function handleFolderUpload(targetPath: string = DEFAULT_WORKSPACE_PATH) {
 		await fileTreeState.uploadFolder(targetPath);
 	}
+
+	// Handle create folder
+	function handleCreateFolder(parentPath: string = DEFAULT_WORKSPACE_PATH) {
+		createFolderParentPath = parentPath;
+		createFolderInputValue = "";
+		createFolderDialogOpen = true;
+	}
+
+	// Confirm create folder
+	async function confirmCreateFolder() {
+		if (!createFolderParentPath) {
+			return;
+		}
+
+		const folderName = createFolderInputValue.trim();
+		if (!validateFileName(folderName)) {
+			toast.error(m.toast_file_rename_invalid_name());
+			return;
+		}
+
+		if (createFolderInProgress) {
+			return;
+		}
+
+		createFolderInProgress = true;
+		const success = await fileTreeState.createFolder(createFolderParentPath, folderName);
+		createFolderInProgress = false;
+
+		if (success) {
+			createFolderDialogOpen = false;
+			createFolderParentPath = null;
+			createFolderInputValue = "";
+		}
+	}
 </script>
 
 {#snippet contextMenuContent(node: TreeNode)}
@@ -249,6 +334,19 @@
 
 	<ContextMenu.Content>
 		{#if isFile}
+			<!-- Create File -->
+			<ContextMenu.Item
+				onSelect={() => handleCreateFile(isDir ? node.path : undefined)}
+				disabled={isOperating || fileTreeState.isStreaming}
+			>
+				{#if isOperating}
+					<Loader2 class="mr-2 h-4 w-4 animate-spin" />
+				{:else}
+					<FilePlus class="mr-2 h-4 w-4" />
+				{/if}
+				<span>{m.label_file_tree_create_file()}</span>
+			</ContextMenu.Item>
+
 			<!-- Rename -->
 			<ContextMenu.Item
 				onSelect={() => handleRename(node)}
@@ -284,6 +382,32 @@
 					<Scissors class="mr-2 h-4 w-4" />
 				{/if}
 				<span>{m.label_file_tree_paste()}</span>
+			</ContextMenu.Item>
+
+			<!-- New Folder -->
+			<ContextMenu.Item
+				onSelect={() => handleCreateFolder(node.path)}
+				disabled={isOperating || fileTreeState.isStreaming}
+			>
+				{#if isOperating}
+					<Loader2 class="mr-2 h-4 w-4 animate-spin" />
+				{:else}
+					<FolderPlus class="mr-2 h-4 w-4" />
+				{/if}
+				<span>{m.label_file_tree_new_folder()}</span>
+			</ContextMenu.Item>
+
+			<!-- Create File -->
+			<ContextMenu.Item
+				onSelect={() => handleCreateFile(node.path)}
+				disabled={isOperating || fileTreeState.isStreaming}
+			>
+				{#if isOperating}
+					<Loader2 class="mr-2 h-4 w-4 animate-spin" />
+				{:else}
+					<FilePlus class="mr-2 h-4 w-4" />
+				{/if}
+				<span>{m.label_file_tree_create_file()}</span>
 			</ContextMenu.Item>
 
 			<!-- Upload File -->
@@ -408,31 +532,27 @@
 	<!-- Header -->
 	<div class="flex items-center justify-between border-b border-border px-3 py-2 gap-2">
 		<div class="flex items-center gap-1">
-			<!-- Create File -->
-			<!-- <button
-				type="button"
-				onclick={() => {
-					// TODO: Implement create file functionality
-				}}
-				class="rounded p-1 hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
-				disabled={fileTreeState.loading || fileTreeState.isStreaming}
-				title="Create File"
-			>
-				<FilePlus class="h-3.5 w-3.5" />
-			</button> -->
-
 			<!-- Create Folder -->
-			<!-- <button
+			<button
 				type="button"
-				onclick={() => {
-					// TODO: Implement create folder functionality
-				}}
+				onclick={() => handleCreateFolder()}
 				class="rounded p-1 hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
 				disabled={fileTreeState.loading || fileTreeState.isStreaming}
-				title="Create Folder"
+				title={m.title_button_new_folder()}
 			>
 				<FolderPlus class="h-3.5 w-3.5" />
-			</button> -->
+			</button>
+
+			<!-- Create File -->
+			<button
+				type="button"
+				onclick={() => handleCreateFile()}
+				class="rounded p-1 hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+				disabled={fileTreeState.loading || fileTreeState.isStreaming}
+				title={m.title_button_create_file()}
+			>
+				<FilePlus class="h-3.5 w-3.5" />
+			</button>
 
 			<!-- Upload File -->
 			<button
@@ -567,6 +687,132 @@
 						<Loader2 class=" h-4 w-4 animate-spin" />
 					{/if}
 					{m.text_button_save()}
+				</Button>
+			</Dialog.Footer>
+		</Dialog.Content>
+	</Dialog.Root>
+
+	<!-- Create File Dialog -->
+	<Dialog.Root
+		bind:open={createFileDialogOpen}
+		onOpenChange={(open) => {
+			if (!open && !creatingFileInProgress) {
+				createFilePath = null;
+				createFileInputValue = "";
+				creatingFileInProgress = false;
+			}
+		}}
+	>
+		<Dialog.Content class="min-w-[400px]">
+			<Dialog.Header>
+				<Dialog.Title>{m.title_button_create_file()}</Dialog.Title>
+				<Dialog.Description>{m.text_description_create_file()}</Dialog.Description>
+			</Dialog.Header>
+
+			<Input
+				bind:value={createFileInputValue}
+				class="border-border !bg-background"
+				placeholder={m.placeholder_input_create_file()}
+				disabled={creatingFileInProgress}
+				onkeydown={(e) => {
+					if (e.key === "Enter" && !creatingFileInProgress) {
+						confirmCreateFile();
+					} else if (e.key === "Escape" && !creatingFileInProgress) {
+						createFileDialogOpen = false;
+						createFilePath = null;
+						createFileInputValue = "";
+						creatingFileInProgress = false;
+					}
+				}}
+			/>
+
+			<Dialog.Footer class="flex sm:justify-between">
+				<Button
+					variant="secondary"
+					onclick={() => {
+						createFileDialogOpen = false;
+						createFilePath = null;
+						createFileInputValue = "";
+						creatingFileInProgress = false;
+					}}
+					disabled={creatingFileInProgress}
+				>
+					{m.text_button_cancel()}
+				</Button>
+				<Button
+					variant="default"
+					onclick={confirmCreateFile}
+					disabled={creatingFileInProgress ||
+						!createFileInputValue.trim() ||
+						!validateFileName(createFileInputValue.trim())}
+				>
+					{#if creatingFileInProgress}
+						<Loader2 class=" h-4 w-4 animate-spin" />
+					{/if}
+					{m.label_button_confirm()}
+				</Button>
+			</Dialog.Footer>
+		</Dialog.Content>
+	</Dialog.Root>
+
+	<!-- Create Folder Dialog -->
+	<Dialog.Root
+		bind:open={createFolderDialogOpen}
+		onOpenChange={(open) => {
+			if (!open && !createFolderInProgress) {
+				createFolderParentPath = null;
+				createFolderInputValue = "";
+				createFolderInProgress = false;
+			}
+		}}
+	>
+		<Dialog.Content class="min-w-[400px]">
+			<Dialog.Header>
+				<Dialog.Title>{m.title_button_new_folder()}</Dialog.Title>
+				<Dialog.Description>{m.text_description_new_folder()}</Dialog.Description>
+			</Dialog.Header>
+
+			<Input
+				bind:value={createFolderInputValue}
+				class="border-border !bg-background"
+				placeholder={m.placeholder_input_folder_name()}
+				disabled={createFolderInProgress}
+				onkeydown={(e) => {
+					if (e.key === "Enter" && !createFolderInProgress) {
+						confirmCreateFolder();
+					} else if (e.key === "Escape" && !createFolderInProgress) {
+						createFolderDialogOpen = false;
+						createFolderParentPath = null;
+						createFolderInputValue = "";
+						createFolderInProgress = false;
+					}
+				}}
+			/>
+
+			<Dialog.Footer class="flex sm:justify-between">
+				<Button
+					variant="secondary"
+					onclick={() => {
+						createFolderDialogOpen = false;
+						createFolderParentPath = null;
+						createFolderInputValue = "";
+						createFolderInProgress = false;
+					}}
+					disabled={createFolderInProgress}
+				>
+					{m.text_button_cancel()}
+				</Button>
+				<Button
+					variant="default"
+					onclick={confirmCreateFolder}
+					disabled={createFolderInProgress ||
+						!createFolderInputValue.trim() ||
+						!validateFileName(createFolderInputValue.trim())}
+				>
+					{#if createFolderInProgress}
+						<Loader2 class="h-4 w-4 animate-spin" />
+					{/if}
+					{m.text_button_create()}
 				</Button>
 			</Dialog.Footer>
 		</Dialog.Content>

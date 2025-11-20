@@ -259,6 +259,7 @@ export enum Operation {
 	Move = "move",
 	Remove = "remove",
 	Rename = "rename",
+	Mkdir = "mkdir",
 }
 
 export interface SandboxFileOperationRequest {
@@ -350,6 +351,18 @@ export async function copySandboxFile(
 	baseUrl: string = "https://api.302.ai",
 ): Promise<SandboxFileOperationResponse> {
 	return sandboxFileOperation(sandboxId, Operation.Copy, sourcePath, destPath, apiKey, baseUrl);
+}
+
+/**
+ * 创建文件夹
+ */
+export async function createSandboxFolder(
+	sandboxId: string,
+	path: string,
+	apiKey: string,
+	baseUrl: string = "https://api.302.ai",
+): Promise<SandboxFileOperationResponse> {
+	return sandboxFileOperation(sandboxId, Operation.Mkdir, path, undefined, apiKey, baseUrl);
 }
 
 /**
