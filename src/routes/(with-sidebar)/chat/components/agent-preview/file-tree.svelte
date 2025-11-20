@@ -12,11 +12,14 @@
 		Copy,
 		Download,
 		File,
+		FileCode,
 		FilePlus,
+		FileUp,
 		Folder,
 		FolderInput,
 		FolderOpen,
 		FolderPlus,
+		FolderUp,
 		Loader2,
 		Pencil,
 		Scissors,
@@ -532,17 +535,6 @@
 	<!-- Header -->
 	<div class="flex items-center justify-between border-b border-border px-3 py-2 gap-2">
 		<div class="flex items-center gap-1">
-			<!-- Create Folder -->
-			<button
-				type="button"
-				onclick={() => handleCreateFolder()}
-				class="rounded p-1 hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
-				disabled={fileTreeState.loading || fileTreeState.isStreaming}
-				title={m.title_button_new_folder()}
-			>
-				<FolderPlus class="h-3.5 w-3.5" />
-			</button>
-
 			<!-- Create File -->
 			<button
 				type="button"
@@ -551,7 +543,18 @@
 				disabled={fileTreeState.loading || fileTreeState.isStreaming}
 				title={m.title_button_create_file()}
 			>
-				<FilePlus class="h-3.5 w-3.5" />
+				<FileCode class="h-3.5 w-3.5" />
+			</button>
+
+			<!-- Create Folder -->
+			<button
+				type="button"
+				onclick={() => handleCreateFolder()}
+				class="rounded p-1 hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+				disabled={fileTreeState.loading || fileTreeState.isStreaming}
+				title={m.title_button_new_folder()}
+			>
+				<Folder class="h-3.5 w-3.5" />
 			</button>
 
 			<!-- Upload File -->
@@ -560,9 +563,9 @@
 				onclick={() => triggerFileUpload()}
 				class="rounded p-1 hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
 				disabled={fileTreeState.loading || fileTreeState.isStreaming}
-				title="Upload File"
+				title={m.label_file_tree_upload_file()}
 			>
-				<Upload class="h-3.5 w-3.5" />
+				<FileUp class="h-3.5 w-3.5" />
 			</button>
 			<input bind:this={fileInput} type="file" class="hidden" onchange={handleFileUpload} />
 
@@ -572,9 +575,9 @@
 				onclick={() => handleFolderUpload()}
 				class="rounded p-1 hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
 				disabled={fileTreeState.loading || fileTreeState.isStreaming}
-				title="Upload Folder"
+				title={m.label_file_tree_upload_folder()}
 			>
-				<FolderInput class="h-3.5 w-3.5" />
+				<FolderUp class="h-3.5 w-3.5" />
 			</button>
 
 			<button
