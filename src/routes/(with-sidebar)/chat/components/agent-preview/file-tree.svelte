@@ -564,7 +564,7 @@
 						!validateFileName(renameInputValue.trim())}
 				>
 					{#if renamingInProgress}
-						<Loader2 class="mr-2 h-4 w-4 animate-spin" />
+						<Loader2 class=" h-4 w-4 animate-spin" />
 					{/if}
 					{m.text_button_save()}
 				</Button>
