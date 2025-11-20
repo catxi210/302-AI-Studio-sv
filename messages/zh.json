@@ -854,5 +854,15 @@
 	"sso_callback_success_title": "登录成功",
 	"sso_callback_success_message": "您可以关闭此页面，返回应用继续使用",
 	"sso_callback_error_title": "登录失败",
-	"sso_callback_error_message": "未收到有效的 API Key"
+	"sso_callback_error_message": "未收到有效的 API Key",
+	"title_sandbox_remark": "沙盒备注",
+	"title_custom_sandbox_remark": "设置一个沙盒备注",
+	"remark": "备注",
+	"remark_null": "无",
+	"title_select_agent_mode": "Agent 选择",
+	"select_session_placeholder": "选择一个会话",
+	"select_sandbox_placeholder": "选择一个沙盒",
+	"text_button_modify_remark": "修改备注",
+	"label_button_confirm": "确定",
+	"placeholder_input_sandbox_remark": "请输入沙盒备注..."
 }

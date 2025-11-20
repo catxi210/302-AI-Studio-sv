@@ -858,5 +858,15 @@
 	"sso_callback_success_title": "Login Successful",
 	"sso_callback_success_message": "You can close this page and return to the app",
 	"sso_callback_error_title": "Login Failed",
-	"sso_callback_error_message": "No valid API Key received"
+	"sso_callback_error_message": "No valid API Key received",
+	"title_sandbox_remark": "Sandbox Remark",
+	"title_custom_sandbox_remark": "Set a sandbox remark",
+	"remark": "Remark",
+	"remark_null": "none",
+	"title_select_agent_mode": "Select Agent",
+	"select_session_placeholder": "Select a session",
+	"select_sandbox_placeholder": "Choose a sandbox",
+	"text_button_modify_remark": "Modify Remark",
+	"label_button_confirm": "Confirm",
+	"placeholder_input_sandbox_remark": "Please enter a sandbox remark..."
 }
