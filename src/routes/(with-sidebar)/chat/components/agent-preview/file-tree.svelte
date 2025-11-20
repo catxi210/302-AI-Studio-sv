@@ -212,25 +212,29 @@
 
 	// File upload
 	let fileInput: HTMLInputElement;
+	let pendingUploadPath = $state(DEFAULT_WORKSPACE_PATH);
+
+	function triggerFileUpload(path: string = DEFAULT_WORKSPACE_PATH) {
+		pendingUploadPath = path;
+		fileInput.click();
+	}
 
 	async function handleFileUpload(e: Event) {
 		const target = e.target as HTMLInputElement;
 		if (target.files && target.files.length > 0) {
 			const file = target.files[0];
-			// Upload to root by default for now, or we could track the current directory
-			// But since we don't have a "current directory" concept in the UI selection (only expanded dirs),
-			// uploading to root is a safe default, or we could use the selected file's parent if available.
-			// For simplicity as requested "Upload to root directory", we use DEFAULT_WORKSPACE_PATH.
-			await fileTreeState.uploadFile(file, DEFAULT_WORKSPACE_PATH);
+			// Upload to pendingUploadPath
+			await fileTreeState.uploadFile(file, pendingUploadPath);
 
-			// Reset input
+			// Reset input and path
 			target.value = "";
+			pendingUploadPath = DEFAULT_WORKSPACE_PATH;
 		}
 	}
 
 	// Folder upload - uses Electron dialog
-	async function handleFolderUpload() {
-		await fileTreeState.uploadFolder(DEFAULT_WORKSPACE_PATH);
+	async function handleFolderUpload(targetPath: string = DEFAULT_WORKSPACE_PATH) {
+		await fileTreeState.uploadFolder(targetPath);
 	}
 </script>
 
@@ -280,6 +284,32 @@
 					<Scissors class="mr-2 h-4 w-4" />
 				{/if}
 				<span>{m.label_file_tree_paste()}</span>
+			</ContextMenu.Item>
+
+			<!-- Upload File -->
+			<ContextMenu.Item
+				onSelect={() => triggerFileUpload(node.path)}
+				disabled={isOperating || fileTreeState.isStreaming}
+			>
+				{#if isOperating}
+					<Loader2 class="mr-2 h-4 w-4 animate-spin" />
+				{:else}
+					<Upload class="mr-2 h-4 w-4" />
+				{/if}
+				<span>{m.label_file_tree_upload_file()}</span>
+			</ContextMenu.Item>
+
+			<!-- Upload Folder -->
+			<ContextMenu.Item
+				onSelect={() => handleFolderUpload(node.path)}
+				disabled={isOperating || fileTreeState.isStreaming}
+			>
+				{#if isOperating}
+					<Loader2 class="mr-2 h-4 w-4 animate-spin" />
+				{:else}
+					<FolderInput class="mr-2 h-4 w-4" />
+				{/if}
+				<span>{m.label_file_tree_upload_folder()}</span>
 			</ContextMenu.Item>
 		{/if}
 
@@ -407,7 +437,7 @@
 			<!-- Upload File -->
 			<button
 				type="button"
-				onclick={() => fileInput.click()}
+				onclick={() => triggerFileUpload()}
 				class="rounded p-1 hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
 				disabled={fileTreeState.loading || fileTreeState.isStreaming}
 				title="Upload File"
@@ -419,7 +449,7 @@
 			<!-- Upload Folder -->
 			<button
 				type="button"
-				onclick={handleFolderUpload}
+				onclick={() => handleFolderUpload()}
 				class="rounded p-1 hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
 				disabled={fileTreeState.loading || fileTreeState.isStreaming}
 				title="Upload Folder"
