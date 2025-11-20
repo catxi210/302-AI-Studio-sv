@@ -75,6 +75,30 @@ export class AgentPreviewState {
 	isPinned = $state(false);
 	mode = $state<HtmlPreviewMode>("preview");
 	sandBoxId = $state<string | undefined>(undefined);
+
+	// Track active execution states in memory only (not persisted)
+	// Key: "sandboxId:sessionId" -> Value: boolean (isExecuting)
+	activeExecutions = $state<Record<string, boolean>>({});
+
+	/**
+	 * Check if a command is currently executing for a session
+	 */
+	isExecuting(sandboxId: string, sessionId: string): boolean {
+		const key = getStorageKey(sandboxId, sessionId);
+		return this.activeExecutions[key] || false;
+	}
+
+	/**
+	 * Set execution state for a session
+	 */
+	setExecuting(sandboxId: string, sessionId: string, isExecuting: boolean) {
+		const key = getStorageKey(sandboxId, sessionId);
+		this.activeExecutions = {
+			...this.activeExecutions,
+			[key]: isExecuting,
+		};
+	}
+
 	// context = $state<HtmlPreviewContext | null>(null);
 
 	/**
@@ -82,6 +106,49 @@ export class AgentPreviewState {
 	 */
 	private get storageMap(): AgentPreviewStorageMap {
 		return persistedAgentPreviewStorage.current;
+	}
+
+	/**
+	 * Get the reactive storage object for a specific sandbox session
+	 */
+	getReactiveState(sandboxId: string, sessionId: string): AgentPreviewStorage | undefined {
+		if (!sandboxId || !sessionId) {
+			return undefined;
+		}
+		const key = getStorageKey(sandboxId, sessionId);
+		return this.storageMap[key];
+	}
+
+	/**
+	 * Synchronously update the storage state
+	 */
+	updateState(
+		sandboxId: string,
+		sessionId: string,
+		updater: (state: AgentPreviewStorage) => Partial<AgentPreviewStorage>,
+	): void {
+		if (!sandboxId || !sessionId) {
+			return;
+		}
+
+		const key = getStorageKey(sandboxId, sessionId);
+		const currentState = this.storageMap[key] || {
+			fileList: [],
+			fileContents: {},
+			lastUpdated: getISOString(),
+		};
+
+		const updates = updater(currentState);
+		const newState: AgentPreviewStorage = {
+			...currentState,
+			...updates,
+			lastUpdated: getISOString(),
+		};
+
+		persistedAgentPreviewStorage.current = {
+			...this.storageMap,
+			[key]: newState,
+		};
 	}
 
 	/**

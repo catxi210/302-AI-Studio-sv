@@ -2,7 +2,7 @@
 	import { executeSandboxCommand } from "$lib/api/sandbox-command";
 	import { agentPreviewState } from "$lib/stores/agent-preview-state.svelte";
 	import { persistedProviderState } from "$lib/stores/provider-state.svelte";
-	import { Loader2, Terminal as TerminalIcon } from "@lucide/svelte";
+	import { Loader2 } from "@lucide/svelte";
 	import { DEFAULT_WORKSPACE_PATH } from "./constants";
 
 	interface Props {
@@ -14,32 +14,24 @@
 	let { sandboxId, sessionId, onExecuteCommand }: Props = $props();
 
 	let commandInput = $state("");
-	let outputLines = $state<
-		Array<{ type: "command" | "output" | "error"; content: string; cwd?: string }>
-	>([]);
-	let isExecuting = $state(false);
+	let terminalState = $derived(
+		sandboxId && sessionId ? agentPreviewState.getReactiveState(sandboxId, sessionId) : undefined,
+	);
+	let outputLines = $derived(terminalState?.terminalHistory || []);
+	let currentWorkingDirectory = $derived(
+		terminalState?.currentWorkingDirectory || DEFAULT_WORKSPACE_PATH,
+	);
+
+	// Use a reactive call to the state manager to get execution status
+	// This uses the memory-only store in agentPreviewState
+	let isExecuting = $derived(
+		sandboxId && sessionId ? agentPreviewState.isExecuting(sandboxId, sessionId) : false,
+	);
+
 	let commandHistory = $state<string[]>([]);
 	let historyIndex = $state(-1);
 	let inputRef = $state<HTMLInputElement | null>(null);
 	let outputRef = $state<HTMLDivElement | null>(null);
-	let currentWorkingDirectory = $state<string>(DEFAULT_WORKSPACE_PATH);
-
-	// Initialize CWD and terminal history from storage
-	$effect(() => {
-		if (sandboxId && sessionId) {
-			(async () => {
-				const savedCwd = await agentPreviewState.getCurrentWorkingDirectory(sandboxId, sessionId);
-				if (savedCwd) {
-					currentWorkingDirectory = savedCwd;
-				}
-
-				const savedHistory = await agentPreviewState.getTerminalHistory(sandboxId, sessionId);
-				if (savedHistory && savedHistory.length > 0) {
-					outputLines = savedHistory;
-				}
-			})();
-		}
-	});
 
 	// Get 302.AI API key
 	const get302ApiKey = () => {
@@ -109,11 +101,24 @@
 		const cmd = commandInput.trim();
 		if (!cmd || isExecuting) return;
 
+		if (!sandboxId || !sessionId) {
+			return;
+		}
+
 		// Record the cwd at the time of command execution
 		const commandCwd = currentWorkingDirectory;
 
 		// Add command to output with the cwd it was executed in
-		outputLines = [...outputLines, { type: "command", content: cmd, cwd: commandCwd }];
+		agentPreviewState.updateState(sandboxId, sessionId, (state) => ({
+			terminalHistory: [
+				...(state.terminalHistory || []),
+				{ type: "command", content: cmd, cwd: commandCwd },
+			],
+		}));
+
+		// Set executing state in memory-only store
+		agentPreviewState.setExecuting(sandboxId, sessionId, true);
+
 		commandInput = "";
 
 		// Add to history (avoid duplicates)
@@ -126,8 +131,6 @@
 		if (onExecuteCommand) {
 			onExecuteCommand(cmd);
 		}
-
-		isExecuting = true;
 
 		try {
 			const apiKey = get302ApiKey();
@@ -148,17 +151,16 @@
 			});
 
 			if (!result.success) {
-				outputLines = [
-					...outputLines,
-					{
-						type: "error",
-						content: result.error || "Failed to execute command",
-					},
-				];
-				// Save terminal history even on error
-				if (sandboxId && sessionId) {
-					await agentPreviewState.setTerminalHistory(sandboxId, sessionId, outputLines);
-				}
+				agentPreviewState.updateState(sandboxId, sessionId, (state) => ({
+					terminalHistory: [
+						...(state.terminalHistory || []),
+						{
+							type: "error",
+							content: result.error || "Failed to execute command",
+						},
+					],
+				}));
+				agentPreviewState.setExecuting(sandboxId, sessionId, false);
 				return;
 			}
 
@@ -167,48 +169,54 @@
 
 				// Handle cd command - update cwd if successful
 				const cdTarget = parseCdCommand(cmd);
+				let newCwd = currentWorkingDirectory;
 				if (cdTarget !== null && exit_code === 0 && !stderr && !error) {
-					currentWorkingDirectory = cdTarget;
-					// Save to storage
-					if (sandboxId && sessionId) {
-						await agentPreviewState.setCurrentWorkingDirectory(sandboxId, sessionId, cdTarget);
+					newCwd = cdTarget;
+				}
+
+				agentPreviewState.updateState(sandboxId, sessionId, (state) => {
+					const newHistory = [...(state.terminalHistory || [])];
+
+					// Display stdout if present
+					if (stdout) {
+						newHistory.push({ type: "output", content: stdout });
 					}
-				}
 
-				// Display stdout if present
-				if (stdout) {
-					outputLines = [...outputLines, { type: "output", content: stdout }];
-				}
+					// Display stderr if present (in red)
+					if (stderr) {
+						newHistory.push({ type: "error", content: stderr });
+					}
 
-				// Display stderr if present (in red)
-				if (stderr) {
-					outputLines = [...outputLines, { type: "error", content: stderr }];
-				}
+					// Display error if present
+					if (error) {
+						newHistory.push({ type: "error", content: error });
+					}
 
-				// Display error if present
-				if (error) {
-					outputLines = [...outputLines, { type: "error", content: error }];
-				}
-
-				// Save terminal history to storage after adding all outputs
-				if (sandboxId && sessionId) {
-					await agentPreviewState.setTerminalHistory(sandboxId, sessionId, outputLines);
-				}
+					return {
+						terminalHistory: newHistory,
+						currentWorkingDirectory: newCwd,
+					};
+				});
 			}
+
+			agentPreviewState.setExecuting(sandboxId, sessionId, false);
 		} catch (error) {
-			outputLines = [
-				...outputLines,
-				{
-					type: "error",
-					content: error instanceof Error ? error.message : "Unknown error occurred",
-				},
-			];
+			agentPreviewState.updateState(sandboxId, sessionId, (state) => ({
+				terminalHistory: [
+					...(state.terminalHistory || []),
+					{
+						type: "error",
+						content: error instanceof Error ? error.message : "Unknown error occurred",
+					},
+				],
+			}));
+			agentPreviewState.setExecuting(sandboxId, sessionId, false);
 		} finally {
-			isExecuting = false;
-			// Focus input after execution
+			// Focus input after execution if component is still mounted
 			if (inputRef) {
 				inputRef.focus();
 			}
+			scrollToBottom();
 		}
 	}
 
@@ -251,78 +259,69 @@
 </script>
 
 <div
-	class="flex h-full flex-col bg-muted/40 dark:bg-zinc-950 font-mono text-xs sm:text-sm group"
-	onclick={() => inputRef?.focus()}
+	class="flex h-full flex-col bg-zinc-950 text-zinc-300 font-mono text-xs sm:text-sm group selection:bg-zinc-700 selection:text-zinc-100"
+	onclick={(e) => {
+		// Only focus input if the user is clicking on the container background
+		// and not selecting text or interacting with specific elements
+		if (e.target === e.currentTarget || (e.target as HTMLElement).classList.contains("flex-1")) {
+			inputRef?.focus();
+		}
+	}}
 	onkeydown={(e) => {
 		if (e.key === "Enter") inputRef?.focus();
 	}}
-	role="button"
-	tabindex="0"
+	role="presentation"
 >
-	<!-- Output area -->
+	<!-- Terminal Content -->
 	<div
 		bind:this={outputRef}
-		class="flex-1 overflow-y-auto p-3 min-h-0 scrollbar-thin scrollbar-thumb-border/40 scrollbar-track-transparent"
+		class="flex-1 overflow-y-auto p-3 min-h-0 scrollbar-thin scrollbar-thumb-zinc-700/50 scrollbar-track-transparent"
 	>
-		{#if outputLines.length === 0}
-			<div class="flex flex-col items-center justify-center h-full text-muted-foreground/50 gap-2">
-				<TerminalIcon class="w-8 h-8 opacity-20" />
-				<span class="text-xs">Terminal ready</span>
+		<!-- Output History -->
+		{#each outputLines as line, i (i)}
+			<div class="mb-1 whitespace-pre-wrap break-words leading-relaxed">
+				{#if line.type === "command"}
+					<div class="flex flex-row items-start gap-2 mt-2 mb-1">
+						<span class="text-blue-400 font-medium shrink-0 select-none">
+							{formatCwdForDisplay(line.cwd || currentWorkingDirectory)}
+						</span>
+						<span class="text-zinc-100 font-medium">{line.content}</span>
+					</div>
+				{:else if line.type === "error"}
+					<span class="text-red-400 block pl-4 border-l-2 border-red-500/50">{line.content}</span>
+				{:else}
+					<span class="text-zinc-300 block">{line.content}</span>
+				{/if}
+			</div>
+		{/each}
+
+		<!-- Active Input Line -->
+		{#if isExecuting}
+			<div class="flex flex-row items-start gap-2 mt-2 mb-1">
+				<Loader2 class="h-4 w-4 mt-0.5 animate-spin text-zinc-400" />
 			</div>
 		{:else}
-			{#each outputLines as line, i (i)}
-				<div class="mb-1 whitespace-pre-wrap break-words leading-relaxed">
-					{#if line.type === "command"}
-						<div class="flex flex-row items-start gap-2 mt-2 mb-1">
-							<span class="text-primary font-bold shrink-0 select-none">➜</span>
-							<span class="text-muted-foreground font-medium shrink-0 select-none">
-								{formatCwdForDisplay(line.cwd || currentWorkingDirectory)}
-							</span>
-							<span class="text-foreground font-medium">{line.content}</span>
-						</div>
-					{:else if line.type === "error"}
-						<span
-							class="text-destructive dark:text-red-400 block pl-4 border-l-2 border-destructive/50"
-							>{line.content}</span
-						>
-					{:else}
-						<span class="text-foreground/90 dark:text-zinc-300 block">{line.content}</span>
-					{/if}
-				</div>
-			{/each}
+			<div class="flex flex-row items-start gap-2 mt-2 mb-1">
+				<span class="text-blue-400 font-medium shrink-0 select-none mt-0.5">
+					{formatCwdForDisplay(currentWorkingDirectory)}
+				</span>
+				<input
+					bind:this={inputRef}
+					bind:value={commandInput}
+					onkeydown={handleKeyDown}
+					disabled={isExecuting}
+					class="flex-1 bg-transparent text-zinc-100 outline-none placeholder:text-zinc-600 disabled:opacity-50 min-w-0 p-0 border-none focus:ring-0 h-auto"
+					type="text"
+					autocomplete="off"
+					spellcheck="false"
+				/>
+			</div>
 		{/if}
-	</div>
-
-	<!-- Input area -->
-	<div class="flex shrink-0 items-center gap-2 border-t border-border/40 bg-background/50 p-2 px-3">
-		<div class="flex items-center gap-1.5 shrink-0 text-primary">
-			{#if isExecuting}
-				<Loader2 class="h-3.5 w-3.5 animate-spin" />
-			{:else}
-				<span class="font-bold select-none">➜</span>
-			{/if}
-			<span class="text-muted-foreground font-medium select-none text-xs hidden sm:inline-block">
-				{formatCwdForDisplay(currentWorkingDirectory)}
-			</span>
-		</div>
-
-		<input
-			bind:this={inputRef}
-			bind:value={commandInput}
-			onkeydown={handleKeyDown}
-			disabled={isExecuting}
-			class="flex-1 bg-transparent text-foreground outline-none placeholder:text-muted-foreground/50 disabled:opacity-50 min-w-0"
-			placeholder={isExecuting ? "Executing..." : "Type a command..."}
-			type="text"
-			autocomplete="off"
-			spellcheck="false"
-		/>
 	</div>
 </div>
 
 <style>
-	/* 移除原有的全局滚动条样式覆盖，改用 Tailwind 插件或更温和的局部样式（如果项目中已有 scrollbar 插件则不需要这些） */
-	/* 这里保留一个极简的 fallback */
+	/* Custom scrollbar styles for dark theme enforcement */
 	div::-webkit-scrollbar {
 		width: 6px;
 		height: 6px;
@@ -333,16 +332,11 @@
 	}
 
 	div::-webkit-scrollbar-thumb {
-		background-color: var(--muted-foreground);
-		opacity: 0.2;
+		background-color: rgba(255, 255, 255, 0.2);
 		border-radius: 9999px;
 	}
-	/* 让滚动条颜色更淡一点，适配亮暗模式 */
-	:global(.dark) div::-webkit-scrollbar-thumb {
-		background-color: rgba(255, 255, 255, 0.2);
-	}
+
 	div::-webkit-scrollbar-thumb:hover {
-		background-color: var(--muted-foreground);
-		opacity: 0.5;
+		background-color: rgba(255, 255, 255, 0.3);
 	}
 </style>
