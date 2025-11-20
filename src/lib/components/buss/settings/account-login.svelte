@@ -10,7 +10,7 @@
 
 {#if !userState.isLoggedIn}
 	<div class="gap-settings-gap flex flex-col">
-		<Label id="account" class="text-label-fg">{m.login_account_management()}</Label>
+		<Label class="text-label-fg">{m.login_account_management()}</Label>
 		<div class="flex items-center gap-4">
 			<Button
 				variant="outline"
