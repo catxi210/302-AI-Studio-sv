@@ -17,6 +17,7 @@ import type { AttachmentFile, MCPServer, Model, ThreadParmas } from "@shared/typ
 import { nanoid } from "nanoid";
 import { toast } from "svelte-sonner";
 
+import { claudeCodeAgentState } from "$lib/stores/code-agent/claude-code-state.svelte";
 import type { CodeAgentCfgs } from "@shared/storage/code-agent";
 import { codeAgentState } from "./code-agent";
 import { generalSettings } from "./general-settings.state.svelte";
@@ -1048,7 +1049,16 @@ export const chat = new Chat({
 		},
 		body: () => {
 			const codeAgentEnabled = codeAgentState.enabled;
-			const sessionId = codeAgentEnabled ? codeAgentState.getCurrentSessionId() : "";
+			const sessionId = codeAgentEnabled
+				? (() => {
+						// If currentSessionId matches one of the known valid sessionIds, use it
+						if (claudeCodeAgentState.sessionIds.includes(claudeCodeAgentState.currentSessionId)) {
+							return claudeCodeAgentState.currentSessionId;
+						}
+						// Otherwise fallback to the first available session ID (assuming single active session in most cases)
+						return claudeCodeAgentState.sessionIds[0] ?? "";
+					})()
+				: "";
 
 			return {
 				baseUrl: codeAgentEnabled

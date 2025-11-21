@@ -290,7 +290,10 @@
 			return result.data;
 		} catch (error) {
 			console.error("Deploy failed:", error);
-			toast.error(m.toast_deploy_failed());
+			const rawMessage = error instanceof Error ? error.message : "Unknown error";
+			const truncatedMessage =
+				rawMessage.length > 300 ? rawMessage.slice(0, 300) + "..." : rawMessage;
+			toast.error(`${m.toast_deploy_failed()}: ${truncatedMessage}`);
 		} finally {
 			deployment.isDeploying = false;
 		}

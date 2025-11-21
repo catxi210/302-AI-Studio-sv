@@ -30,8 +30,15 @@
 
 	let commandHistory = $state<string[]>([]);
 	let historyIndex = $state(-1);
+	let cursorPosition = $state(0);
 	let inputRef = $state<HTMLInputElement | null>(null);
 	let outputRef = $state<HTMLDivElement | null>(null);
+
+	// Track cursor position
+	function handleInputSelect(e: Event) {
+		const target = e.target as HTMLInputElement;
+		cursorPosition = target.selectionStart || 0;
+	}
 
 	// Get 302.AI API key
 	const get302ApiKey = () => {
@@ -49,6 +56,16 @@
 	$effect(() => {
 		if (outputLines.length > 0) {
 			scrollToBottom();
+		}
+	});
+
+	// Auto-focus input when execution finishes
+	$effect(() => {
+		if (!isExecuting && inputRef) {
+			// Small delay to ensure DOM is updated
+			setTimeout(() => {
+				inputRef?.focus();
+			}, 0);
 		}
 	});
 
@@ -120,6 +137,7 @@
 		agentPreviewState.setExecuting(sandboxId, sessionId, true);
 
 		commandInput = "";
+		cursorPosition = 0;
 
 		// Add to history (avoid duplicates)
 		if (commandHistory.length === 0 || commandHistory[commandHistory.length - 1] !== cmd) {
@@ -234,6 +252,13 @@
 					historyIndex--;
 				}
 				commandInput = commandHistory[historyIndex] || "";
+				// Move cursor to end
+				setTimeout(() => {
+					if (inputRef) {
+						inputRef.selectionStart = inputRef.selectionEnd = commandInput.length;
+						cursorPosition = commandInput.length;
+					}
+				}, 0);
 			}
 		} else if (e.key === "ArrowDown") {
 			e.preventDefault();
@@ -245,21 +270,32 @@
 					historyIndex = -1;
 					commandInput = "";
 				}
+				// Move cursor to end
+				setTimeout(() => {
+					if (inputRef) {
+						inputRef.selectionStart = inputRef.selectionEnd = commandInput.length;
+						cursorPosition = commandInput.length;
+					}
+				}, 0);
 			}
 		}
+
+		// Sync cursor position for all keys (delayed to capture new position)
+		setTimeout(() => {
+			if (inputRef) {
+				cursorPosition = inputRef.selectionStart || 0;
+			}
+		}, 0);
 	}
 
-	// Format cwd for display (replace /home/user with ~)
+	// Format cwd for display
 	function formatCwdForDisplay(cwd: string): string {
-		if (cwd.startsWith("/home/user")) {
-			return cwd.replace(/^\/home\/user/, "~");
-		}
 		return cwd;
 	}
 </script>
 
 <div
-	class="flex h-full flex-col bg-zinc-950 text-zinc-300 font-mono text-xs sm:text-sm group selection:bg-zinc-700 selection:text-zinc-100"
+	class="flex h-full flex-col bg-black text-zinc-300 font-mono text-xs sm:text-sm group selection:bg-zinc-700 selection:text-zinc-100"
 	onclick={(e) => {
 		// Only focus input if the user is clicking on the container background
 		// and not selecting text or interacting with specific elements
@@ -275,20 +311,37 @@
 	<!-- Terminal Content -->
 	<div
 		bind:this={outputRef}
-		class="flex-1 overflow-y-auto p-3 min-h-0 scrollbar-thin scrollbar-thumb-zinc-700/50 scrollbar-track-transparent"
+		class="flex-1 overflow-y-auto p-4 min-h-0 scrollbar-thin scrollbar-thumb-zinc-700/50 scrollbar-track-transparent font-mono text-sm"
 	>
+		<!-- Terminal Header -->
+		<div class="border-2 border-cyan-500 bg-black px-4 py-2 mb-4 inline-block">
+			<span class="text-cyan-500 font-semibold">SANDBOX TERMINAL STARTED</span>
+		</div>
+
+		<!-- Terminal Info -->
+		<div class="mb-4 space-y-1">
+			<div class="text-orange-400">
+				<span class="text-orange-400">Sandbox ID:</span>
+				<span class="text-orange-300">{sandboxId}</span>
+			</div>
+			<div class="text-orange-400">
+				<span class="text-orange-400">Working Directory:</span>
+				<span class="text-orange-300">{currentWorkingDirectory}</span>
+			</div>
+		</div>
+
 		<!-- Output History -->
 		{#each outputLines as line, i (i)}
 			<div class="mb-1 whitespace-pre-wrap break-words leading-relaxed">
 				{#if line.type === "command"}
-					<div class="flex flex-row items-start gap-2 mt-2 mb-1">
-						<span class="text-blue-400 font-medium shrink-0 select-none">
-							{formatCwdForDisplay(line.cwd || currentWorkingDirectory)}
+					<div class="flex flex-row items-start gap-1 mt-4 mb-1">
+						<span class="text-white select-none">
+							{formatCwdForDisplay(line.cwd || currentWorkingDirectory)}&gt;
 						</span>
-						<span class="text-zinc-100 font-medium">{line.content}</span>
+						<span class="text-zinc-100">{line.content}</span>
 					</div>
 				{:else if line.type === "error"}
-					<span class="text-red-400 block pl-4 border-l-2 border-red-500/50">{line.content}</span>
+					<span class="text-red-400 block">{line.content}</span>
 				{:else}
 					<span class="text-zinc-300 block">{line.content}</span>
 				{/if}
@@ -297,24 +350,41 @@
 
 		<!-- Active Input Line -->
 		{#if isExecuting}
-			<div class="flex flex-row items-start gap-2 mt-2 mb-1">
+			<div class="flex flex-row items-start gap-1 mt-4 mb-1">
 				<Loader2 class="h-4 w-4 mt-0.5 animate-spin text-zinc-400" />
 			</div>
 		{:else}
-			<div class="flex flex-row items-start gap-2 mt-2 mb-1">
-				<span class="text-blue-400 font-medium shrink-0 select-none mt-0.5">
-					{formatCwdForDisplay(currentWorkingDirectory)}
+			<div class="flex flex-row items-center gap-1 mt-4 mb-1">
+				<span class="text-white select-none">
+					{formatCwdForDisplay(currentWorkingDirectory)}&gt;
 				</span>
-				<input
-					bind:this={inputRef}
-					bind:value={commandInput}
-					onkeydown={handleKeyDown}
-					disabled={isExecuting}
-					class="flex-1 bg-transparent text-zinc-100 outline-none placeholder:text-zinc-600 disabled:opacity-50 min-w-0 p-0 border-none focus:ring-0 h-auto"
-					type="text"
-					autocomplete="off"
-					spellcheck="false"
-				/>
+				<div class="relative flex-1 min-w-0">
+					<!-- Visible Text and Cursor -->
+					<div class="flex items-center font-mono text-sm text-zinc-100 whitespace-pre">
+						<span>{commandInput.slice(0, cursorPosition)}</span>
+						<span
+							class="bg-white text-black animate-pulse inline-block min-w-[0.6em] min-h-[1.2em]"
+						>
+							{commandInput[cursorPosition] || " "}
+						</span>
+						<span>{commandInput.slice(cursorPosition + 1)}</span>
+					</div>
+					<!-- Invisible Input for Typing -->
+					<input
+						bind:this={inputRef}
+						bind:value={commandInput}
+						onkeydown={handleKeyDown}
+						oninput={handleInputSelect}
+						onselect={handleInputSelect}
+						onclick={handleInputSelect}
+						onkeyup={handleInputSelect}
+						disabled={isExecuting}
+						class="absolute inset-0 w-full h-full opacity-0 cursor-text"
+						type="text"
+						autocomplete="off"
+						spellcheck="false"
+					/>
+				</div>
 			</div>
 		{/if}
 	</div>

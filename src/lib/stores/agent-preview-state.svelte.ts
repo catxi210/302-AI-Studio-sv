@@ -105,7 +105,11 @@ export class AgentPreviewState {
 	 * Get the storage map (reactive)
 	 */
 	private get storageMap(): AgentPreviewStorageMap {
-		return persistedAgentPreviewStorage.current;
+		const current = persistedAgentPreviewStorage.current;
+		if (!current) {
+			console.warn("[AgentPreviewState] persistedAgentPreviewStorage.current is null/undefined");
+		}
+		return current || {};
 	}
 
 	/**
@@ -156,11 +160,23 @@ export class AgentPreviewState {
 	 */
 	async loadFromStorage(sandboxId: string, sessionId: string): Promise<AgentPreviewStorage | null> {
 		if (!sandboxId || !sessionId) {
+			console.warn("[AgentPreviewState] loadFromStorage called with missing IDs:", {
+				sandboxId,
+				sessionId,
+			});
 			return null;
 		}
 
 		const key = getStorageKey(sandboxId, sessionId);
-		const storage = this.storageMap[key];
+		// Access storageMap via getter to ensure safety and logging
+		const map = this.storageMap;
+		const storage = map[key];
+
+		if (!storage) {
+			console.log("[AgentPreviewState] No storage found for key:", key);
+			console.log("[AgentPreviewState] Available keys:", Object.keys(map));
+		}
+
 		return storage || null;
 	}
 

@@ -52,7 +52,15 @@ export async function deploySandboxProject(
 			try {
 				const errorData = JSON.parse(errorText);
 				if (errorData.error) {
-					errorMessage = errorData.error;
+					if (
+						typeof errorData.error === "object" &&
+						errorData.error !== null &&
+						errorData.error.message
+					) {
+						errorMessage = errorData.error.message;
+					} else if (typeof errorData.error === "string") {
+						errorMessage = errorData.error;
+					}
 				} else if (errorData.message) {
 					errorMessage = errorData.message;
 				}
