@@ -238,7 +238,16 @@
 
 					if (shouldLoadFromAPI) {
 						console.log("[FileTree] Loading from API (storage empty)");
-						await fileTreeState.refreshFileTree();
+						// Add a small delay to check if streaming starts (avoid initial load conflict)
+						setTimeout(async () => {
+							if (!fileTreeState.isStreaming) {
+								await fileTreeState.refreshFileTree();
+							} else {
+								console.log(
+									"[FileTree] Skipping initial load - agent is busy (streaming or submitted)",
+								);
+							}
+						}, 1000);
 					} else {
 						console.log(
 							"[FileTree] Skipping API load -",

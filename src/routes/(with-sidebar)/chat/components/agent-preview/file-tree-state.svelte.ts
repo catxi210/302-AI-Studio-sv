@@ -72,7 +72,7 @@ export class FileTreeState {
 	treeNodesCache = $state<TreeCache | null>(null);
 
 	// Derived state
-	isStreaming = $derived(chatState.isStreaming);
+	isStreaming = $derived(chatState.isStreaming || chatState.isSubmitted);
 
 	constructor(sandboxId: string) {
 		this.sandboxId = sandboxId;
