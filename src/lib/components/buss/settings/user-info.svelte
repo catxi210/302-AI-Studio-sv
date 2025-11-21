@@ -6,7 +6,7 @@
 	import { m } from "$lib/paraglide/messages.js";
 	import { userState } from "$lib/stores/user-state.svelte";
 	import { cn } from "$lib/utils.js";
-	import { Check, Copy, RefreshCw } from "@lucide/svelte";
+	import { Check, Copy, ExternalLink, RefreshCw } from "@lucide/svelte";
 	import { toast } from "svelte-sonner";
 	import SettingInfoItem from "./setting-info-item.svelte";
 
@@ -55,6 +55,12 @@
 	function formatCurrency(val: number) {
 		return val.toFixed(2);
 	}
+
+	function openWallet() {
+		if (typeof window !== "undefined" && window.electronAPI?.externalLinkService) {
+			window.electronAPI.externalLinkService.openExternalLink("https://302.ai/charge");
+		}
+	}
 </script>
 
 {#if userState.isLoggedIn && userState.userInfo}
@@ -89,9 +95,6 @@
 						UID: {userState.userInfo.uid}
 					{/if}
 				</div>
-				<div class="text-xs text-muted-foreground">
-					{m.settings_balance({ balance: userState.userInfo.balance.toFixed(2) })}
-				</div>
 			</div>
 
 			<!-- Actions -->
@@ -116,22 +119,50 @@
 	<div class="gap-settings-gap flex flex-col">
 		<Label class="text-label-fg">{m.settings_account_details()}</Label>
 
-		{#if userState.userInfo.is_developer}
-			{#snippet apiKeyAction()}
+		{#snippet apiKeyAction()}
+			{#if userState.userInfo}
+				<div class="flex items-center gap-2">
+					<code
+						class="bg-muted relative rounded px-[0.3rem] py-[0.2rem] font-mono text-sm font-semibold"
+					>
+						{userState.userInfo.api_key.slice(0, 8)}...
+					</code>
+					<Button
+						variant="ghost"
+						size="icon-sm"
+						onclick={() => copyToClipboard(userState.userInfo!.api_key, "api_key")}
+						class="relative"
+					>
+						{#each [{ Icon: Check, visible: copiedField === "api_key", id: "check" }, { Icon: Copy, visible: copiedField !== "api_key", id: "copy" }] as { Icon, visible, id } (id)}
+							<Icon
+								class={cn(
+									"absolute inset-0 m-auto size-4 transition-all duration-200 ease-in-out",
+									visible ? "scale-100 opacity-100" : "scale-0 opacity-0",
+								)}
+							/>
+						{/each}
+					</Button>
+				</div>
+			{/if}
+		{/snippet}
+		<SettingInfoItem label={m.settings_api_key()} action={apiKeyAction} />
+
+		{#if userState.userInfo.invite_code}
+			{#snippet inviteCodeAction()}
 				{#if userState.userInfo}
 					<div class="flex items-center gap-2">
 						<code
 							class="bg-muted relative rounded px-[0.3rem] py-[0.2rem] font-mono text-sm font-semibold"
 						>
-							{userState.userInfo.api_key.slice(0, 8)}...
+							{userState.userInfo.invite_code}
 						</code>
 						<Button
 							variant="ghost"
 							size="icon-sm"
-							onclick={() => copyToClipboard(userState.userInfo!.api_key, "api_key")}
+							onclick={() => copyToClipboard(userState.userInfo!.invite_code, "invite_code")}
 							class="relative"
 						>
-							{#each [{ Icon: Check, visible: copiedField === "api_key", id: "check" }, { Icon: Copy, visible: copiedField !== "api_key", id: "copy" }] as { Icon, visible, id } (id)}
+							{#each [{ Icon: Check, visible: copiedField === "invite_code", id: "check" }, { Icon: Copy, visible: copiedField !== "invite_code", id: "copy" }] as { Icon, visible, id } (id)}
 								<Icon
 									class={cn(
 										"absolute inset-0 m-auto size-4 transition-all duration-200 ease-in-out",
@@ -143,77 +174,27 @@
 					</div>
 				{/if}
 			{/snippet}
-			<SettingInfoItem label={m.settings_api_key()} action={apiKeyAction} />
+			<SettingInfoItem label={m.settings_invite_code()} action={inviteCodeAction} />
 		{/if}
-
-		{#snippet uidAction()}
-			{#if userState.userInfo}
-				<div class="flex items-center gap-2">
-					<code
-						class="bg-muted relative rounded px-[0.3rem] py-[0.2rem] font-mono text-sm font-semibold"
-					>
-						{userState.userInfo.uid}
-					</code>
-					<Button
-						variant="ghost"
-						size="icon-sm"
-						onclick={() => copyToClipboard(String(userState.userInfo!.uid), "uid")}
-						class="relative"
-					>
-						{#each [{ Icon: Check, visible: copiedField === "uid", id: "check" }, { Icon: Copy, visible: copiedField !== "uid", id: "copy" }] as { Icon, visible, id } (id)}
-							<Icon
-								class={cn(
-									"absolute inset-0 m-auto size-4 transition-all duration-200 ease-in-out",
-									visible ? "scale-100 opacity-100" : "scale-0 opacity-0",
-								)}
-							/>
-						{/each}
-					</Button>
-				</div>
-			{/if}
-		{/snippet}
-		<SettingInfoItem label={m.settings_user_id()} action={uidAction} />
-
-		{#snippet inviteCodeAction()}
-			{#if userState.userInfo}
-				<div class="flex items-center gap-2">
-					<code
-						class="bg-muted relative rounded px-[0.3rem] py-[0.2rem] font-mono text-sm font-semibold"
-					>
-						{userState.userInfo.invite_code}
-					</code>
-					<Button
-						variant="ghost"
-						size="icon-sm"
-						onclick={() => copyToClipboard(userState.userInfo!.invite_code, "invite_code")}
-						class="relative"
-					>
-						{#each [{ Icon: Check, visible: copiedField === "invite_code", id: "check" }, { Icon: Copy, visible: copiedField !== "invite_code", id: "copy" }] as { Icon, visible, id } (id)}
-							<Icon
-								class={cn(
-									"absolute inset-0 m-auto size-4 transition-all duration-200 ease-in-out",
-									visible ? "scale-100 opacity-100" : "scale-0 opacity-0",
-								)}
-							/>
-						{/each}
-					</Button>
-				</div>
-			{/if}
-		{/snippet}
-		<SettingInfoItem label={m.settings_invite_code()} action={inviteCodeAction} />
 	</div>
 
 	<!-- Balance Section -->
 	<div class="gap-settings-gap flex flex-col">
-		<Label class="text-label-fg">{m.settings_balance_usage()}</Label>
+		<div class="flex items-center justify-between">
+			<Label class="text-label-fg">{m.settings_balance_usage()}</Label>
+			<Button variant="outline" size="sm" onclick={openWallet} class="dark:hover:bg-muted gap-1.5">
+				{m.settings_recharge()}
+				<ExternalLink class="size-3.5" />
+			</Button>
+		</div>
 
 		<SettingInfoItem
 			label={m.settings_current_balance()}
-			value="¥{formatCurrency(userState.userInfo.balance)}"
+			value="${formatCurrency(userState.userInfo.balance)}"
 		/>
 		<SettingInfoItem
 			label={m.settings_total_consumed()}
-			value="¥{formatCurrency(userState.userInfo.gpt_cost)}"
+			value="${formatCurrency(userState.userInfo.gpt_cost)}"
 		/>
 		<SettingInfoItem
 			label={m.settings_total_requests()}
@@ -221,7 +202,7 @@
 		/>
 		<SettingInfoItem
 			label={m.settings_total_earnings()}
-			value="¥{formatCurrency(userState.userInfo.total_earning)}"
+			value="${formatCurrency(userState.userInfo.total_earning)}"
 		/>
 	</div>
 {/if}
