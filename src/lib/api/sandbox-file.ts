@@ -394,6 +394,12 @@ export async function uploadSandboxFile(
 		});
 
 		const data = await response.json();
+		if (!data.success && data.error && typeof data.error === "object") {
+			return {
+				success: false,
+				error: data.error.message || JSON.stringify(data.error),
+			};
+		}
 		return data;
 	} catch (error) {
 		console.error("Error uploading sandbox file:", error);

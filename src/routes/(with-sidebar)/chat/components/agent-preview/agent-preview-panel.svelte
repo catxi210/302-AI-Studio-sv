@@ -496,6 +496,7 @@
 				onOpenInNewTab={handleOpenInNewTab}
 				onCopyDeployedUrl={handleCopyDeploymentUrl}
 				onPin={() => agentPreviewState.togglePin()}
+				{isAgentMode}
 			/>
 
 			<div class="flex flex-1 min-w-0 min-h-0">

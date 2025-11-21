@@ -4,6 +4,7 @@
 	import { cn } from "$lib/utils";
 	import {
 		Copy,
+		Loader2,
 		Monitor,
 		Pin,
 		PinOff,
@@ -35,6 +36,7 @@
 		onOpenInNewTab: () => void;
 		onCopyDeployedUrl: () => void;
 		onPin: () => void;
+		isAgentMode?: boolean;
 	}
 
 	let {
@@ -54,6 +56,7 @@
 		onOpenInNewTab,
 		onCopyDeployedUrl,
 		onPin,
+		isAgentMode = false,
 	}: Props = $props();
 </script>
 
@@ -126,7 +129,7 @@
 		<div class="grid h-10 w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-2 px-2 min-w-0">
 			<!-- 左侧：部署按钮 -->
 			<div class="flex items-center gap-2 min-w-0">
-				{#if !deployedUrl && !compactDeployButton}
+				{#if (!deployedUrl && !compactDeployButton) || isAgentMode}
 					<button
 						type="button"
 						class="flex items-center gap-1.5 px-2.5 py-1 rounded border border-border/40 bg-background text-foreground text-xs font-medium shadow-none transition-colors hover:bg-muted/70 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -134,7 +137,11 @@
 						disabled={isDeploying || isStreaming}
 						onclick={onDeploy}
 					>
-						<Rocket class="size-4 shrink-0" />
+						{#if isDeploying}
+							<Loader2 class="size-4 shrink-0 animate-spin" />
+						{:else}
+							<Rocket class="size-4 shrink-0" />
+						{/if}
 						<span class="shrink-0">{m.text_button_deploy()}</span>
 					</button>
 				{:else}
@@ -145,7 +152,11 @@
 						disabled={isDeploying || isStreaming}
 						onclick={onDeploy}
 					>
-						<Rocket class="size-4" />
+						{#if isDeploying}
+							<Loader2 class="size-4 animate-spin" />
+						{:else}
+							<Rocket class="size-4" />
+						{/if}
 					</ButtonWithTooltip>
 				{/if}
 
