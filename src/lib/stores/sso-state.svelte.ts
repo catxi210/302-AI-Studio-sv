@@ -1,6 +1,7 @@
 import { m } from "$lib/paraglide/messages.js";
 import { open302SsoLogin } from "$lib/utils/sso";
 import { toast } from "svelte-sonner";
+import { providerState } from "./provider-state.svelte";
 import { userState } from "./user-state.svelte";
 
 class SsoStateManager {
@@ -22,6 +23,19 @@ class SsoStateManager {
 				// Set the API key as token with Basic prefix
 				const token = result.apiKey.startsWith("Basic ") ? result.apiKey : `Basic ${result.apiKey}`;
 				userState.setToken(token);
+
+				// Update 302.AI provider if key is missing (Fresh install scenario)
+				const provider = providerState.getProvider("302AI");
+				if (provider && !provider.apiKey) {
+					let rawApiKey = result.apiKey;
+					if (rawApiKey.startsWith("Basic ")) {
+						rawApiKey = rawApiKey.slice(6).trim();
+					}
+					await providerState.updateProvider("302AI", { apiKey: rawApiKey });
+					// Fetch models using the updated provider (need to get fresh reference or rely on internal state)
+					// fetchModelsForProvider uses getProvider internally so passing the old object works if ID is same
+					await providerState.fetchModelsForProvider(provider);
+				}
 
 				// Fetch user info
 				const fetchResult = await userState.fetchUserInfo();
