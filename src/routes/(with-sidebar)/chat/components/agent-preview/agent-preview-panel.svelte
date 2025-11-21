@@ -241,6 +241,19 @@
 		}
 	}
 
+	function handleFileDelete(file: SandboxFileInfo) {
+		if (!fileViewer.selectedFile) return;
+
+		const isExactMatch = fileViewer.selectedFile.path === file.path;
+		const isParentDir =
+			file.type === "dir" && fileViewer.selectedFile.path.startsWith(file.path + "/");
+
+		if (isExactMatch || isParentDir) {
+			fileViewer.selectedFile = null;
+			fileViewer.content = "";
+		}
+	}
+
 	// 提取通用的 Deploy 验证逻辑
 	function validateDeployPreconditions() {
 		const validation = validate302Provider(persistedProviderState.current);
@@ -492,7 +505,12 @@
 						? ''
 						: 'hidden'}"
 				>
-					<FileTree sandboxId={currentSandboxId} onFileSelect={handleFileSelect} {refreshTrigger} />
+					<FileTree
+						sandboxId={currentSandboxId}
+						onFileSelect={handleFileSelect}
+						{refreshTrigger}
+						onFileDelete={handleFileDelete}
+					/>
 				</div>
 
 				<div class="flex-1 flex flex-col min-w-[140px] min-h-0">

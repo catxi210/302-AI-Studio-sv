@@ -34,9 +34,10 @@
 		sandboxId: string;
 		onFileSelect?: (file: SandboxFileInfo) => void;
 		refreshTrigger?: number;
+		onFileDelete?: (file: SandboxFileInfo) => void;
 	}
 
-	let { sandboxId, onFileSelect, refreshTrigger }: Props = $props();
+	let { sandboxId, onFileSelect, refreshTrigger, onFileDelete }: Props = $props();
 
 	// Initialize file tree state
 	const fileTreeState = new FileTreeState(sandboxId);
@@ -162,7 +163,10 @@
 
 	// Handle delete
 	async function handleDelete(file: SandboxFileInfo) {
-		await fileTreeState.deleteFile(file.path);
+		const success = await fileTreeState.deleteFile(file.path);
+		if (success) {
+			onFileDelete?.(file);
+		}
 	}
 
 	// Handle copy
@@ -187,34 +191,39 @@
 	let previousSandboxId = $state<string | undefined>(undefined);
 	let previousSessionId = $state<string | null>(null);
 
-	// Update state when sandboxId changes
-	$effect(() => {
-		if (sandboxId !== previousSandboxId) {
-			fileTreeState.updateSandboxId(sandboxId);
-			previousSandboxId = sandboxId;
-		}
-	});
-
-	// Initialize or sandboxId/sessionId changes: load from storage
+	// Combined effect to handle sandboxId/sessionId changes and loading
 	$effect(() => {
 		const currentSessionId = claudeCodeAgentState.currentSessionId;
 		const sandboxChanged = sandboxId !== previousSandboxId;
 		const sessionChanged = currentSessionId !== previousSessionId;
 
-		const isRealChange =
-			(sandboxChanged && previousSandboxId !== undefined) ||
-			(sessionChanged && previousSessionId !== null);
-		const isComponentRecreation = previousSandboxId === undefined && previousSessionId === null;
+		if (sandboxChanged || sessionChanged) {
+			// Capture old values for logic
+			const oldSandboxId = previousSandboxId;
+			const oldSessionId = previousSessionId;
 
-		if (sandboxId && currentSessionId) {
-			if (sandboxChanged || sessionChanged) {
+			// Update trackers immediately
+			previousSandboxId = sandboxId;
+			previousSessionId = currentSessionId;
+
+			// 1. Update Sandbox ID in state
+			if (sandboxChanged) {
+				fileTreeState.updateSandboxId(sandboxId);
+			}
+
+			// 2. Load from storage logic
+			const isRealChange =
+				(sandboxChanged && oldSandboxId !== undefined) || (sessionChanged && oldSessionId !== null);
+			const isComponentRecreation = oldSandboxId === undefined && oldSessionId === null;
+
+			if (sandboxId && currentSessionId) {
 				console.log("[FileTree] Sandbox or session changed:", {
 					sandboxId,
 					sessionId: currentSessionId,
 					sandboxChanged,
 					sessionChanged,
-					previousSandboxId,
-					previousSessionId,
+					previousSandboxId: oldSandboxId,
+					previousSessionId: oldSessionId,
 					isRealChange,
 					isComponentRecreation,
 				});
@@ -237,13 +246,9 @@
 						);
 					}
 				})();
-
-				previousSandboxId = sandboxId;
-				previousSessionId = currentSessionId;
+			} else if (sandboxChanged && !sandboxId) {
+				console.log("[FileTree] Sandbox cleared, keeping current files");
 			}
-		} else if (sandboxChanged && !sandboxId) {
-			console.log("[FileTree] Sandbox cleared, keeping current files");
-			previousSandboxId = undefined;
 		}
 	});
 
