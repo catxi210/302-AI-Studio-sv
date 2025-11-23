@@ -223,7 +223,7 @@
 	>
 		<div class="flex w-full justify-center">
 			<div bind:this={messageListContainer} class={cn("w-full space-y-4", containerClass)}>
-				{#each messages as message, index (message.id)}
+				{#each messages as message, index (message.id + "-" + index)}
 					{#if message.role === "user"}
 						<UserMessage message={{ ...message, role: "user" as const }} />
 						<SandboxStatusCallout show={index === 0 && messages.length === 1} />
