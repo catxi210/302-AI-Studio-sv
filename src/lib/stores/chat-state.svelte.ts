@@ -1051,12 +1051,29 @@ export const chat = new Chat({
 			const codeAgentEnabled = codeAgentState.enabled;
 			const sessionId = codeAgentEnabled
 				? (() => {
+						const getId = (s: string | { id: string }) => (typeof s === "string" ? s : s.id);
+
 						// If currentSessionId matches one of the known valid sessionIds, use it
-						if (claudeCodeAgentState.sessionIds.includes(claudeCodeAgentState.currentSessionId)) {
+						if (
+							claudeCodeAgentState.currentSessionId &&
+							claudeCodeAgentState.sessionIds.some(
+								(s) => getId(s) === claudeCodeAgentState.currentSessionId,
+							)
+						) {
 							return claudeCodeAgentState.currentSessionId;
 						}
 						// Otherwise fallback to the first available session ID (assuming single active session in most cases)
-						return claudeCodeAgentState.sessionIds[0] ?? "";
+						// Filter out empty IDs just in case
+						const firstValidSession = claudeCodeAgentState.sessionIds.find((s) => getId(s));
+						if (firstValidSession) {
+							return getId(firstValidSession);
+						}
+
+						// If no session exists, generate a new one
+						const newSessionId = nanoid();
+						claudeCodeAgentState.addSessionId(newSessionId, newSessionId);
+						claudeCodeAgentState.updateCurrentSessionId(newSessionId);
+						return newSessionId;
 					})()
 				: "";
 
@@ -1065,7 +1082,6 @@ export const chat = new Chat({
 					? codeAgentState.getCodeAgentCfgs().baseUrl
 					: chatState.currentProvider?.baseUrl,
 				temperature: persistedChatParamsState.current.temperature,
-				topP: persistedChatParamsState.current.topP,
 				maxTokens: persistedChatParamsState.current.maxTokens,
 				frequencyPenalty: persistedChatParamsState.current.frequencyPenalty,
 				presencePenalty: persistedChatParamsState.current.presencePenalty,
@@ -1169,13 +1185,6 @@ export const chat = new Chat({
 			shouldGenerateTitle = messages.length >= 2;
 		}
 
-		if (codeAgentEnabled) {
-			if (codeAgentState.sessionId !== "") {
-				shouldGenerateTitle = false;
-				persistedChatParamsState.current.title = codeAgentState.sessionId;
-			}
-		}
-
 		if (shouldGenerateTitle && titleModel) {
 			try {
 				const provider = persistedProviderState.current.find((p) => p.id === titleModel.providerId);
@@ -1185,7 +1194,7 @@ export const chat = new Chat({
 				persistedChatParamsState.current.title = generatedTitle;
 
 				if (codeAgentEnabled) {
-					codeAgentState.updateCurrentSessionId(generatedTitle);
+					codeAgentState.updateSessionRemark(generatedTitle);
 				}
 
 				tabBarState.updateTabTitle(persistedChatParamsState.current.id, generatedTitle);
@@ -1204,7 +1213,7 @@ export const chat = new Chat({
 						persistedChatParamsState.current.title = titleText;
 
 						if (codeAgentEnabled) {
-							codeAgentState.updateCurrentSessionId(titleText);
+							codeAgentState.updateSessionRemark(titleText);
 						}
 
 						tabBarState.updateTabTitle(persistedChatParamsState.current.id, titleText);

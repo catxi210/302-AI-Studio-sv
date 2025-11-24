@@ -66,16 +66,36 @@ class ClaudeCodeAgentState {
 		};
 	}
 
-	addSessionId(sessionId: string): void {
-		this.updateState({ sessionIds: [...this.sessionIds, sessionId] });
+	addSessionId(sessionId: string, remark: string = ""): void {
+		this.updateState({ sessionIds: [...this.sessionIds, { id: sessionId, remark }] });
 	}
 
 	removeSessionId(sessionId: string): void {
-		this.updateState({ sessionIds: this.sessionIds.filter((id) => id !== sessionId) });
+		this.updateState({
+			sessionIds: this.sessionIds.filter((item) => {
+				const id = typeof item === "string" ? item : item.id;
+				return id !== sessionId;
+			}),
+		});
 	}
 
 	updateCurrentSessionId(sessionId: string): void {
 		this.updateState({ currentSessionId: sessionId });
+	}
+
+	updateSessionRemark(remark: string): void {
+		const currentId = this.currentSessionId;
+		if (!currentId) return;
+
+		this.updateState({
+			sessionIds: this.sessionIds.map((item) => {
+				const id = typeof item === "string" ? item : item.id;
+				if (id === currentId) {
+					return { id, remark };
+				}
+				return item;
+			}),
+		});
 	}
 
 	updateSandboxId(sandboxId: string): void {
@@ -94,13 +114,13 @@ class ClaudeCodeAgentState {
 				return false;
 			}
 			this.updateState({
-				sessionIds: [this.customSessionId],
+				sessionIds: [{ id: this.customSessionId, remark: this.customSandboxId }], // remark is sandboxId for existing agent? Wait, logic check.
 				currentSessionId: this.customSessionId,
 				sandboxId: this.customSandboxId,
 			});
 		} else if (this.sessionMode === "new-agent") {
 			this.updateState({
-				sessionIds: [this.customSessionId],
+				sessionIds: [{ id: this.customSessionId, remark: this.customSandboxId }],
 				currentSessionId: this.customSessionId,
 				sandboxRemark: this.customSandboxId,
 			});
