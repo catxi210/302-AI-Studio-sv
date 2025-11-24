@@ -21,22 +21,26 @@ const threadId =
 		? tab.threadId
 		: "shell";
 
+const INITIAL_CODE_AGENT_CONFIG: CodeAgentConfigMetadata = {
+	enabled: false,
+	threadId: threadId,
+	type: "remote",
+	currentAgentId: "claude-code",
+};
+
 export const persistedCodeAgentConfigState = new PersistedState<CodeAgentConfigMetadata>(
 	"CodeAgentStorage:code-agent-config-state" + "-" + threadId,
-	{
-		enabled: false,
-		threadId: threadId,
-		type: "remote",
-		currentAgentId: "claude-code",
-	},
+	INITIAL_CODE_AGENT_CONFIG,
 );
 
 const { updateClaudeCodeSandboxModel } = window.electronAPI.codeAgentService;
 
 class CodeAgentState {
-	enabled = $derived.by(() => persistedCodeAgentConfigState.current.enabled);
-	type = $derived.by(() => persistedCodeAgentConfigState.current.type);
-	currentAgentId = $derived.by(() => persistedCodeAgentConfigState.current.currentAgentId);
+	enabled = $derived.by(() => persistedCodeAgentConfigState.current?.enabled ?? false);
+	type = $derived.by(() => persistedCodeAgentConfigState.current?.type ?? "remote");
+	currentAgentId = $derived.by(
+		() => persistedCodeAgentConfigState.current?.currentAgentId ?? "claude-code",
+	);
 
 	isFreshTab = $derived(!chatState.hasMessages);
 	inCodeAgentMode = $derived(!this.isFreshTab && this.enabled);
@@ -56,7 +60,7 @@ class CodeAgentState {
 
 	private updateState(partial: Partial<CodeAgentConfigMetadata>): void {
 		persistedCodeAgentConfigState.current = {
-			...persistedCodeAgentConfigState.current,
+			...(persistedCodeAgentConfigState.current ?? INITIAL_CODE_AGENT_CONFIG),
 			...partial,
 		};
 	}

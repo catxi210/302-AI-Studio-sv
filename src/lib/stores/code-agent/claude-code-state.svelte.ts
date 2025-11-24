@@ -43,11 +43,11 @@ class ClaudeCodeAgentState {
 	customSessionId = $state("");
 	customSandboxId = $state("");
 
-	model = $derived(persistedClaudeCodeAgentState.current.model);
-	currentSessionId = $derived(persistedClaudeCodeAgentState.current.currentSessionId);
-	sessionIds = $derived(persistedClaudeCodeAgentState.current.sessionIds);
-	sandboxId = $derived(persistedClaudeCodeAgentState.current.sandboxId);
-	sandboxRemark = $derived(persistedClaudeCodeAgentState.current.sandboxRemark);
+	model = $derived(persistedClaudeCodeAgentState.current?.model ?? "");
+	currentSessionId = $derived(persistedClaudeCodeAgentState.current?.currentSessionId ?? "");
+	sessionIds = $derived(persistedClaudeCodeAgentState.current?.sessionIds ?? []);
+	sandboxId = $derived(persistedClaudeCodeAgentState.current?.sandboxId ?? "");
+	sandboxRemark = $derived(persistedClaudeCodeAgentState.current?.sandboxRemark ?? "");
 
 	ready = $derived.by(() =>
 		match(this.sessionMode)
@@ -61,7 +61,7 @@ class ClaudeCodeAgentState {
 
 	private updateState(partial: Partial<CodeAgentMetadata>): void {
 		persistedClaudeCodeAgentState.current = {
-			...persistedClaudeCodeAgentState.current,
+			...(persistedClaudeCodeAgentState.current ?? getInitialData()),
 			...partial,
 		};
 	}
