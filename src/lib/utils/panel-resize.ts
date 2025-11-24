@@ -52,7 +52,7 @@ export function setupPanelResize(e: MouseEvent, options: PanelResizeOptions = {}
 	Object.assign(overlay.style, {
 		position: "fixed",
 		inset: "0",
-		zIndex: "50",
+		zIndex: "9999",
 		cursor: "col-resize",
 		userSelect: "none",
 	});

@@ -44,7 +44,7 @@
 			case "ultra-wide":
 				return "max-w-[1440px] px-6";
 			default:
-				return "max-w-[720px]";
+				return "max-w-[720px] px-4";
 		}
 	});
 

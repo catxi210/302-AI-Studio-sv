@@ -252,7 +252,7 @@
 			onpaste={handlePaste}
 		/>
 
-		<div class="mt-1.5 flex flex-row justify-between">
+		<div class="mt-1.5 flex flex-row flex-wrap justify-between gap-2">
 			<ChatActions />
 
 			<div class="flex items-center gap-2">

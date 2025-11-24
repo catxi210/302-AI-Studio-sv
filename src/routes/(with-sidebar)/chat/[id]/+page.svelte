@@ -201,6 +201,33 @@
 	}
 </script>
 
+{#snippet ChatInputArea()}
+	<div
+		role="region"
+		class="group/input relative flex items-center justify-center pt-12 pb-6 px-4"
+		onmouseenter={() => (isInputAreaHovered = true)}
+		onmouseleave={() => (isInputAreaHovered = false)}
+	>
+		<!-- New Exploration Button -->
+		{#if isInputAreaHovered && !chatState.isStreaming}
+			<div
+				class="absolute top-0 left-1/2 -translate-x-1/2 animate-in fade-in slide-in-from-bottom-2 duration-200"
+			>
+				<button
+					type="button"
+					onclick={handleNewExploration}
+					class="flex items-center gap-2 rounded-full bg-white px-4 py-2 text-sm text-primary shadow-md backdrop-blur-sm transition-all hover:shadow-lg dark:bg-[#8334EF] dark:text-white dark:hover:bg-[#7029d6]"
+				>
+					<MessageSquarePlus class="h-4 w-4" />
+					<span>{m.text_new_exploration()}</span>
+				</button>
+			</div>
+		{/if}
+
+		<ChatInputBox />
+	</div>
+{/snippet}
+
 {#if !chatState.hasMessages}
 	<div class="flex h-full flex-col relative">
 		<PageHeader />
@@ -213,6 +240,55 @@
 			</div>
 			{#if preferencesSettings.enableSupermarket}<AiApplicationItems />{/if}
 		</div>
+	</div>
+{:else if agentPreviewState.isVisible && !htmlPreviewState.isVisible}
+	<div class="flex h-full overflow-hidden relative">
+		{#if agentPreviewState.isPinned}
+			<div class="flex-1 flex flex-col h-full min-w-0">
+				<div class="flex-1 overflow-hidden relative">
+					<PageHeader />
+					<MessageList messages={chatState.messages} />
+				</div>
+				{@render ChatInputArea()}
+			</div>
+			<div
+				class="absolute right-0 top-0 bottom-0 h-full flex flex-col bg-background border-l border-border z-[100] pb-6"
+				style="width: 50%;"
+			>
+				<button
+					type="button"
+					aria-label="Resize panel"
+					class="bg-border focus-visible:ring-ring absolute -left-px top-0 bottom-6 flex w-px cursor-col-resize items-center justify-center after:absolute after:inset-y-0 after:left-1/2 after:w-1 after:-translate-x-1/2 focus-visible:ring-1 focus-visible:ring-offset-1 focus-visible:outline-hidden"
+					onmousedown={setupPanelResize}
+				>
+					<div class="bg-border z-10 flex h-4 w-3 items-center justify-center rounded-xs border">
+						<GripVerticalIcon class="size-2.5" />
+					</div>
+				</button>
+				<AgentPreviewPanel />
+			</div>
+		{:else}
+			<Resizable.PaneGroup direction="horizontal" class="h-full">
+				<Resizable.Pane defaultSize={50} minSize={30} class="min-w-0" style="min-width: 320px;">
+					<div class="flex h-full flex-col min-w-0">
+						<div class="flex-1 overflow-hidden relative">
+							<PageHeader />
+							<MessageList messages={chatState.messages} />
+						</div>
+						{@render ChatInputArea()}
+					</div>
+				</Resizable.Pane>
+				<Resizable.Handle withHandle class="mb-6" />
+				<Resizable.Pane
+					defaultSize={50}
+					minSize={20}
+					class="min-w-0 pb-6"
+					style="min-width: 240px;"
+				>
+					<AgentPreviewPanel />
+				</Resizable.Pane>
+			</Resizable.PaneGroup>
+		{/if}
 	</div>
 {:else}
 	<div class="flex h-full flex-col gap-y-4">
@@ -251,40 +327,6 @@
 						<HtmlPreviewPanel />
 					</Resizable.Pane>
 				</Resizable.PaneGroup>
-			{:else if agentPreviewState.isVisible && agentPreviewState.isPinned}
-				<div class="h-full overflow-hidden flex flex-col">
-					<PageHeader />
-					<MessageList messages={chatState.messages} />
-				</div>
-				<div
-					class="absolute right-0 top-0 bottom-0 h-full flex flex-col bg-background border-l border-border z-[100]"
-					style="width: 50%;"
-				>
-					<button
-						type="button"
-						aria-label="Resize panel"
-						class="bg-border focus-visible:ring-ring absolute -left-px top-0 bottom-0 flex w-px cursor-col-resize items-center justify-center after:absolute after:inset-y-0 after:left-1/2 after:w-1 after:-translate-x-1/2 focus-visible:ring-1 focus-visible:ring-offset-1 focus-visible:outline-hidden"
-						onmousedown={setupPanelResize}
-					>
-						<div class="bg-border z-10 flex h-4 w-3 items-center justify-center rounded-xs border">
-							<GripVerticalIcon class="size-2.5" />
-						</div>
-					</button>
-					<AgentPreviewPanel />
-				</div>
-			{:else if agentPreviewState.isVisible}
-				<Resizable.PaneGroup direction="horizontal" class="h-full">
-					<Resizable.Pane defaultSize={50} minSize={20} class="min-w-0">
-						<div class="h-full overflow-hidden relative">
-							<PageHeader />
-							<MessageList messages={chatState.messages} />
-						</div>
-					</Resizable.Pane>
-					<Resizable.Handle withHandle />
-					<Resizable.Pane defaultSize={50} minSize={20} class="min-w-0" style="min-width: 240px;">
-						<AgentPreviewPanel />
-					</Resizable.Pane>
-				</Resizable.PaneGroup>
 			{:else}
 				<PageHeader />
 				<MessageList messages={chatState.messages} />
@@ -295,30 +337,7 @@
 				<AgentPreviewPanel />
 			{/if}
 		</div>
-		<div
-			role="region"
-			class="group/input relative flex items-center justify-center pt-12 pb-6"
-			onmouseenter={() => (isInputAreaHovered = true)}
-			onmouseleave={() => (isInputAreaHovered = false)}
-		>
-			<!-- New Exploration Button -->
-			{#if isInputAreaHovered && !chatState.isStreaming}
-				<div
-					class="absolute top-0 left-1/2 -translate-x-1/2 animate-in fade-in slide-in-from-bottom-2 duration-200"
-				>
-					<button
-						type="button"
-						onclick={handleNewExploration}
-						class="flex items-center gap-2 rounded-full bg-white px-4 py-2 text-sm text-primary shadow-md backdrop-blur-sm transition-all hover:shadow-lg dark:bg-[#8334EF] dark:text-white dark:hover:bg-[#7029d6]"
-					>
-						<MessageSquarePlus class="h-4 w-4" />
-						<span>{m.text_new_exploration()}</span>
-					</button>
-				</div>
-			{/if}
-
-			<ChatInputBox />
-		</div>
+		{@render ChatInputArea()}
 	</div>
 {/if}
 
