@@ -19,6 +19,90 @@ export class DynamicChatTransport<
 		super({
 			...restOptions,
 			api: typeof api === "function" ? api() : api,
+			fetch: async (input, init) => {
+				// throw error when streming
+				const response = await fetch(input, init);
+
+				if (response.body) {
+					const reader = response.body.getReader();
+					const decoder = new TextDecoder();
+					const encoder = new TextEncoder();
+
+					const stream = new ReadableStream({
+						async start(controller) {
+							let buffer = "";
+
+							try {
+								while (true) {
+									const { done, value } = await reader.read();
+									if (done) {
+										if (buffer) {
+											controller.enqueue(encoder.encode(buffer));
+										}
+										controller.close();
+										break;
+									}
+
+									const chunk = decoder.decode(value, { stream: true });
+									buffer += chunk;
+
+									const lines = buffer.split("\n");
+									buffer = lines.pop() || "";
+
+									for (const line of lines) {
+										if (line.includes('"type":"error"')) {
+											try {
+												// Extract the JSON part from "data: {...}"
+												const jsonStr = line.replace(/^data: /, "").trim();
+												if (jsonStr) {
+													const data = JSON.parse(jsonStr);
+													if (data.type === "error" && data.errorText) {
+														console.warn(
+															"[DynamicChatTransport] Intercepted error:",
+															data.errorText,
+														);
+														// Convert error to text-delta to show in UI
+														const errorId = "error-" + Date.now();
+														const errorStart = {
+															type: "text-start",
+															id: errorId,
+														};
+														const errorDelta = {
+															type: "text-delta",
+															id: errorId,
+															delta: `\n\n> **Error**: ${data.errorText}\n\n`,
+														};
+														controller.enqueue(
+															encoder.encode(`data: ${JSON.stringify(errorStart)}\n\n`),
+														);
+														controller.enqueue(
+															encoder.encode(`data: ${JSON.stringify(errorDelta)}\n\n`),
+														);
+														continue;
+													}
+												}
+											} catch (e) {
+												console.error("[DynamicChatTransport] Failed to parse error line:", e);
+											}
+										}
+										controller.enqueue(encoder.encode(line + "\n"));
+									}
+								}
+							} catch (error) {
+								controller.error(error);
+							}
+						},
+					});
+
+					return new Response(stream, {
+						headers: response.headers,
+						status: response.status,
+						statusText: response.statusText,
+					});
+				}
+
+				return response;
+			},
 		});
 		this.apiResolver = api;
 	}
