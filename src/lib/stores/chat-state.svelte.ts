@@ -1103,6 +1103,7 @@ export const chat = new Chat({
 
 				threadId,
 				sessionId,
+				sandboxName: claudeCodeAgentState.sandboxRemark,
 			};
 		},
 	}),
