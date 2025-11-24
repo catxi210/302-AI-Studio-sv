@@ -20,7 +20,7 @@
 	let indicatorHeight = $state(0);
 
 	// Store message metrics
-	let messageMetrics = $state<{ top: number; height: number }[]>([]);
+	let messageMetrics = $state<{ top: number; height: number; role: string; id: string }[]>([]);
 	let contentStartTop = $state(0);
 	let totalScrollableHeight = $state(0);
 
@@ -112,30 +112,39 @@
 		const scrollTop = viewport.scrollTop;
 
 		// 1. Measure all messages in absolute document coordinates
-		const metrics: { top: number; height: number }[] = [];
+		const metrics: { top: number; height: number; role: string; id: string }[] = [];
 
-		// Create a map for quick lookup if needed, but we iterate in order
-		// We need to match DOM elements to messages prop order
-		// eslint-disable-next-line svelte/prefer-svelte-reactivity
-		const elementMap = new Map<string, HTMLElement>();
-		messageElements.forEach((el) => {
-			const id = el.getAttribute("data-message-id");
-			if (id) elementMap.set(id, el);
-		});
+		let currentMetric: { top: number; height: number; role: string; id: string } | null = null;
 
-		messages.forEach((msg) => {
-			const el = elementMap.get(msg.id);
-			if (el) {
-				const rect = el.getBoundingClientRect();
-				metrics.push({
-					top: rect.top - viewportRect.top + scrollTop,
-					height: rect.height,
-				});
+		// We iterate by index to handle duplicate message IDs correctly.
+		// Since Svelte renders the list in order, the Nth message in the array
+		// corresponds to the Nth element in the DOM with data-message-id.
+		messages.forEach((msg, index) => {
+			const el = messageElements[index];
+			if (!el) return;
+
+			const rect = el.getBoundingClientRect();
+			const top = rect.top - viewportRect.top + scrollTop;
+			const height = rect.height;
+
+			if (currentMetric && currentMetric.role === msg.role) {
+				// Merge with previous
+				// The new height should cover from the start of the current metric to the end of this new element.
+				const newBottom = top + height;
+				// Update height to include the new element and any gap between them
+				currentMetric.height = newBottom - currentMetric.top;
 			} else {
-				// Fallback for missing elements (shouldn't happen often)
-				metrics.push({ top: 0, height: 0 });
+				if (currentMetric) metrics.push(currentMetric);
+				currentMetric = {
+					top,
+					height,
+					role: msg.role,
+					id: msg.id,
+				};
 			}
 		});
+		if (currentMetric) metrics.push(currentMetric);
+
 		messageMetrics = metrics;
 
 		// 2. Determine content start (absolute top of first message)
@@ -515,30 +524,27 @@
 
 		<!-- Message previews container -->
 		<div class="relative w-full h-full overflow-hidden px-2 py-4 pointer-events-none">
-			{#each messages as message, index (message.id)}
+			{#each messageMetrics as metric, index (metric.id + "-" + index)}
 				{@const scaleFactor = getScaleFactor()}
-				{@const metric = messageMetrics[index]}
-				{#if metric}
-					{@const height = metric.height * scaleFactor}
-					<!-- We need to map the top position using getMinimapY logic, but simplified for blocks -->
-					<!-- Actually, getMinimapY(metric.top) should give the exact top position in minimap -->
-					<!-- But wait, getMinimapY includes Head scaling. -->
-					<!-- The container starts at PADDING_Y. -->
-					<!-- So style top should be getMinimapY(metric.top) -->
+				{@const height = metric.height * scaleFactor}
+				<!-- We need to map the top position using getMinimapY logic, but simplified for blocks -->
+				<!-- Actually, getMinimapY(metric.top) should give the exact top position in minimap -->
+				<!-- But wait, getMinimapY includes Head scaling. -->
+				<!-- The container starts at PADDING_Y. -->
+				<!-- So style top should be getMinimapY(metric.top) -->
 
-					<div
-						class={cn(
-							"absolute left-2 right-2 rounded-[2px]",
-							message.role === "user"
-								? "bg-primary/40 dark:bg-primary/30 shadow-sm"
-								: "bg-gray-500/30 dark:bg-gray-600/25",
-							isHovered && "hover:brightness-110",
-						)}
-						style="height: {Math.max(height, 2)}px; top: {getMinimapY(metric.top, scaleFactor) +
-							PADDING_Y}px;"
-						title={message.role === "user" ? "User Message" : "Assistant Message"}
-					></div>
-				{/if}
+				<div
+					class={cn(
+						"absolute left-2 right-2 rounded-[2px]",
+						metric.role === "user"
+							? "bg-primary/40 dark:bg-primary/30 shadow-sm"
+							: "bg-gray-500/30 dark:bg-gray-600/25",
+						isHovered && "hover:brightness-110",
+					)}
+					style="height: {Math.max(height, 2)}px; top: {getMinimapY(metric.top, scaleFactor) +
+						PADDING_Y}px;"
+					title={metric.role === "user" ? "User Message" : "Assistant Message"}
+				></div>
 			{/each}
 		</div>
 	</div>
