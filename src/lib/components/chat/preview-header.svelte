@@ -70,7 +70,8 @@
 	>
 		<!-- 左侧：Tabs -->
 		<div
-			class="flex flex-row items-center gap-0.5 rounded-md bg-muted p-0.5 min-w-0 max-w-fit overflow-hidden shrink-0"
+			class="flex flex-row items-center gap-0.5 rounded-md bg-muted p-0.5 overflow-hidden shrink"
+			style="min-width: 120px;"
 		>
 			{#each tabs as tab (tab.id)}
 				<button

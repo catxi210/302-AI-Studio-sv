@@ -252,13 +252,13 @@
 				{@render ChatInputArea()}
 			</div>
 			<div
-				class="absolute right-0 top-0 bottom-0 h-full flex flex-col bg-background border-l border-border z-[100] pb-6"
+				class="absolute right-0 top-0 bottom-5 flex flex-col bg-background border-l border-border z-[50]"
 				style="width: 50%;"
 			>
 				<button
 					type="button"
 					aria-label="Resize panel"
-					class="bg-border focus-visible:ring-ring absolute -left-px top-0 bottom-6 flex w-px cursor-col-resize items-center justify-center after:absolute after:inset-y-0 after:left-1/2 after:w-1 after:-translate-x-1/2 focus-visible:ring-1 focus-visible:ring-offset-1 focus-visible:outline-hidden"
+					class="bg-border focus-visible:ring-ring absolute -left-px top-0 bottom-0 flex w-px cursor-col-resize items-center justify-center after:absolute after:inset-y-0 after:left-1/2 after:w-1 after:-translate-x-1/2 focus-visible:ring-1 focus-visible:ring-offset-1 focus-visible:outline-hidden"
 					onmousedown={setupPanelResize}
 				>
 					<div class="bg-border z-10 flex h-4 w-3 items-center justify-center rounded-xs border">
@@ -279,12 +279,7 @@
 					</div>
 				</Resizable.Pane>
 				<Resizable.Handle withHandle class="mb-6" />
-				<Resizable.Pane
-					defaultSize={50}
-					minSize={20}
-					class="min-w-0 pb-6"
-					style="min-width: 240px;"
-				>
+				<Resizable.Pane defaultSize={50} minSize={30} class="min-w-0 pb-6">
 					<AgentPreviewPanel />
 				</Resizable.Pane>
 			</Resizable.PaneGroup>

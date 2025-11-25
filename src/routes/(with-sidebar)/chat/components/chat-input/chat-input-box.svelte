@@ -252,8 +252,10 @@
 			onpaste={handlePaste}
 		/>
 
-		<div class="mt-1.5 flex flex-row flex-wrap justify-between gap-2">
-			<ChatActions />
+		<div class="mt-1.5 flex flex-row justify-between gap-2 min-w-0">
+			<div class="flex items-center gap-2 min-w-0 overflow-hidden shrink">
+				<ChatActions />
+			</div>
 
 			<div class="flex items-center gap-2">
 				<ModelSelect
@@ -276,7 +278,7 @@
 						"")}
 						<Button
 							variant="ghost"
-							class="text-sm text-foreground/50 hover:!bg-chat-action-hover max-w-[200px]"
+							class="text-sm text-foreground/50 hover:!bg-chat-action-hover max-w-[100px]"
 							onclick={() => {
 								if (!hasConfiguredProviders()) {
 									toast.info(m.toast_no_provider_configured(), {
