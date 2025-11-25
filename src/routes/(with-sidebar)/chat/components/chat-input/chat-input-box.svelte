@@ -225,7 +225,7 @@
 			"transition-[color,box-shadow]",
 			"flex max-h-chat-max-h min-h-chat-min-h w-full flex-col justify-between rounded-chat border p-chat-pad pb-1.5",
 			"focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/50 focus-within:outline-hidden",
-			"bg-input",
+			"bg-input overflow-hidden",
 		)}
 		data-layoutid="chat-input-box"
 	>
@@ -252,7 +252,7 @@
 			onpaste={handlePaste}
 		/>
 
-		<div class="mt-1.5 flex flex-row justify-between gap-2 min-w-0">
+		<div class="mt-1.5 flex flex-row justify-between gap-2 min-w-0 overflow-hidden">
 			<div class="flex items-center gap-2 shrink-0">
 				<ChatActions />
 			</div>

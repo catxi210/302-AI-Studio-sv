@@ -105,18 +105,15 @@
 		);
 
 		// Listen for sandbox created event
+		// Note: sandboxId is already persisted by main process via claudeCodeStorage.setClaudeCodeSandboxId
+		// The renderer's PersistedState will sync automatically via persisted-state:sync event
+		// We only need to open the preview panel here
 		const unsubSandboxCreated = window.electronAPI?.onSandboxCreated?.(
 			({ threadId, sandboxId }: { threadId: string; sandboxId: string }) => {
 				console.log("[Chat Page] Received sandbox-created event:", { threadId, sandboxId });
 
 				// Only process if this is the target thread
 				if (threadId === chatState.id) {
-					// Update the claude code agent state with the sandboxId
-					import("$lib/stores/code-agent").then(({ claudeCodeAgentState }) => {
-						claudeCodeAgentState.updateSandboxId(sandboxId);
-						console.log("[Chat Page] Updated claudeCodeAgentState with sandboxId:", sandboxId);
-					});
-
 					// Open the agent preview panel
 					agentPreviewState.openPreview(sandboxId);
 					console.log("[Chat Page] Opened agent preview panel with sandboxId:", sandboxId);
