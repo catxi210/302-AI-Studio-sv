@@ -253,11 +253,11 @@
 		/>
 
 		<div class="mt-1.5 flex flex-row justify-between gap-2 min-w-0">
-			<div class="flex items-center gap-2 min-w-0 overflow-hidden shrink">
+			<div class="flex items-center gap-2 shrink-0">
 				<ChatActions />
 			</div>
 
-			<div class="flex items-center gap-2">
+			<div class="flex items-center gap-2 min-w-0">
 				<ModelSelect
 					selectedModel={chatState.selectedModel}
 					onModelSelect={(model) => handleModelSelect(model)}
@@ -278,7 +278,7 @@
 						"")}
 						<Button
 							variant="ghost"
-							class="text-sm text-foreground/50 hover:!bg-chat-action-hover max-w-[100px]"
+							class="text-sm text-foreground/50 hover:!bg-chat-action-hover min-w-0 max-w-[300px] !shrink"
 							onclick={() => {
 								if (!hasConfiguredProviders()) {
 									toast.info(m.toast_no_provider_configured(), {
@@ -306,13 +306,13 @@
 
 				<Separator
 					orientation="vertical"
-					class="rounded-2xl data-[orientation=vertical]:h-1/2 data-[orientation=vertical]:w-0.5"
+					class="shrink-0 rounded-2xl data-[orientation=vertical]:h-1/2 data-[orientation=vertical]:w-0.5"
 				/>
 
 				<button
 					disabled={!chatState.sendMessageEnabled}
 					class={cn(
-						"flex size-9 items-center justify-center rounded-[10px] bg-chat-send-message-button text-foreground hover:!bg-chat-send-message-button/80",
+						"shrink-0 flex size-9 items-center justify-center rounded-[10px] bg-chat-send-message-button text-foreground hover:!bg-chat-send-message-button/80",
 						"disabled:cursor-not-allowed disabled:bg-chat-send-message-button/50 disabled:hover:!bg-chat-send-message-button/50",
 					)}
 					onclick={handleSendMessage}
