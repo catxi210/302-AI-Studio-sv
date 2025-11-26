@@ -3,6 +3,7 @@
 	import { Button } from "$lib/components/ui/button";
 	import * as ContextMenu from "$lib/components/ui/context-menu";
 	import * as Dialog from "$lib/components/ui/dialog";
+	import * as DropdownMenu from "$lib/components/ui/dropdown-menu";
 	import { Input } from "$lib/components/ui/input";
 	import { m } from "$lib/paraglide/messages";
 	import { claudeCodeAgentState } from "$lib/stores/code-agent";
@@ -72,6 +73,7 @@
 
 	// Handle file click
 	function handleFileClick(file: SandboxFileInfo) {
+		if (fileTreeState.selectedFile === file.path) return;
 		fileTreeState.selectFile(file);
 		onFileSelect?.(file);
 	}
@@ -543,8 +545,12 @@
 
 <div class="flex h-full flex-col bg-background">
 	<!-- Header -->
-	<div class="flex items-center justify-between border-b border-border px-3 py-2 gap-2">
-		<div class="flex items-center gap-1">
+	<div
+		class="flex items-center justify-between border-b border-border px-3 py-2 gap-2"
+		style="container-type: inline-size;"
+	>
+		<!-- Wide layout: show all buttons -->
+		<div class="[@container(min-width:135px)]:flex hidden items-center gap-1">
 			<!-- Create File -->
 			<button
 				type="button"
@@ -577,7 +583,6 @@
 			>
 				<FileUp class="h-3.5 w-3.5" />
 			</button>
-			<input bind:this={fileInput} type="file" class="hidden" onchange={handleFileUpload} />
 
 			<!-- Upload Folder -->
 			<button
@@ -607,7 +612,95 @@
 			</button>
 		</div>
 
-		<!-- Refresh Button -->
+		<!-- Narrow layout: show dropdown menu -->
+		<div class="[@container(min-width:135px)]:hidden flex">
+			<DropdownMenu.Root>
+				<DropdownMenu.Trigger>
+					<button
+						type="button"
+						class="rounded p-1 hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50 flex items-center gap-1"
+						disabled={fileTreeState.loading || fileTreeState.isStreaming}
+						title={m.common_actions()}
+						aria-label={m.common_actions()}
+					>
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							width="14"
+							height="14"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+						>
+							<circle cx="12" cy="12" r="1" />
+							<circle cx="12" cy="5" r="1" />
+							<circle cx="12" cy="19" r="1" />
+						</svg>
+					</button>
+				</DropdownMenu.Trigger>
+				<DropdownMenu.Content align="start">
+					<!-- Create File -->
+					<DropdownMenu.Item
+						onclick={() => handleCreateFile()}
+						disabled={fileTreeState.loading || fileTreeState.isStreaming}
+					>
+						<FileCode class="mr-2 h-4 w-4" />
+						<span>{m.label_file_tree_create_file()}</span>
+					</DropdownMenu.Item>
+
+					<!-- Create Folder -->
+					<DropdownMenu.Item
+						onclick={() => handleCreateFolder()}
+						disabled={fileTreeState.loading || fileTreeState.isStreaming}
+					>
+						<FolderPlus class="mr-2 h-4 w-4" />
+						<span>{m.label_file_tree_new_folder()}</span>
+					</DropdownMenu.Item>
+
+					<DropdownMenu.Separator />
+
+					<!-- Upload File -->
+					<DropdownMenu.Item
+						onclick={() => triggerFileUpload()}
+						disabled={fileTreeState.loading || fileTreeState.isStreaming}
+					>
+						<FileUp class="mr-2 h-4 w-4" />
+						<span>{m.label_file_tree_upload_file()}</span>
+					</DropdownMenu.Item>
+
+					<!-- Upload Folder -->
+					<DropdownMenu.Item
+						onclick={() => handleFolderUpload()}
+						disabled={fileTreeState.loading || fileTreeState.isStreaming}
+					>
+						<FolderUp class="mr-2 h-4 w-4" />
+						<span>{m.label_file_tree_upload_folder()}</span>
+					</DropdownMenu.Item>
+
+					<DropdownMenu.Separator />
+
+					<!-- Download All -->
+					<DropdownMenu.Item
+						onclick={() => {
+							fileTreeState.downloadFile({
+								path: DEFAULT_WORKSPACE_PATH,
+								name: "workspace",
+								type: "dir",
+							});
+						}}
+						disabled={fileTreeState.loading || fileTreeState.isStreaming}
+					>
+						<FolderInput class="mr-2 h-4 w-4" />
+						<span>{m.label_file_tree_download_all()}</span>
+					</DropdownMenu.Item>
+				</DropdownMenu.Content>
+			</DropdownMenu.Root>
+		</div>
+		<input bind:this={fileInput} type="file" class="hidden" onchange={handleFileUpload} />
+
+		<!-- Refresh Button (always visible) -->
 		<button
 			type="button"
 			onclick={() => fileTreeState.refreshFileTree()}
