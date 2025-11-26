@@ -9,7 +9,11 @@
 	import * as m from "$lib/paraglide/messages";
 	import { agentPreviewState } from "$lib/stores/agent-preview-state.svelte";
 	import { chatState } from "$lib/stores/chat-state.svelte";
-	import { claudeCodeAgentState, codeAgentState } from "$lib/stores/code-agent";
+	import {
+		claudeCodeAgentState,
+		claudeCodeSandboxState,
+		codeAgentState,
+	} from "$lib/stores/code-agent";
 	import { htmlPreviewState } from "$lib/stores/html-preview-state.svelte";
 	import { persistedProviderState } from "$lib/stores/provider-state.svelte";
 	import { tabBarState } from "$lib/stores/tab-bar-state.svelte";
@@ -128,6 +132,14 @@
 
 		isRestoringState = true;
 		try {
+			// First refresh sandboxes to ensure the sandbox exists in the list
+			// This is needed because refreshSessions requires the sandbox to exist
+			await claudeCodeSandboxState.refreshSandboxes();
+
+			// Then refresh sessions to get workspace_path for the current session
+			// This ensures the file tree has the correct workspace path before loading
+			await claudeCodeSandboxState.refreshSessions(currentSandboxId);
+
 			const [info, savedPath] = await Promise.all([
 				agentPreviewState.getDeploymentInfo(currentSandboxId, currentSessionId),
 				agentPreviewState.getSelectedFilePath(currentSandboxId, currentSessionId),
@@ -166,8 +178,18 @@
 		// 类似于 React 的 usePrevious + useEffect 组合
 		if (previousStreamingState && !isStreaming) {
 			if (isAgentMode && agentPreviewState.isVisible && currentSandboxId) {
-				console.log("[AgentPreview] Task completed, triggering refresh");
-				refreshTrigger++;
+				console.log("[AgentPreview] Task completed, refreshing sessions first");
+
+				// Use async IIFE to await refreshSessions before triggering file tree refresh
+				(async () => {
+					// First refresh sessions to get updated workspace_path
+					// This is important because session/workspace is created after agent's first response
+					await claudeCodeSandboxState.refreshSessions(currentSandboxId);
+
+					// Then trigger file tree refresh with correct workspace path
+					console.log("[AgentPreview] Sessions refreshed, triggering file tree refresh");
+					refreshTrigger++;
+				})();
 			}
 		}
 		previousStreamingState = isStreaming;
@@ -525,6 +547,7 @@
 				>
 					<FileTree
 						sandboxId={currentSandboxId}
+						workspacePath={claudeCodeSandboxState.currentSessionWorkspacePath}
 						onFileSelect={handleFileSelect}
 						{refreshTrigger}
 						onFileDelete={handleFileDelete}

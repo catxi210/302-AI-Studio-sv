@@ -28,20 +28,20 @@
 		Upload,
 	} from "@lucide/svelte";
 	import { toast } from "svelte-sonner";
-	import { DEFAULT_WORKSPACE_PATH } from "./constants";
 	import { FileTreeState, type TreeNode } from "./file-tree-state.svelte";
 
 	interface Props {
 		sandboxId: string;
+		workspacePath?: string;
 		onFileSelect?: (file: SandboxFileInfo) => void;
 		refreshTrigger?: number;
 		onFileDelete?: (file: SandboxFileInfo) => void;
 	}
 
-	let { sandboxId, onFileSelect, refreshTrigger, onFileDelete }: Props = $props();
+	let { sandboxId, workspacePath, onFileSelect, refreshTrigger, onFileDelete }: Props = $props();
 
 	// Initialize file tree state
-	const fileTreeState = new FileTreeState(sandboxId);
+	const fileTreeState = new FileTreeState(sandboxId, workspacePath);
 
 	// UI-specific state for rename dialog
 	let renamingPath = $state<string | null>(null);
@@ -79,8 +79,8 @@
 	}
 
 	// Handle create file start
-	function handleCreateFile(parentPath: string = DEFAULT_WORKSPACE_PATH) {
-		createFilePath = parentPath;
+	function handleCreateFile(parentPath?: string) {
+		createFilePath = parentPath ?? fileTreeState.rootPath;
 		createFileInputValue = "";
 		createFileDialogOpen = true;
 	}
@@ -189,9 +189,44 @@
 		await fileTreeState.downloadFile(file);
 	}
 
-	// Track previous sandboxId and sessionId to detect changes
+	// Track previous sandboxId, sessionId, and workspacePath to detect changes
 	let previousSandboxId = $state<string | undefined>(undefined);
 	let previousSessionId = $state<string | null>(null);
+	let previousWorkspacePath = $state<string | undefined>(undefined);
+	let hasLoadedWithWorkspacePath = $state(false);
+
+	// Effect to update workspace path when it changes
+	$effect(() => {
+		const currentWorkspacePath = workspacePath;
+		const wasEmpty = !previousWorkspacePath;
+		const isNowValid = !!currentWorkspacePath;
+
+		console.log("[FileTree] Workspace path effect:", {
+			currentWorkspacePath,
+			previousWorkspacePath,
+			wasEmpty,
+			isNowValid,
+			hasLoadedWithWorkspacePath,
+		});
+
+		if (currentWorkspacePath && currentWorkspacePath !== previousWorkspacePath) {
+			previousWorkspacePath = currentWorkspacePath;
+			fileTreeState.updateWorkspacePath(currentWorkspacePath);
+
+			// If workspace path just became available and we haven't loaded with it yet,
+			// trigger a refresh to load files from the correct path
+			if (wasEmpty && isNowValid && !hasLoadedWithWorkspacePath && sandboxId) {
+				console.log(
+					"[FileTree] Workspace path now available, triggering refresh with correct path:",
+					currentWorkspacePath,
+				);
+				hasLoadedWithWorkspacePath = true;
+				if (!fileTreeState.isStreaming) {
+					fileTreeState.refreshFileTree();
+				}
+			}
+		}
+	});
 
 	// Combined effect to handle sandboxId/sessionId changes and loading
 	$effect(() => {
@@ -207,6 +242,11 @@
 			// Update trackers immediately
 			previousSandboxId = sandboxId;
 			previousSessionId = currentSessionId;
+
+			// Reset workspace path tracking on sandbox/session change
+			if (sandboxChanged || sessionChanged) {
+				hasLoadedWithWorkspacePath = false;
+			}
 
 			// 1. Update Sandbox ID in state
 			if (sandboxChanged) {
@@ -228,6 +268,7 @@
 					previousSessionId: oldSessionId,
 					isRealChange,
 					isComponentRecreation,
+					workspacePath,
 				});
 
 				const shouldClear = isRealChange;
@@ -238,9 +279,17 @@
 					const shouldLoadFromAPI =
 						(isRealChange || isComponentRecreation) && fileTreeState.files.length === 0;
 
+					// Only load from API if we have a valid workspace path
+					// If workspace path is empty, wait for it to be set by the workspace path effect
 					if (shouldLoadFromAPI) {
 						if (!fileTreeState.isStreaming) {
-							await fileTreeState.refreshFileTree();
+							if (workspacePath) {
+								console.log("[FileTree] Loading files with workspace path:", workspacePath);
+								hasLoadedWithWorkspacePath = true;
+								await fileTreeState.refreshFileTree();
+							} else {
+								console.log("[FileTree] Waiting for workspace path before loading files");
+							}
 						} else {
 							console.log(
 								"[FileTree] Skipping initial load - agent is busy (streaming or submitted)",
@@ -278,10 +327,10 @@
 
 	// File upload
 	let fileInput: HTMLInputElement;
-	let pendingUploadPath = $state(DEFAULT_WORKSPACE_PATH);
+	let pendingUploadPath = $state<string | null>(null);
 
-	function triggerFileUpload(path: string = DEFAULT_WORKSPACE_PATH) {
-		pendingUploadPath = path;
+	function triggerFileUpload(path?: string) {
+		pendingUploadPath = path ?? fileTreeState.rootPath;
 		fileInput.click();
 	}
 
@@ -290,22 +339,22 @@
 		if (target.files && target.files.length > 0) {
 			const file = target.files[0];
 			// Upload to pendingUploadPath
-			await fileTreeState.uploadFile(file, pendingUploadPath);
+			await fileTreeState.uploadFile(file, pendingUploadPath ?? fileTreeState.rootPath);
 
 			// Reset input and path
 			target.value = "";
-			pendingUploadPath = DEFAULT_WORKSPACE_PATH;
+			pendingUploadPath = null;
 		}
 	}
 
 	// Folder upload - uses Electron dialog
-	async function handleFolderUpload(targetPath: string = DEFAULT_WORKSPACE_PATH) {
-		await fileTreeState.uploadFolder(targetPath);
+	async function handleFolderUpload(targetPath?: string) {
+		await fileTreeState.uploadFolder(targetPath ?? fileTreeState.rootPath);
 	}
 
 	// Handle create folder
-	function handleCreateFolder(parentPath: string = DEFAULT_WORKSPACE_PATH) {
-		createFolderParentPath = parentPath;
+	function handleCreateFolder(parentPath?: string) {
+		createFolderParentPath = parentPath ?? fileTreeState.rootPath;
 		createFolderInputValue = "";
 		createFolderDialogOpen = true;
 	}
@@ -599,7 +648,7 @@
 				type="button"
 				onclick={() => {
 					fileTreeState.downloadFile({
-						path: DEFAULT_WORKSPACE_PATH,
+						path: fileTreeState.rootPath,
 						name: "workspace",
 						type: "dir",
 					});
@@ -685,7 +734,7 @@
 					<DropdownMenu.Item
 						onclick={() => {
 							fileTreeState.downloadFile({
-								path: DEFAULT_WORKSPACE_PATH,
+								path: fileTreeState.rootPath,
 								name: "workspace",
 								type: "dir",
 							});

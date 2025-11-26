@@ -42,6 +42,45 @@ class ClaudeCodeSandboxState {
 		return sessionOpts;
 	});
 
+	/**
+	 * Get the workspace path for the current session
+	 * Returns the session's workspacePath if available, empty string otherwise
+	 */
+	currentSessionWorkspacePath = $derived.by(() => {
+		const sandboxId = claudeCodeAgentState.sandboxId;
+		const sessionId = claudeCodeAgentState.currentSessionId;
+
+		console.log("[ClaudeCodeSandboxState] Computing currentSessionWorkspacePath:", {
+			sandboxId,
+			sessionId,
+			sandboxCount: persistedClaudeCodeSandboxState.current.length,
+		});
+
+		const sandbox = persistedClaudeCodeSandboxState.current.find(
+			(sandbox) => sandbox.sandboxId === sandboxId,
+		);
+		if (!sandbox) {
+			console.log("[ClaudeCodeSandboxState] Sandbox not found for ID:", sandboxId);
+			return "";
+		}
+
+		console.log(
+			"[ClaudeCodeSandboxState] Found sandbox, sessionInfos count:",
+			sandbox.sessionInfos.length,
+		);
+
+		const session = sandbox.sessionInfos.find((s) => s.sessionId === sessionId);
+		const workspacePath = session?.workspacePath || "";
+
+		console.log("[ClaudeCodeSandboxState] Session workspace path:", {
+			sessionId,
+			foundSession: !!session,
+			workspacePath,
+		});
+
+		return workspacePath;
+	});
+
 	async refreshSandboxes(): Promise<boolean> {
 		const { isOK } = await updateClaudeCodeSandboxesByIpc();
 		if (!isOK) {
@@ -52,10 +91,32 @@ class ClaudeCodeSandboxState {
 	}
 
 	async refreshSessions(sandboxId: string): Promise<boolean> {
+		console.log("[ClaudeCodeSandboxState] refreshSessions called with sandboxId:", sandboxId);
+
 		const { isOK } = await updateClaudeCodeSessions(sandboxId);
+
+		console.log("[ClaudeCodeSandboxState] refreshSessions result:", {
+			isOK,
+			sandboxId,
+		});
+
 		if (!isOK) {
 			toast.error(m.refresh_sessions_failed());
 		} else {
+			// Force refresh from storage to get the updated session data
+			// This is needed because the main process updated the storage
+			// and the sync to renderer might not have completed yet
+			await persistedClaudeCodeSandboxState.flush();
+
+			// Log the updated session data
+			const sandbox = persistedClaudeCodeSandboxState.current.find(
+				(s) => s.sandboxId === sandboxId,
+			);
+			console.log("[ClaudeCodeSandboxState] After refresh, sandbox sessionInfos:", {
+				sandboxId,
+				sessionInfos: sandbox?.sessionInfos,
+			});
+
 			const stillExisting = this.sessions.some(
 				(session) => session.value === claudeCodeAgentState.customSessionId,
 			);

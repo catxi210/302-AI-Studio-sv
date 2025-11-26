@@ -58,6 +58,7 @@ function removeFromSet<T>(set: SvelteSet<T>, item: T): SvelteSet<T> {
 export class FileTreeState {
 	// State properties
 	sandboxId = $state<string>("");
+	workspacePath = $state<string>(DEFAULT_WORKSPACE_PATH);
 	files = $state<SandboxFileInfo[]>([]);
 	treeNodes = $state<TreeNode[]>([]);
 	loading = $state(false);
@@ -74,12 +75,29 @@ export class FileTreeState {
 	// Derived state
 	isStreaming = $derived(chatState.isStreaming || chatState.isSubmitted);
 
-	constructor(sandboxId: string) {
+	// Computed root path - uses workspacePath if set, otherwise falls back to DEFAULT_WORKSPACE_PATH
+	get rootPath(): string {
+		return this.workspacePath || DEFAULT_WORKSPACE_PATH;
+	}
+
+	constructor(sandboxId: string, workspacePath?: string) {
 		this.sandboxId = sandboxId;
+		if (workspacePath) {
+			this.workspacePath = workspacePath;
+			this.expandedDirs = new SvelteSet([workspacePath]);
+		}
 	}
 
 	updateSandboxId(sandboxId: string) {
 		this.sandboxId = sandboxId;
+	}
+
+	updateWorkspacePath(workspacePath: string) {
+		if (workspacePath && workspacePath !== this.workspacePath) {
+			this.workspacePath = workspacePath;
+			// Update expanded dirs to include the new workspace path
+			this.expandedDirs = new SvelteSet([workspacePath]);
+		}
 	}
 
 	/**
@@ -426,8 +444,8 @@ export class FileTreeState {
 	async refreshFileTree(): Promise<void> {
 		this.loadedDirs = new SvelteSet();
 		this.treeNodesCache = null;
-		this.expandedDirs = new SvelteSet([DEFAULT_WORKSPACE_PATH]);
-		await this.loadFiles(DEFAULT_WORKSPACE_PATH, false, true);
+		this.expandedDirs = new SvelteSet([this.rootPath]);
+		await this.loadFiles(this.rootPath, false, true);
 	}
 
 	/**
