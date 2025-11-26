@@ -229,6 +229,9 @@ export class FileTreeState {
 			deployedAt: existingStorage?.deployedAt,
 			selectedFilePath:
 				updates?.selectedFilePath ?? this.selectedFile ?? existingStorage?.selectedFilePath,
+			currentWorkingDirectory: existingStorage?.currentWorkingDirectory,
+			terminalHistory: existingStorage?.terminalHistory,
+			type: existingStorage?.type,
 			lastUpdated: new SvelteDate().toISOString(),
 		});
 	}
