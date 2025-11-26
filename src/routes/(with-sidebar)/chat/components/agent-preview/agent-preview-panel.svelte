@@ -410,6 +410,11 @@
 		}
 	};
 
+	const handleRefreshPreview = () => {
+		if (!isAgentMode || !deployment.url) return;
+		iframeRefreshKey++;
+	};
+
 	// --- Edit Handlers ---
 
 	const handleStartEdit = () => {
@@ -506,6 +511,7 @@
 					isAgentMode && deployment.url && window.open(deployment.url, "_blank")}
 				onOpenInNewTab={handleOpenInNewTab}
 				onCopyDeployedUrl={handleCopyDeploymentUrl}
+				onRefreshPreview={isAgentMode ? handleRefreshPreview : undefined}
 				onPin={() => agentPreviewState.togglePin()}
 				{isAgentMode}
 			/>

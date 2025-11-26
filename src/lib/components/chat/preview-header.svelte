@@ -9,6 +9,7 @@
 		Pin,
 		PinOff,
 		Rocket,
+		RotateCw,
 		Smartphone,
 		SquareArrowOutUpRight,
 		X,
@@ -35,6 +36,7 @@
 		onOpenDeployedUrl: () => void;
 		onOpenInNewTab: () => void;
 		onCopyDeployedUrl: () => void;
+		onRefreshPreview?: () => void;
 		onPin: () => void;
 		isAgentMode?: boolean;
 	}
@@ -55,6 +57,7 @@
 		onOpenDeployedUrl,
 		onOpenInNewTab,
 		onCopyDeployedUrl,
+		onRefreshPreview,
 		onPin,
 		isAgentMode = false,
 	}: Props = $props();
@@ -129,11 +132,11 @@
 	{#if activeTab === "preview"}
 		<div class="grid h-10 w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-2 px-2 min-w-0">
 			<!-- 左侧：部署按钮 -->
-			<div class="flex items-center gap-2 min-w-0">
+			<div class="flex items-center gap-1 min-w-0">
 				{#if (!deployedUrl && !compactDeployButton) || isAgentMode}
 					<button
 						type="button"
-						class="flex items-center gap-1.5 px-2.5 py-1 rounded border border-border/40 bg-background text-foreground text-xs font-medium shadow-none transition-colors hover:bg-muted/70 disabled:opacity-50 disabled:cursor-not-allowed"
+						class="flex items-center gap-1.5 px-2.5 py-1 rounded border border-border/40 bg-background text-foreground text-xs font-medium shadow-none transition-colors hover:bg-muted/70 disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
 						title={isDeploying ? m.tooltip_deploying() : m.tooltip_deploy_to_302()}
 						disabled={isDeploying || isStreaming}
 						onclick={onDeploy}
@@ -162,24 +165,36 @@
 				{/if}
 
 				{#if deployedUrl}
-					<div class="flex-1 min-w-0 max-w-[200px]">
-						<button
-							type="button"
-							class="flex w-full min-w-0 items-center gap-1 overflow-hidden rounded border border-border/40 bg-background px-2 py-1 text-xs text-primary shadow-none transition-colors hover:bg-muted/70 hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
-							title={deployedUrl ?? undefined}
-							onclick={onOpenDeployedUrl}
-						>
-							<SquareArrowOutUpRight class="size-3 shrink-0" />
-							<span class="truncate flex-1 min-w-0 text-left">{deployedUrl}</span>
-						</button>
-					</div>
+					<button
+						type="button"
+						class="flex flex-1 items-center gap-1 overflow-hidden rounded border border-border/40 bg-background px-2 py-1 text-xs text-primary shadow-none transition-colors hover:bg-muted/70 hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 min-w-[28px] max-w-[200px]"
+						title={deployedUrl ?? undefined}
+						onclick={onOpenDeployedUrl}
+					>
+						<SquareArrowOutUpRight class="size-3 shrink-0" />
+						<span class="truncate text-left whitespace-nowrap">{deployedUrl}</span>
+					</button>
+
 					<ButtonWithTooltip
 						tooltip={m.tooltip_copy_deploy_url()}
 						class="hover:!bg-icon-btn-hover shrink-0"
 						tooltipSide="bottom"
 						onclick={onCopyDeployedUrl}
+						size="icon-sm"
 					>
 						<Copy class="size-4" />
+					</ButtonWithTooltip>
+				{/if}
+
+				{#if onRefreshPreview}
+					<ButtonWithTooltip
+						tooltip={m.label_button_reload()}
+						class="hover:!bg-icon-btn-hover shrink-0"
+						tooltipSide="bottom"
+						onclick={onRefreshPreview}
+						size="icon-sm"
+					>
+						<RotateCw class="size-4" />
 					</ButtonWithTooltip>
 				{/if}
 			</div>
