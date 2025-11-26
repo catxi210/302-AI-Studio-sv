@@ -26,16 +26,19 @@ class ClaudeCodeSandboxState {
 			};
 		});
 	});
+
 	sessions = $derived.by(() => {
 		const sandbox = persistedClaudeCodeSandboxState.current.find(
 			(sandbox) => sandbox.sandboxId === claudeCodeAgentState.customSandboxId,
 		);
 		if (!sandbox) return [];
-		const sessionOpts = sandbox.sessionInfos.map((session) => ({
-			key: session.sessionId,
-			label: session.sessionId,
-			value: session.sessionId,
-		}));
+		const sessionOpts = sandbox.sessionInfos.map((session) => {
+			return {
+				key: session.sessionId,
+				label: `${session.sessionId} (${m.remark()}: ${session.note === "" || !session.note ? m.remark_null() : session.note})`,
+				value: session.sessionId,
+			};
+		});
 		return sessionOpts;
 	});
 

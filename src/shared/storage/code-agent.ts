@@ -24,7 +24,6 @@ export const codeAgentMetadata = type({
 	currentSessionId: "string",
 	sessionIds: type({
 		id: "string",
-		remark: "string",
 	}).array(),
 	sandboxId: "string",
 	sandboxRemark: "string",
@@ -46,6 +45,7 @@ export type CodeAgentSandboxStatus = typeof codeAgentSandboxStatus.infer;
 export const claudeCodeSessionInfo = type({
 	sessionId: "string",
 	workspacePath: "string",
+	note: "string?",
 });
 export type ClaudeCodeSessionInfo = typeof claudeCodeSessionInfo.infer;
 

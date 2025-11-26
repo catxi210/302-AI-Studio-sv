@@ -137,6 +137,7 @@ export class CodeAgentService {
 			const list = session_list.map((session) => ({
 				sessionId: session.session_id,
 				workspacePath: session.workspace_path,
+				note: session.note ?? "",
 			}));
 			await claudeCodeSandboxStorage.setClaudeCodeSessions(sandboxId, list);
 			return { isOK: true };

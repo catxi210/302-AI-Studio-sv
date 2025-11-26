@@ -17,6 +17,7 @@ import type { AttachmentFile, MCPServer, Model, ThreadParmas } from "@shared/typ
 import { nanoid } from "nanoid";
 import { toast } from "svelte-sonner";
 
+import { updateSessionNote } from "$lib/api/sandbox-session";
 import { claudeCodeAgentState } from "$lib/stores/code-agent/claude-code-state.svelte";
 import type { CodeAgentCfgs } from "@shared/storage/code-agent";
 import { codeAgentState } from "./code-agent";
@@ -732,8 +733,6 @@ class ChatState {
 	async generateTitleManually(): Promise<void> {
 		const titleModel = preferencesSettings.titleGenerationModel;
 
-		const codeAgentEnabled = codeAgentState.enabled;
-
 		if (!titleModel) {
 			console.warn("No title generation model configured");
 			toast.warning(m.toast_no_title_generation_model());
@@ -755,10 +754,6 @@ class ChatState {
 			if (generatedTitle) {
 				persistedChatParamsState.current.title = generatedTitle;
 				tabBarState.updateTabTitle(persistedChatParamsState.current.id, generatedTitle);
-
-				if (codeAgentEnabled) {
-					codeAgentState.updateCurrentSessionId(generatedTitle);
-				}
 
 				// Force flush to ensure all changes are persisted before broadcasting
 				persistedChatParamsState.flush();
@@ -1071,7 +1066,7 @@ export const chat = new Chat({
 
 						// If no session exists, generate a new one
 						const newSessionId = nanoid();
-						claudeCodeAgentState.addSessionId(newSessionId, newSessionId);
+						claudeCodeAgentState.addSessionId(newSessionId);
 						claudeCodeAgentState.updateCurrentSessionId(newSessionId);
 						return newSessionId;
 					})()
@@ -1112,7 +1107,6 @@ export const chat = new Chat({
 		persistedMessagesState.current = messages;
 
 		sessionState.latestUsedModel = chatState.selectedModel ?? null;
-
 		const codeAgentEnabled = codeAgentState.enabled;
 
 		// Execute after send message hook
@@ -1193,9 +1187,13 @@ export const chat = new Chat({
 
 				const generatedTitle = await generateTitle(messages, titleModel, provider, serverPort);
 				persistedChatParamsState.current.title = generatedTitle;
-
-				if (codeAgentEnabled) {
-					codeAgentState.updateSessionRemark(generatedTitle);
+				if (codeAgentEnabled && provider) {
+					updateSessionNote(provider, {
+						note: generatedTitle,
+						sandbox_id: claudeCodeAgentState.sandboxId,
+						session_id: claudeCodeAgentState.currentSessionId,
+					});
+					// codeAgentState.updateSessionRemark(generatedTitle);
 				}
 
 				tabBarState.updateTabTitle(persistedChatParamsState.current.id, generatedTitle);
@@ -1212,11 +1210,9 @@ export const chat = new Chat({
 					const titleText = [...text].slice(0, 10).join("");
 					if (titleText) {
 						persistedChatParamsState.current.title = titleText;
-
 						if (codeAgentEnabled) {
-							codeAgentState.updateSessionRemark(titleText);
+							// codeAgentState.updateSessionRemark(titleText);
 						}
-
 						tabBarState.updateTabTitle(persistedChatParamsState.current.id, titleText);
 					}
 				}

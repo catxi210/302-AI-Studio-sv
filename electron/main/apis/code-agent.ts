@@ -132,6 +132,7 @@ export async function listClaudeCodeSandboxes(): Promise<ListClaudeCodeSandboxes
 export const sessionInfoSchema = type({
 	session_id: "string",
 	workspace_path: "string",
+	note: "string?",
 });
 export type SessionInfo = typeof sessionInfoSchema.infer;
 export const listClaudeCodeSessionsResponse = type({

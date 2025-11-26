@@ -30,7 +30,7 @@ class ClaudeCodeStorage extends StorageService<CodeAgentMetadata> {
 			workspacePaths: [],
 			variables: [],
 			currentSessionId: sessionId,
-			sessionIds: [{ id: sessionId, remark: "" }],
+			sessionIds: [{ id: sessionId }],
 			sandboxId: "",
 			sandboxRemark: "",
 		};

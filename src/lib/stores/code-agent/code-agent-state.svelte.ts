@@ -103,12 +103,6 @@ class CodeAgentState {
 		}
 	}
 
-	async updateSessionRemark(remark: string): Promise<void> {
-		if (this.currentAgentId === "claude-code") {
-			claudeCodeAgentState.updateSessionRemark(remark);
-		}
-	}
-
 	getCurrentSessionId(): string {
 		return match(this.currentAgentId)
 			.with("claude-code", () => claudeCodeAgentState.currentSessionId)
