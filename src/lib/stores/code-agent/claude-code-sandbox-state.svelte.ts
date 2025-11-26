@@ -35,7 +35,7 @@ class ClaudeCodeSandboxState {
 		const sessionOpts = sandbox.sessionInfos.map((session) => {
 			return {
 				key: session.sessionId,
-				label: `${session.sessionId} (${m.remark()}: ${session.note === "" || !session.note ? m.remark_null() : session.note})`,
+				label: session.note && session.note !== "" ? session.note : session.sessionId,
 				value: session.sessionId,
 			};
 		});

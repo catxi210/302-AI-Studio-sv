@@ -82,12 +82,12 @@
 	}
 
 	onMount(() => {
-		const { currentSessionId, sandboxRemark } = claudeCodeAgentState;
+		const { currentSessionId, sandboxId } = claudeCodeAgentState;
 		if (currentSessionId) {
 			claudeCodeAgentState.customSessionId = currentSessionId;
 		}
-		if (sandboxRemark) {
-			claudeCodeAgentState.customSandboxId = sandboxRemark;
+		if (sandboxId) {
+			claudeCodeAgentState.customSandboxId = sandboxId;
 		}
 	});
 </script>
