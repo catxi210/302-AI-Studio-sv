@@ -67,13 +67,14 @@ class ClaudeCodeAgentState {
 	}
 
 	addSessionId(sessionId: string): void {
-		this.updateState({ sessionIds: [...this.sessionIds, { id: sessionId }] });
+		this.updateState({ sessionIds: [...this.sessionIds, sessionId] });
 	}
 
 	removeSessionId(sessionId: string): void {
 		this.updateState({
 			sessionIds: this.sessionIds.filter((item) => {
-				const id = typeof item === "string" ? item : item.id;
+				// Compatibility: handle both string and legacy { id: string } format
+				const id = typeof item === "string" ? item : (item as { id: string }).id;
 				return id !== sessionId;
 			}),
 		});
@@ -99,13 +100,13 @@ class ClaudeCodeAgentState {
 				return false;
 			}
 			this.updateState({
-				sessionIds: [{ id: this.customSessionId }],
+				sessionIds: [this.customSessionId],
 				currentSessionId: this.customSessionId,
 				sandboxId: this.customSandboxId,
 			});
 		} else if (this.sessionMode === "new-agent") {
 			this.updateState({
-				sessionIds: [{ id: this.customSessionId }],
+				sessionIds: [this.customSessionId],
 				currentSessionId: this.customSessionId,
 				sandboxRemark: this.customSandboxId,
 			});

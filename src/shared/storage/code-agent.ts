@@ -22,9 +22,7 @@ export const codeAgentMetadata = type({
 	 * remote agent only
 	 */
 	currentSessionId: "string",
-	sessionIds: type({
-		id: "string",
-	}).array(),
+	sessionIds: "string[]",
 	sandboxId: "string",
 	sandboxRemark: "string",
 });
