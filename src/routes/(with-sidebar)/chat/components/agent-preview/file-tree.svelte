@@ -315,8 +315,14 @@
 			previousRefreshTrigger = refreshTrigger;
 
 			if (sandboxId && !fileTreeState.isStreaming) {
-				console.log("[FileTree] Refresh triggered by parent, refreshing file tree");
-				fileTreeState.refreshFileTree();
+				// Only refresh if workspace path is available
+				// If not, the workspace path effect will handle it when path becomes available
+				if (workspacePath) {
+					console.log("[FileTree] Refresh triggered by parent, refreshing file tree");
+					fileTreeState.refreshFileTree();
+				} else {
+					console.log("[FileTree] Skipping refresh - waiting for workspace path");
+				}
 			} else if (fileTreeState.isStreaming) {
 				console.log("[FileTree] Skipping refresh - agent is streaming");
 			} else if (!sandboxId) {

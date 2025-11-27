@@ -178,18 +178,12 @@
 		// 类似于 React 的 usePrevious + useEffect 组合
 		if (previousStreamingState && !isStreaming) {
 			if (isAgentMode && agentPreviewState.isVisible && currentSandboxId) {
-				console.log("[AgentPreview] Task completed, refreshing sessions first");
+				console.log("[AgentPreview] Task completed, triggering refresh");
+				refreshTrigger++;
 
-				// Use async IIFE to await refreshSessions before triggering file tree refresh
-				(async () => {
-					// First refresh sessions to get updated workspace_path
-					// This is important because session/workspace is created after agent's first response
-					await claudeCodeSandboxState.refreshSessions(currentSandboxId);
-
-					// Then trigger file tree refresh with correct workspace path
-					console.log("[AgentPreview] Sessions refreshed, triggering file tree refresh");
-					refreshTrigger++;
-				})();
+				// Refresh sessions to get updated workspace_path after agent completes
+				// This is important because session/workspace is created after agent's first response
+				claudeCodeSandboxState.refreshSessions(currentSandboxId);
 			}
 		}
 		previousStreamingState = isStreaming;

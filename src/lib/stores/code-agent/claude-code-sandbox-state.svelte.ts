@@ -106,7 +106,7 @@ class ClaudeCodeSandboxState {
 			// Force refresh from storage to get the updated session data
 			// This is needed because the main process updated the storage
 			// and the sync to renderer might not have completed yet
-			await persistedClaudeCodeSandboxState.flush();
+			// await persistedClaudeCodeSandboxState.refresh();
 
 			// Log the updated session data
 			const sandbox = persistedClaudeCodeSandboxState.current.find(
