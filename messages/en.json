@@ -891,5 +891,7 @@
 	"title_agent_sandbox_list": "Agent Sandbox List",
 	"label_agent_sandbox_count": "{count} sessions",
 	"placeholder_search_agent": "Search",
-	"title_agent_platform": "Platform"
+	"title_agent_platform": "Platform",
+	"no_search_results": "No search results",
+	"no_sandboxes": "No sandboxes"
 }

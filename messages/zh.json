@@ -887,5 +887,7 @@
 	"title_agent_sandbox_list": "Agent沙盒列表",
 	"label_agent_sandbox_count": "{count}个会话",
 	"placeholder_search_agent": "搜索",
-	"title_agent_platform": "平台"
+	"title_agent_platform": "平台",
+	"no_search_results": "无搜索结果",
+	"no_sandboxes": "暂无沙盒"
 }
