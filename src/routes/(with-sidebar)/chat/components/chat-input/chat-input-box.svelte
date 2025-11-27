@@ -229,30 +229,32 @@
 		)}
 		data-layoutid="chat-input-box"
 	>
-		<Textarea
-			bind:ref={textareaRef}
-			class={cn(
-				"w-full resize-none p-0",
-				"border-none shadow-none focus-within:ring-0 focus-within:outline-hidden focus-visible:ring-0",
-			)}
-			bind:value={chatState.inputValue}
-			placeholder={m.placeholder_input_chat()}
-			onkeydown={(e) => {
-				if (e.key === "Enter" && !e.shiftKey && !isComposing) {
-					handleSendMessage();
-					e.preventDefault();
-				}
-			}}
-			oncompositionstart={() => {
-				isComposing = true;
-			}}
-			oncompositionend={() => {
-				isComposing = false;
-			}}
-			onpaste={handlePaste}
-		/>
+		<div class="min-h-0 flex-1 overflow-auto">
+			<Textarea
+				bind:ref={textareaRef}
+				class={cn(
+					"w-full resize-none p-0",
+					"border-none shadow-none focus-within:ring-0 focus-within:outline-hidden focus-visible:ring-0",
+				)}
+				bind:value={chatState.inputValue}
+				placeholder={m.placeholder_input_chat()}
+				onkeydown={(e) => {
+					if (e.key === "Enter" && !e.shiftKey && !isComposing) {
+						handleSendMessage();
+						e.preventDefault();
+					}
+				}}
+				oncompositionstart={() => {
+					isComposing = true;
+				}}
+				oncompositionend={() => {
+					isComposing = false;
+				}}
+				onpaste={handlePaste}
+			/>
+		</div>
 
-		<div class="mt-1.5 flex flex-row justify-between gap-2 min-w-0 overflow-hidden">
+		<div class="mt-1.5 flex flex-row justify-between gap-2 min-w-0 overflow-hidden shrink-0">
 			<div class="flex items-center gap-2 shrink-0">
 				<ChatActions />
 			</div>
