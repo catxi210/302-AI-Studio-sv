@@ -883,5 +883,9 @@
 	"select_sandbox_placeholder": "选择一个沙盒",
 	"text_button_modify_remark": "修改备注",
 	"label_button_confirm": "确定",
-	"placeholder_input_sandbox_remark": "请输入沙盒备注..."
+	"placeholder_input_sandbox_remark": "请输入沙盒备注...",
+	"title_agent_sandbox_list": "Agent沙盒列表",
+	"label_agent_sandbox_count": "{count}个会话",
+	"placeholder_search_agent": "搜索",
+	"title_agent_platform": "平台"
 }

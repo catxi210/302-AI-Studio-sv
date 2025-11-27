@@ -887,5 +887,9 @@
 	"select_sandbox_placeholder": "Choose a sandbox",
 	"text_button_modify_remark": "Modify Remark",
 	"label_button_confirm": "Confirm",
-	"placeholder_input_sandbox_remark": "Please enter a sandbox remark..."
+	"placeholder_input_sandbox_remark": "Please enter a sandbox remark...",
+	"title_agent_sandbox_list": "Agent Sandbox List",
+	"label_agent_sandbox_count": "{count} sessions",
+	"placeholder_search_agent": "Search",
+	"title_agent_platform": "Platform"
 }
