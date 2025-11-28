@@ -109,7 +109,7 @@
 				onclick={onPin}
 			>
 				{#if isPinned}
-					<Pin class="size-4" />
+					<Pin class="size-4" style="color: #8E47F0;" />
 				{:else}
 					<PinOff class="size-4" />
 				{/if}
