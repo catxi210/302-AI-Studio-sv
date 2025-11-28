@@ -1,5 +1,6 @@
 import {
 	createClaudeCodeSandbox,
+	deleteClaudeCodeSandbox,
 	listClaudeCodeSandboxes,
 	listClaudeCodeSessions,
 	updateClaudeCodeSandbox,
@@ -223,6 +224,22 @@ export class CodeAgentService {
 		} catch (error) {
 			console.error("Error creating Claude code sandbox:", error);
 			return { isOK: false, sandboxId: "" };
+		}
+	}
+
+	async deleteClaudeCodeSandboxByIpc(
+		_event: IpcMainInvokeEvent,
+		sandbox_id: string,
+	): Promise<{ isOK: boolean; error?: string }> {
+		try {
+			const response = await deleteClaudeCodeSandbox(sandbox_id);
+			if (response.success) {
+				await this.updateClaudeCodeSandboxes();
+				return { isOK: true };
+			}
+			return { isOK: false };
+		} catch (error) {
+			return { isOK: false, error: error instanceof Error ? error.message : "Unknown error" };
 		}
 	}
 }

@@ -897,5 +897,18 @@
 	"label_button_create": "新建",
 	"error_create_sandbox": "沙盒创建失败，请重试！",
 	"success_create_sandbox": "沙盒创建成功！",
-	"title_create_sandbox": "创建沙盒"
+	"title_create_sandbox": "创建沙盒",
+	"label_session_list": "会话列表",
+	"no_sessions": "暂无会话",
+	"label_status": "状态",
+	"label_model": "模型",
+	"btn_close": "关闭",
+	"delete_sandbox_success": "沙盒删除成功",
+	"delete_sandbox_failed": "沙盒删除失败",
+	"title_delete_sandbox": "删除沙盒",
+	"title_delete_sandbox_confirm": "即将删除沙盒：{remark}",
+	"text_delete_sandbox_warning": "沙盒中以下会话的所有数据和文件将被清除：",
+	"text_delete_sandbox_warning_confirm": "*所有数据和文件将会被删除，无法还原，是否继续？",
+	"label_delete_sandbox": "删除此沙盒",
+	"label_remark": "备注"
 }

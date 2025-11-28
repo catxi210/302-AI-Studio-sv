@@ -901,5 +901,18 @@
 	"label_button_create": "New",
 	"error_create_sandbox": "Sandbox creation failed, please try again!",
 	"success_create_sandbox": "Sandbox created successfully!",
-	"title_create_sandbox": "Create Sandbox"
+	"title_create_sandbox": "Create Sandbox",
+	"label_session_list": "Session List",
+	"no_sessions": "No sessions",
+	"label_status": "Status",
+	"label_model": "Model",
+	"btn_close": "Close",
+	"delete_sandbox_success": "Sandbox deleted successfully",
+	"delete_sandbox_failed": "Failed to delete sandbox",
+	"title_delete_sandbox": "Delete Sandbox",
+	"title_delete_sandbox_confirm": "About to delete sandbox: {remark}",
+	"text_delete_sandbox_warning": "All data and files for the following sessions in the sandbox will be cleared:",
+	"text_delete_sandbox_warning_confirm": "* All data and files will be deleted and cannot be restored. Continue?",
+	"label_delete_sandbox": "Delete this sandbox",
+	"label_remark": "Remark"
 }

@@ -9,8 +9,12 @@ export const persistedClaudeCodeSandboxState = new PersistedState<ClaudeCodeSand
 	[],
 );
 
-const { updateClaudeCodeSandboxesByIpc, updateClaudeCodeSessions } =
-	window.electronAPI.codeAgentService;
+const {
+	updateClaudeCodeSandboxesByIpc,
+	updateClaudeCodeSessions,
+	deleteClaudeCodeSandboxByIpc,
+	updateClaudeCodeSandboxRemark,
+} = window.electronAPI.codeAgentService;
 
 class ClaudeCodeSandboxState {
 	sandboxRemarkMap = $state(new Map<string, string>());
@@ -133,6 +137,30 @@ class ClaudeCodeSandboxState {
 			}
 		}
 
+		return isOK;
+	}
+
+	async deleteSandbox(sandboxId: string): Promise<boolean> {
+		const { isOK, error } = await deleteClaudeCodeSandboxByIpc(sandboxId);
+		if (isOK) {
+			toast.success(m.delete_sandbox_success());
+		} else {
+			const errorMessage = error
+				? `${m.delete_sandbox_failed()}: ${error}`
+				: m.delete_sandbox_failed();
+			toast.error(errorMessage);
+		}
+		return isOK;
+	}
+
+	async updateSandboxRemark(sandboxId: string, remark: string): Promise<boolean> {
+		const { isOK } = await updateClaudeCodeSandboxRemark(sandboxId, remark);
+		if (isOK) {
+			toast.success("Update remark success");
+			await this.refreshSandboxes();
+		} else {
+			toast.error("Update remark failed");
+		}
 		return isOK;
 	}
 }

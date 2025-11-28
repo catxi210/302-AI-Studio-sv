@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { Button } from "$lib/components/ui/button";
+	import * as ContextMenu from "$lib/components/ui/context-menu";
 	import * as Empty from "$lib/components/ui/empty/index.js";
 	import { Input } from "$lib/components/ui/input";
 	import { m } from "$lib/paraglide/messages";
@@ -8,10 +9,19 @@
 		persistedClaudeCodeSandboxState,
 	} from "$lib/stores/code-agent/claude-code-sandbox-state.svelte";
 	import { RotateCw, Search } from "@lucide/svelte";
+	import type { ClaudeCodeSandboxInfo } from "@shared/storage/code-agent";
 	import { onMount } from "svelte";
+	import SandboxDeleteConfirmDialog from "./sandbox-delete-confirm-dialog.svelte";
+	import SandboxDialog from "./sandbox-dialog.svelte";
+	import SandboxRemarkDialog from "./sandbox-remark-dialog.svelte";
 
 	let searchQuery = $state("");
 	let isLoading = $state(false);
+	let selectedSandbox = $state<ClaudeCodeSandboxInfo | null>(null);
+	let isDialogOpen = $state(false);
+	let isRenameDialogOpen = $state(false);
+	let isDeleteDialogOpen = $state(false);
+	let targetSandbox = $state<ClaudeCodeSandboxInfo | null>(null);
 
 	// Filter sandboxes based on search query
 	const filteredSandboxes = $derived.by(() => {
@@ -31,7 +41,13 @@
 		if (!isoString) return "";
 		try {
 			const date = new Date(isoString);
-			return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+			return date.toLocaleString([], {
+				year: "numeric",
+				month: "2-digit",
+				day: "2-digit",
+				hour: "2-digit",
+				minute: "2-digit",
+			});
 		} catch {
 			return "";
 		}
@@ -45,6 +61,45 @@
 		} finally {
 			isLoading = false;
 		}
+	}
+
+	function handleSandboxClick(sandbox: ClaudeCodeSandboxInfo) {
+		selectedSandbox = sandbox;
+		isDialogOpen = true;
+	}
+
+	async function handleDeleteSandbox() {
+		if (!selectedSandbox) return;
+
+		// Call delete API
+		const success = await claudeCodeSandboxState.deleteSandbox(selectedSandbox.sandboxId);
+
+		// If successful, refresh list and close dialog
+		if (success) {
+			isDialogOpen = false;
+			await handleRefresh();
+		}
+	}
+
+	function handleCloseSandbox() {
+		isDialogOpen = false;
+	}
+
+	function handleModifyRemark(sandbox: ClaudeCodeSandboxInfo) {
+		targetSandbox = sandbox;
+		isRenameDialogOpen = true;
+	}
+
+	function handleDeleteClick(sandbox: ClaudeCodeSandboxInfo) {
+		targetSandbox = sandbox;
+		isDeleteDialogOpen = true;
+	}
+
+	async function handleConfirmRename(newName: string) {
+		if (!targetSandbox) return;
+		await claudeCodeSandboxState.updateSandboxRemark(targetSandbox.sandboxId, newName);
+		isRenameDialogOpen = false;
+		await handleRefresh();
 	}
 
 	// Auto-refresh on mount
@@ -90,23 +145,64 @@
 	{:else}
 		<div class="flex flex-col gap-2">
 			{#each filteredSandboxes as sandbox (sandbox.sandboxId)}
-				<div
-					class="flex items-center justify-between rounded-lg bg-muted/50 p-4 hover:bg-muted/70 transition-colors cursor-pointer"
-				>
-					<div class="flex flex-col gap-1">
-						<span class="font-medium text-sm">
-							{sandbox.sandboxRemark || sandbox.sandboxId}
-						</span>
-						<span class="text-xs text-muted-foreground">{sandbox.sandboxId}</span>
-					</div>
-					<div class="flex flex-col items-end gap-1">
-						<span class="text-xs text-muted-foreground">
-							{m.label_agent_sandbox_count({ count: String(sandbox.sessionInfos.length) })}
-						</span>
-						<span class="text-xs text-muted-foreground">{formatTime(sandbox.updatedAt)}</span>
-					</div>
-				</div>
+				<!-- svelte-ignore a11y_click_events_have_key_events -->
+				<!-- svelte-ignore a11y_no_static_element_interactions -->
+				<ContextMenu.Root>
+					<ContextMenu.Trigger>
+						<!-- svelte-ignore a11y_click_events_have_key_events -->
+						<!-- svelte-ignore a11y_no_static_element_interactions -->
+						<div
+							class="flex items-center justify-between rounded-lg bg-muted/50 p-4 hover:bg-muted/70 transition-colors cursor-pointer"
+							onclick={() => handleSandboxClick(sandbox)}
+						>
+							<div class="flex flex-col gap-1">
+								<span class="font-medium text-sm">
+									{sandbox.sandboxRemark || sandbox.sandboxId}
+								</span>
+								<span class="text-xs text-muted-foreground">{sandbox.sandboxId}</span>
+							</div>
+							<div class="flex flex-col items-end gap-1">
+								<span class="text-xs text-muted-foreground">
+									{m.label_agent_sandbox_count({ count: String(sandbox.sessionInfos.length) })}
+								</span>
+								<span class="text-xs text-muted-foreground">{formatTime(sandbox.updatedAt)}</span>
+							</div>
+						</div>
+					</ContextMenu.Trigger>
+					<ContextMenu.Content>
+						<ContextMenu.Item onclick={() => handleModifyRemark(sandbox)}>
+							{m.text_button_edit ? m.text_button_edit() : "Edit"}
+						</ContextMenu.Item>
+						<ContextMenu.Item
+							class="text-destructive focus:text-destructive"
+							onclick={() => handleDeleteClick(sandbox)}
+						>
+							{m.text_button_delete ? m.text_button_delete() : "Delete"}
+						</ContextMenu.Item>
+					</ContextMenu.Content>
+				</ContextMenu.Root>
 			{/each}
 		</div>
 	{/if}
+
+	<SandboxDialog
+		bind:open={isDialogOpen}
+		sandbox={selectedSandbox}
+		onDelete={handleDeleteSandbox}
+		onClose={handleCloseSandbox}
+	/>
+
+	<SandboxRemarkDialog
+		bind:open={isRenameDialogOpen}
+		sandboxId={targetSandbox?.sandboxId || ""}
+		remark={targetSandbox?.sandboxRemark || ""}
+		onClose={() => (isRenameDialogOpen = false)}
+		onSave={handleConfirmRename}
+	/>
+
+	<SandboxDeleteConfirmDialog
+		bind:open={isDeleteDialogOpen}
+		sandbox={targetSandbox}
+		onSuccess={handleRefresh}
+	/>
 </div>

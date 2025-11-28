@@ -77,6 +77,40 @@ export async function updateClaudeCodeSandbox(
 	}
 }
 
+const deleteClaudeCodeSandboxResponse = type({
+	success: "boolean",
+});
+export type DeleteClaudeCodeSandboxResponse = typeof deleteClaudeCodeSandboxResponse.infer;
+
+/**
+ * Delete a claude code sandbox
+ * @param sandbox_id - The sandbox id to delete
+ * @returns The response from deleting the claude code sandbox
+ */
+export async function deleteClaudeCodeSandbox(
+	sandbox_id: string,
+): Promise<DeleteClaudeCodeSandboxResponse> {
+	try {
+		const response = await _302AIKy
+			.post("302/claude-code/sandbox/delete", {
+				json: { sandbox_id },
+			})
+			.json();
+
+		console.debug(response);
+
+		const validated = deleteClaudeCodeSandboxResponse(response);
+		if (validated instanceof type.errors) {
+			console.error("Failed to validate delete claude code sandbox:", validated.summary);
+			throw new Error("Invalid response format from delete claude code sandbox API");
+		}
+		return validated;
+	} catch (error) {
+		console.error("Failed to delete claude code sandbox:", error);
+		throw error;
+	}
+}
+
 const sandboxInfoSchema = type({
 	sandbox_id: "string",
 	sandbox_name: "string",
