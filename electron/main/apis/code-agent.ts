@@ -1,21 +1,10 @@
+import {
+	createClaudeCodeSandboxResponse,
+	type CreateClaudeCodeSandboxRequest,
+	type CreateClaudeCodeSandboxResponse,
+} from "@shared/storage/code-agent";
 import { type } from "arktype";
 import { _302AIKy } from "./core/_302ai-ky";
-
-export const createClaudeCodeSandboxRequest = type({
-	llm_model: "string",
-	system_prompt: "string?",
-	mcp_servers: "string[]?",
-	sandbox_name: "string?",
-});
-export type CreateClaudeCodeSandboxRequest = typeof createClaudeCodeSandboxRequest.infer;
-const createClaudeCodeSandboxResponse = type({
-	success: "boolean",
-	data: {
-		sandbox_id: "string",
-		sandbox_name: "string",
-	},
-});
-export type CreateClaudeCodeSandboxResponse = typeof createClaudeCodeSandboxResponse.infer;
 
 /**
  * Create a claude code sandbox
@@ -26,6 +15,7 @@ export async function createClaudeCodeSandbox(
 	request: CreateClaudeCodeSandboxRequest,
 ): Promise<CreateClaudeCodeSandboxResponse> {
 	try {
+		console.debug("request", request);
 		const response = await _302AIKy
 			.post("302/claude-code/sandbox/create", {
 				json: request,

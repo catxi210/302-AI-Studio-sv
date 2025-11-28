@@ -782,7 +782,7 @@ app.post("/generate-suggestions", async (c) => {
 app.post("/chat/302ai-code-agent", async (c) => {
 	const {
 		baseUrl,
-		model = "gpt-4o",
+		model = "claude-sonnet-4-5-20250929",
 		apiKey,
 		messages,
 		speedOptions,

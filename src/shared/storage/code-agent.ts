@@ -25,6 +25,7 @@ export const codeAgentMetadata = type({
 	sessionIds: "string[]",
 	sandboxId: "string",
 	sandboxRemark: "string",
+	workspacePath: "string",
 });
 export type CodeAgentMetadata = typeof codeAgentMetadata.infer;
 
@@ -61,3 +62,20 @@ export const claudeCodeSandboxInfo = type({
 	sessionInfos: claudeCodeSessionInfo.array(),
 });
 export type ClaudeCodeSandboxInfo = typeof claudeCodeSandboxInfo.infer;
+
+export const createClaudeCodeSandboxRequest = type({
+	llm_model: "string",
+	system_prompt: "string?",
+	mcp_servers: "string[]?",
+	sandbox_name: "string?",
+	max_thinking_token: "number?",
+});
+export type CreateClaudeCodeSandboxRequest = typeof createClaudeCodeSandboxRequest.infer;
+export const createClaudeCodeSandboxResponse = type({
+	success: "boolean",
+	data: {
+		sandbox_id: "string",
+		sandbox_name: "string",
+	},
+});
+export type CreateClaudeCodeSandboxResponse = typeof createClaudeCodeSandboxResponse.infer;

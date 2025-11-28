@@ -3,11 +3,15 @@ import {
 	listClaudeCodeSandboxes,
 	listClaudeCodeSessions,
 	updateClaudeCodeSandbox,
-	type CreateClaudeCodeSandboxRequest,
 } from "@electron/main/apis/code-agent";
-import type { CodeAgentCreateResult } from "@shared/storage/code-agent";
+import type {
+	CodeAgentCreateResult,
+	CreateClaudeCodeSandboxRequest,
+} from "@shared/storage/code-agent";
+import type { ThreadParmas } from "@shared/types";
 import type { IpcMainInvokeEvent } from "electron";
 import { broadcastService } from "../broadcast-service";
+import { storageService } from "../storage-service";
 import {
 	claudeCodeSandboxStorage,
 	claudeCodeStorage,
@@ -51,6 +55,28 @@ export class CodeAgentService {
 		}
 	}
 
+	private async _createClaudeCodeSandbox(
+		threadId: string,
+		sandboxCfg: CreateClaudeCodeSandboxRequest,
+	): Promise<{ createdResult: CodeAgentCreateResult; sandboxId: string }> {
+		const { isOK, sandboxId } = await claudeCodeStorage.getClaudeCodeSandboxId(threadId);
+		if (isOK && sandboxId !== "") {
+			this.notifySandboxUpdated(threadId, sandboxId);
+			return { createdResult: "already-exist", sandboxId };
+		}
+
+		const response = await createClaudeCodeSandbox(sandboxCfg);
+		if (response.success) {
+			const { sandbox_id: sandboxId, sandbox_name: sandboxRemark } = response.data;
+
+			this.notifySandboxUpdated(threadId, sandboxId);
+			await claudeCodeStorage.setClaudeCodeSandboxInfo(threadId, sandboxId, sandboxRemark);
+
+			return { createdResult: "success", sandboxId };
+		}
+		return { createdResult: "failed", sandboxId: "" };
+	}
+
 	async updateClaudeCodeSandboxes(): Promise<void> {
 		await this._updateClaudeCodeSandboxes();
 	}
@@ -63,22 +89,7 @@ export class CodeAgentService {
 		threadId: string,
 		sandboxCfg: CreateClaudeCodeSandboxRequest,
 	): Promise<{ createdResult: CodeAgentCreateResult; sandboxId: string }> {
-		const { isOK, sandboxId } = await claudeCodeStorage.getClaudeCodeSandboxId(threadId);
-		if (isOK && sandboxId !== "") {
-			this.notifySandboxUpdated(threadId, sandboxId);
-			return { createdResult: "already-exist", sandboxId };
-		}
-
-		const response = await createClaudeCodeSandbox(sandboxCfg);
-		if (response.success) {
-			const sandboxId = response.data.sandbox_id;
-
-			this.notifySandboxUpdated(threadId, sandboxId);
-			await claudeCodeStorage.setClaudeCodeSandboxId(threadId, sandboxId);
-
-			return { createdResult: "success", sandboxId };
-		}
-		return { createdResult: "failed", sandboxId: "" };
+		return this._createClaudeCodeSandbox(threadId, sandboxCfg);
 	}
 
 	// ******************************* IPC Methods ******************************* //
@@ -185,6 +196,33 @@ export class CodeAgentService {
 		} catch (error) {
 			console.error("Error updating Claude code sandbox:", error);
 			return { isOK: false, remark: "" };
+		}
+	}
+
+	async createClaudeCodeSandboxByIpc(
+		_event: IpcMainInvokeEvent,
+		threadId: string,
+		sandboxName: string,
+	): Promise<{ isOK: boolean; sandboxId: string }> {
+		try {
+			const targetThread = await storageService.getItemInternal("app-thread:" + threadId);
+			if (!targetThread) {
+				return { isOK: false, sandboxId: "" };
+			}
+			const cfg: CreateClaudeCodeSandboxRequest = {
+				llm_model: (targetThread as ThreadParmas).selectedModel?.id ?? "claude-sonnet-4-5-20250929",
+				sandbox_name: sandboxName,
+			};
+
+			const { createdResult, sandboxId } = await this._createClaudeCodeSandbox(threadId, cfg);
+			const isOK = createdResult === "success";
+			if (isOK) {
+				this._updateClaudeCodeSandboxes();
+			}
+			return { isOK, sandboxId };
+		} catch (error) {
+			console.error("Error creating Claude code sandbox:", error);
+			return { isOK: false, sandboxId: "" };
 		}
 	}
 }

@@ -1,4 +1,4 @@
-<script lang="ts" module>
+<!-- <script lang="ts" module>
 	export const sessionModeOptions = [
 		{
 			key: "new-agent",
@@ -40,7 +40,7 @@
 	}
 
 	async function handleSelectSandbox(sandboxId: string) {
-		claudeCodeAgentState.customSandboxId = sandboxId;
+		claudeCodeAgentState.selectedSandboxId = sandboxId;
 		customSandboxRemark = claudeCodeSandboxState.sandboxRemarkMap.get(sandboxId) ?? "";
 		await handleRefreshSessions(sandboxId);
 	}
@@ -48,7 +48,7 @@
 	async function handleRefreshSandboxes() {
 		isSandboxesLoading = true;
 		const success = await claudeCodeSandboxState.refreshSandboxes();
-		if (success && claudeCodeAgentState.customSandboxId) {
+		if (success && claudeCodeAgentState.selectedSandboxId) {
 			await handleRefreshSessions();
 		}
 		isSandboxesLoading = false;
@@ -57,7 +57,7 @@
 	function handleModifyRemark() {
 		if (openModifyRemarkInput) {
 			customSandboxRemark =
-				claudeCodeSandboxState.sandboxRemarkMap.get(claudeCodeAgentState.customSandboxId) ?? "";
+				claudeCodeSandboxState.sandboxRemarkMap.get(claudeCodeAgentState.selectedSandboxId) ?? "";
 		}
 		openModifyRemarkInput = !openModifyRemarkInput;
 	}
@@ -65,7 +65,7 @@
 	async function handleModifyRemarkConfirm() {
 		isModifyRemarkLoading = true;
 		const { isOK } = await updateClaudeCodeSandboxRemark(
-			claudeCodeAgentState.customSandboxId,
+			claudeCodeAgentState.selectedSandboxId,
 			customSandboxRemark,
 		);
 		if (isOK) {
@@ -77,7 +77,7 @@
 
 	async function handleRefreshSessions(sandboxId?: string) {
 		isSessionsLoading = true;
-		await claudeCodeSandboxState.refreshSessions(sandboxId ?? claudeCodeAgentState.customSandboxId);
+		await claudeCodeSandboxState.refreshSessions(sandboxId ?? claudeCodeAgentState.selectedSandboxId);
 		isSessionsLoading = false;
 	}
 
@@ -87,7 +87,7 @@
 			claudeCodeAgentState.customSessionId = currentSessionId;
 		}
 		if (sandboxId) {
-			claudeCodeAgentState.customSandboxId = sandboxId;
+			claudeCodeAgentState.selectedSandboxId = sandboxId;
 		}
 	});
 </script>
@@ -96,7 +96,7 @@
 	<Label class="text-label-fg">{m.title_sandbox_remark()}</Label>
 	<Input
 		class="!bg-settings-item-bg dark:!bg-settings-item-bg h-10 rounded-[10px]"
-		bind:value={claudeCodeAgentState.customSandboxId}
+		bind:value={claudeCodeAgentState.selectedSandboxId}
 		placeholder={m.title_custom_sandbox_remark()}
 	/>
 	<Label class="text-label-fg">{m.title_session_id()}</Label>
@@ -112,7 +112,7 @@
 	<div class="flex flex-row gap-2 items-center">
 		<SettingSelect
 			name="sandbox"
-			value={claudeCodeAgentState.customSandboxId}
+			value={claudeCodeAgentState.selectedSandboxId}
 			options={claudeCodeSandboxState.sandboxes}
 			placeholder={m.select_sandbox_placeholder()}
 			onValueChange={(v) => {
@@ -123,7 +123,7 @@
 			class={cn("hover:!bg-chat-action-hover", openModifyRemarkInput ? "bg-chat-action-hover" : "")}
 			tooltip={m.text_button_modify_remark()}
 			onclick={handleModifyRemark}
-			disabled={isSandboxesLoading || !claudeCodeAgentState.customSandboxId}
+			disabled={isSandboxesLoading || !claudeCodeAgentState.selectedSandboxId}
 		>
 			<Wrench />
 		</ButtonWithTooltip>
@@ -171,26 +171,14 @@
 			class="hover:!bg-chat-action-hover"
 			tooltip={m.label_button_reload()}
 			onclick={() => handleRefreshSessions()}
-			disabled={isSessionsLoading || !claudeCodeAgentState.customSandboxId}
+			disabled={isSessionsLoading || !claudeCodeAgentState.selectedSandboxId}
 		>
 			<RefreshCcw class={cn("h-4 w-4", isSessionsLoading ? "animate-spin" : "")} />
 		</ButtonWithTooltip>
 	</div>
-	<!-- <Input
-		class="!bg-settings-item-bg dark:!bg-settings-item-bg h-10 rounded-[10px]"
-		bind:value={claudeCodeAgentState.customSessionId}
-		placeholder={m.title_session_id_to_be_associated()}
-	/> -->
 {/snippet}
 
 <Label class="text-label-fg">{m.title_select_agent_mode()}</Label>
-<!-- <SettingSelect
-	name="sessionMode"
-	value={claudeCodeAgentState.sessionMode}
-	options={sessionModeOptions}
-	placeholder={m.select_session()}
-	onValueChange={(v) => handleSessionModeChange(v as "select-existing-agent" | "new-agent")}
-/> -->
 <SegButton
 	options={sessionModeOptions}
 	selectedKey={claudeCodeAgentState.sessionMode}
@@ -201,4 +189,4 @@
 	{@render selectExistingAgentPanel()}
 {:else if claudeCodeAgentState.sessionMode === "new-agent"}
 	{@render newAgentPanel()}
-{/if}
+{/if} -->

@@ -5,7 +5,6 @@ import type {
 } from "@shared/storage/code-agent";
 import { prefixStorage } from "@shared/types";
 import { isNull } from "es-toolkit";
-import { nanoid } from "nanoid";
 import { StorageService } from "..";
 
 class ClaudeCodeStorage extends StorageService<CodeAgentMetadata> {
@@ -17,29 +16,33 @@ class ClaudeCodeStorage extends StorageService<CodeAgentMetadata> {
 		this.storage = prefixStorage(this.storage, "CodeAgentStorage");
 	}
 
-	private async ensureMetadata(key: string): Promise<CodeAgentMetadata> {
-		const existingMetadata = await this.getItemInternal(key);
-		if (!isNull(existingMetadata)) {
-			return existingMetadata;
-		}
+	// private async ensureMetadata(key: string): Promise<CodeAgentMetadata> {
+	// 	const existingMetadata = await this.getItemInternal(key);
+	// 	if (!isNull(existingMetadata)) {
+	// 		return existingMetadata;
+	// 	}
 
-		const sessionId = nanoid();
-		const initialMetadata: CodeAgentMetadata = {
-			model: this.defaultModel,
-			currentWorkspacePath: "",
-			workspacePaths: [],
-			variables: [],
-			currentSessionId: sessionId,
-			sessionIds: [sessionId],
-			sandboxId: "",
-			sandboxRemark: "",
-		};
+	// 	const sessionId = nanoid();
+	// 	const initialMetadata: CodeAgentMetadata = {
+	// 		model: this.defaultModel,
+	// 		currentWorkspacePath: "",
+	// 		workspacePaths: [],
+	// 		variables: [],
+	// 		currentSessionId: sessionId,
+	// 		sessionIds: [sessionId],
+	// 		sandboxId: "",
+	// 		sandboxRemark: "",
+	// 	};
 
-		await this.setItemInternal(key, initialMetadata);
-		return initialMetadata;
-	}
+	// 	await this.setItemInternal(key, initialMetadata);
+	// 	return initialMetadata;
+	// }
 
-	async setClaudeCodeSandboxId(threadId: string, sandboxId: string): Promise<{ isOK: boolean }> {
+	async setClaudeCodeSandboxInfo(
+		threadId: string,
+		sandboxId: string,
+		sandboxRemark: string,
+	): Promise<{ isOK: boolean }> {
 		const key = `${this.prefix}-${threadId}`;
 		try {
 			const codeAgentMetadata = await this.getItemInternal(key);
@@ -47,6 +50,7 @@ class ClaudeCodeStorage extends StorageService<CodeAgentMetadata> {
 			if (isNull(codeAgentMetadata)) return { isOK: false };
 
 			codeAgentMetadata.sandboxId = sandboxId;
+			codeAgentMetadata.sandboxRemark = sandboxRemark;
 			await this.setItemInternal(key, codeAgentMetadata);
 			return { isOK: true };
 		} catch (error) {

@@ -62,7 +62,7 @@
 	}
 </script>
 
-<div class="w-[500px]">
+<div class="w-[600px]">
 	<div class="flex flex-col gap-y-4 rounded-[10px] bg-background p-4">
 		<div class="gap-settings-gap flex flex-col">
 			<Label class="mb-2 text-label-fg">{m.title_code_agent_type()}</Label>

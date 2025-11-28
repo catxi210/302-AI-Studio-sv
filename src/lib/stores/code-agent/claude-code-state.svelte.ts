@@ -4,7 +4,8 @@ import { type CodeAgentMetadata } from "@shared/storage/code-agent";
 import { toast } from "svelte-sonner";
 import { match } from "ts-pattern";
 
-const { checkClaudeCodeSandbox } = window.electronAPI.codeAgentService;
+const { checkClaudeCodeSandbox, createClaudeCodeSandboxByIpc } =
+	window.electronAPI.codeAgentService;
 
 const tab = window.tab ?? null;
 
@@ -27,6 +28,7 @@ function getInitialData() {
 		sessionIds: [],
 		sandboxId: "",
 		sandboxRemark: "",
+		workspacePath: "",
 	};
 	return initialData;
 }
@@ -41,7 +43,9 @@ class ClaudeCodeAgentState {
 
 	sessionMode = $state<"select-existing-agent" | "new-agent">("new-agent");
 	customSessionId = $state("");
-	customSandboxId = $state("");
+	selectedSandboxId = $state("");
+
+	customSandboxName = $state("");
 
 	model = $derived(persistedClaudeCodeAgentState.current?.model ?? "");
 	currentSessionId = $derived(persistedClaudeCodeAgentState.current?.currentSessionId ?? "");
@@ -53,7 +57,7 @@ class ClaudeCodeAgentState {
 		match(this.sessionMode)
 			.with(
 				"select-existing-agent",
-				() => this.customSessionId !== "" && this.customSandboxId !== "",
+				() => this.customSessionId !== "" && this.selectedSandboxId !== "",
 			)
 			.with("new-agent", () => true)
 			.otherwise(() => false),
@@ -94,7 +98,7 @@ class ClaudeCodeAgentState {
 
 	async handleAgentModeEnable(): Promise<boolean> {
 		if (this.sessionMode === "select-existing-agent") {
-			const { isOK, valid } = await checkClaudeCodeSandbox(this.customSandboxId);
+			const { isOK, valid } = await checkClaudeCodeSandbox(this.selectedSandboxId);
 			if (!isOK || !valid) {
 				toast.error(m.error_verify_sandbox());
 				return false;
@@ -102,15 +106,30 @@ class ClaudeCodeAgentState {
 			this.updateState({
 				sessionIds: [this.customSessionId],
 				currentSessionId: this.customSessionId,
-				sandboxId: this.customSandboxId,
+				sandboxId: this.selectedSandboxId,
 			});
 		} else if (this.sessionMode === "new-agent") {
 			this.updateState({
 				sessionIds: [this.customSessionId],
 				currentSessionId: this.customSessionId,
-				sandboxRemark: this.customSandboxId,
+				sandboxRemark: this.selectedSandboxId,
 			});
 		}
+		return true;
+	}
+
+	async handleCreateNewSandbox(): Promise<boolean> {
+		const { isOK, sandboxId } = await createClaudeCodeSandboxByIpc(
+			threadId,
+			this.customSandboxName,
+		);
+		if (!isOK) {
+			toast.error(m.error_create_sandbox());
+			return false;
+		}
+
+		this.selectedSandboxId = sandboxId;
+		toast.success(m.success_create_sandbox());
 		return true;
 	}
 }

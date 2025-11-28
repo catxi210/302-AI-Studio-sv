@@ -17,19 +17,26 @@ class ClaudeCodeSandboxState {
 
 	sandboxes = $derived.by(() => {
 		const _sanboxes = persistedClaudeCodeSandboxState.current;
-		return persistedClaudeCodeSandboxState.current.map((sandbox) => {
-			this.sandboxRemarkMap.set(sandbox.sandboxId, sandbox.sandboxRemark);
-			return {
-				key: sandbox.sandboxId,
-				label: `${sandbox.sandboxId} (${m.remark()}: ${sandbox.sandboxRemark === "" ? m.remark_null() : sandbox.sandboxRemark})`,
-				value: sandbox.sandboxId,
-			};
-		});
+		return [
+			{
+				key: "auto",
+				label: m.select_sandbox_auto(),
+				value: "auto",
+			},
+			...persistedClaudeCodeSandboxState.current.map((sandbox) => {
+				this.sandboxRemarkMap.set(sandbox.sandboxId, sandbox.sandboxRemark);
+				return {
+					key: sandbox.sandboxId,
+					label: `${sandbox.sandboxId} (${m.remark()}: ${sandbox.sandboxRemark === "" ? m.remark_null() : sandbox.sandboxRemark})`,
+					value: sandbox.sandboxId,
+				};
+			}),
+		];
 	});
 
 	sessions = $derived.by(() => {
 		const sandbox = persistedClaudeCodeSandboxState.current.find(
-			(sandbox) => sandbox.sandboxId === claudeCodeAgentState.customSandboxId,
+			(sandbox) => sandbox.sandboxId === claudeCodeAgentState.selectedSandboxId,
 		);
 		if (!sandbox) return [];
 		const sessionOpts = sandbox.sessionInfos.map((session) => {
