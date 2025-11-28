@@ -25,7 +25,6 @@ export const codeAgentMetadata = type({
 	sessionIds: "string[]",
 	sandboxId: "string",
 	sandboxRemark: "string",
-	workspacePath: "string",
 });
 export type CodeAgentMetadata = typeof codeAgentMetadata.infer;
 
