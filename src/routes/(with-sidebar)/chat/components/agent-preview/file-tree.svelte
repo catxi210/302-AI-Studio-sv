@@ -10,11 +10,9 @@
 	import {
 		ChevronDown,
 		ChevronRight,
-		Copy,
 		Download,
 		File,
 		FileCode,
-		FilePlus,
 		FileUp,
 		Folder,
 		FolderInput,
@@ -22,10 +20,6 @@
 		FolderPlus,
 		FolderUp,
 		Loader2,
-		Pencil,
-		Scissors,
-		Trash2,
-		Upload,
 	} from "@lucide/svelte";
 	import { toast } from "svelte-sonner";
 	import { FileTreeState, type TreeNode } from "./file-tree-state.svelte";
@@ -403,19 +397,19 @@
 		: false}
 
 	<ContextMenu.Content>
-		{#if isFile}
-			<!-- Create File -->
+		<!-- {#if isDir}
 			<ContextMenu.Item
 				onSelect={() => handleCreateFile(isDir ? node.path : undefined)}
 				disabled={isOperating || fileTreeState.isStreaming}
 			>
 				{#if isOperating}
 					<Loader2 class="mr-2 h-4 w-4 animate-spin" />
-				{:else}
-					<FilePlus class="mr-2 h-4 w-4" />
-				{/if}
+				{:else}{/if}
 				<span>{m.label_file_tree_create_file()}</span>
 			</ContextMenu.Item>
+		{/if} -->
+		{#if isFile}
+			<!-- Create File -->
 
 			<!-- Rename -->
 			<ContextMenu.Item
@@ -424,9 +418,7 @@
 			>
 				{#if isOperating}
 					<Loader2 class="mr-2 h-4 w-4 animate-spin" />
-				{:else}
-					<Pencil class="mr-2 h-4 w-4" />
-				{/if}
+				{:else}{/if}
 				<span>{m.title_button_rename()}</span>
 			</ContextMenu.Item>
 		{/if}
@@ -436,7 +428,6 @@
 			onSelect={() => handleCopy(node)}
 			disabled={isOperating || fileTreeState.isStreaming}
 		>
-			<Copy class="mr-2 h-4 w-4" />
 			<span>{m.common_copy()}</span>
 		</ContextMenu.Item>
 
@@ -448,11 +439,10 @@
 			>
 				{#if isPasteOperating}
 					<Loader2 class="mr-2 h-4 w-4 animate-spin" />
-				{:else}
-					<Scissors class="mr-2 h-4 w-4" />
-				{/if}
+				{:else}{/if}
 				<span>{m.label_file_tree_paste()}</span>
 			</ContextMenu.Item>
+			<ContextMenu.Separator />
 
 			<!-- New Folder -->
 			<ContextMenu.Item
@@ -461,9 +451,7 @@
 			>
 				{#if isOperating}
 					<Loader2 class="mr-2 h-4 w-4 animate-spin" />
-				{:else}
-					<FolderPlus class="mr-2 h-4 w-4" />
-				{/if}
+				{:else}{/if}
 				<span>{m.label_file_tree_new_folder()}</span>
 			</ContextMenu.Item>
 
@@ -474,11 +462,10 @@
 			>
 				{#if isOperating}
 					<Loader2 class="mr-2 h-4 w-4 animate-spin" />
-				{:else}
-					<FilePlus class="mr-2 h-4 w-4" />
-				{/if}
+				{:else}{/if}
 				<span>{m.label_file_tree_create_file()}</span>
 			</ContextMenu.Item>
+			<ContextMenu.Separator />
 
 			<!-- Upload File -->
 			<ContextMenu.Item
@@ -487,9 +474,7 @@
 			>
 				{#if isOperating}
 					<Loader2 class="mr-2 h-4 w-4 animate-spin" />
-				{:else}
-					<Upload class="mr-2 h-4 w-4" />
-				{/if}
+				{:else}{/if}
 				<span>{m.label_file_tree_upload_file()}</span>
 			</ContextMenu.Item>
 
@@ -500,9 +485,7 @@
 			>
 				{#if isOperating}
 					<Loader2 class="mr-2 h-4 w-4 animate-spin" />
-				{:else}
-					<FolderInput class="mr-2 h-4 w-4" />
-				{/if}
+				{:else}{/if}
 				<span>{m.label_file_tree_upload_folder()}</span>
 			</ContextMenu.Item>
 		{/if}
@@ -513,9 +496,7 @@
 		<ContextMenu.Item onSelect={() => handleDownload(node)} disabled={isDownloading}>
 			{#if isDownloading}
 				<Loader2 class="mr-2 h-4 w-4 animate-spin" />
-			{:else}
-				<Download class="mr-2 h-4 w-4" />
-			{/if}
+			{:else}{/if}
 			<span>{m.label_file_tree_download()}</span>
 		</ContextMenu.Item>
 
@@ -529,9 +510,7 @@
 			>
 				{#if isOperating}
 					<Loader2 class="mr-2 h-4 w-4 animate-spin" />
-				{:else}
-					<Trash2 class="mr-2 h-4 w-4" />
-				{/if}
+				{:else}{/if}
 				<span>{m.text_button_delete()}</span>
 			</ContextMenu.Item>
 		{/if}
@@ -663,7 +642,7 @@
 				disabled={fileTreeState.loading || fileTreeState.isStreaming}
 				title={m.label_file_tree_download_all()}
 			>
-				<FolderInput class="h-3.5 w-3.5" />
+				<Download class="h-3.5 w-3.5" />
 			</button>
 		</div>
 
