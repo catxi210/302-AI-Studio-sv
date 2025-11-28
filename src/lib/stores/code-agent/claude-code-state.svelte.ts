@@ -28,7 +28,6 @@ function getInitialData() {
 		sessionIds: [],
 		sandboxId: "",
 		sandboxRemark: "",
-		workspacePath: "",
 	};
 	return initialData;
 }
