@@ -201,33 +201,33 @@
 
 			<!-- 右侧：设备模式切换 -->
 			<div
-				class="flex flex-row items-center gap-0.5 rounded-md bg-muted p-0.5 shrink-0 justify-self-end"
+				class="flex flex-row items-center gap-0.5 rounded-[100px] bg-[#8E47F0] p-0.5 shrink-0 justify-self-end"
 			>
 				<button
 					type="button"
 					class={cn(
-						"p-1.5 transition-colors rounded",
+						"flex items-center justify-center transition-all rounded-[100px]",
 						deviceMode === "desktop"
-							? "bg-background text-foreground shadow-sm"
-							: "text-muted-foreground hover:text-foreground",
+							? "w-[32px] h-[20px] bg-[#FFFFFF] text-[#8E47F0] shadow-sm"
+							: "w-[32px] h-[20px] text-white/70 hover:text-white",
 					)}
 					onclick={() => onDeviceModeChange("desktop")}
 					title={m.tooltip_desktop_view()}
 				>
-					<Monitor class="size-4" />
+					<Monitor class="size-3.5" />
 				</button>
 				<button
 					type="button"
 					class={cn(
-						"p-1.5 transition-colors rounded",
+						"flex items-center justify-center transition-all rounded-[100px]",
 						deviceMode === "mobile"
-							? "bg-background text-foreground shadow-sm"
-							: "text-muted-foreground hover:text-foreground",
+							? "w-[32px] h-[20px] bg-[#FFFFFF] text-[#8E47F0] shadow-sm"
+							: "w-[32px] h-[20px] text-white/70 hover:text-white",
 					)}
 					onclick={() => onDeviceModeChange("mobile")}
 					title={m.tooltip_mobile_view()}
 				>
-					<Smartphone class="size-4" />
+					<Smartphone class="size-3.5" />
 				</button>
 			</div>
 		</div>
