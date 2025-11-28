@@ -10,9 +10,9 @@
 	import {
 		ChevronDown,
 		ChevronRight,
-		Download,
 		File,
 		FileCode,
+		FileDown,
 		FileUp,
 		Folder,
 		FolderInput,
@@ -642,7 +642,7 @@
 				disabled={fileTreeState.loading || fileTreeState.isStreaming}
 				title={m.label_file_tree_download_all()}
 			>
-				<Download class="h-3.5 w-3.5" />
+				<FileDown class="h-3.5 w-3.5" />
 			</button>
 		</div>
 
