@@ -39,18 +39,15 @@ class ClaudeCodeSandboxState {
 	});
 
 	sessions = $derived.by(() => {
-		const sandbox = persistedClaudeCodeSandboxState.current.find(
-			(sandbox) => sandbox.sandboxId === claudeCodeAgentState.selectedSandboxId,
-		);
-		if (!sandbox) return [];
-		const sessionOpts = sandbox.sessionInfos.map((session) => {
+		const sanboxes = persistedClaudeCodeSandboxState.current;
+		const allSessionInfos = sanboxes.flatMap((sandbox) => sandbox.sessionInfos);
+		return allSessionInfos.map((session) => {
 			return {
-				key: session.sessionId,
+				key: session.workspacePath,
 				label: session.note && session.note !== "" ? session.note : session.sessionId,
 				value: session.sessionId,
 			};
 		});
-		return sessionOpts;
 	});
 
 	/**
@@ -95,9 +92,10 @@ class ClaudeCodeSandboxState {
 	async refreshSandboxes(): Promise<boolean> {
 		const { isOK } = await updateClaudeCodeSandboxesByIpc();
 		if (!isOK) {
-			toast.error(m.refresh_sandboxes_failed());
+			toast.error(m.refresh_failed());
 		}
 
+		toast.success(m.refresh_success());
 		return isOK;
 	}
 

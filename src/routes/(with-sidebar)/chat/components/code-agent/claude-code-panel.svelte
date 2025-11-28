@@ -15,16 +15,14 @@
 	import { cn } from "$lib/utils";
 	import { ChevronsUpDownIcon, RefreshCcw } from "@lucide/svelte";
 
-	let isSessionsLoading = $state(false);
+	let isRefreshing = $state(false);
 	let isCreateSandboxDialogOpen = $state(false);
 	let isCreatingSandbox = $state(false);
 
-	async function handleRefreshSessions(sandboxId?: string) {
-		isSessionsLoading = true;
-		await claudeCodeSandboxState.refreshSessions(
-			sandboxId ?? claudeCodeAgentState.selectedSandboxId,
-		);
-		isSessionsLoading = false;
+	async function handleRefresh() {
+		isRefreshing = true;
+		await claudeCodeSandboxState.refreshSandboxes();
+		isRefreshing = false;
 	}
 
 	async function handleSelectSandbox(sandboxId: string) {
@@ -48,10 +46,10 @@
 			<ButtonWithTooltip
 				class="hover:!bg-chat-action-hover"
 				tooltip={m.label_button_reload()}
-				onclick={() => handleRefreshSessions()}
-				disabled={isSessionsLoading || !claudeCodeAgentState.selectedSandboxId}
+				onclick={() => handleRefresh()}
+				disabled={isRefreshing}
 			>
-				<RefreshCcw class={cn("h-4 w-4", isSessionsLoading ? "animate-spin" : "")} />
+				<RefreshCcw class={cn("h-4 w-4", isRefreshing ? "animate-spin" : "")} />
 			</ButtonWithTooltip>
 		</div>
 		<SettingSelect

@@ -28,12 +28,28 @@ export class CodeAgentService {
 		try {
 			const { isOK, sandboxes: existingSandboxes } =
 				await claudeCodeSandboxStorage.getClaudeCodeSandboxes();
-			const isFirstInit = !isOK || existingSandboxes.length === 0;
+
+			if (!isOK) {
+				throw new Error("Failed to get Claude code sandboxes");
+			}
 
 			const response = await listClaudeCodeSandboxes();
 			if (response.success) {
-				const list = response.list.map((sandbox) => {
+				const validList = response.list.filter((sandbox) => sandbox.status !== "killed");
+				const allSessionInfos = await Promise.all(
+					validList.map((sandbox) => listClaudeCodeSessions(sandbox.sandbox_id)),
+				);
+
+				const list = validList.map((sandbox, index) => {
 					const existingSandbox = existingSandboxes.find((s) => s.sandboxId === sandbox.sandbox_id);
+					const sessionResponse = allSessionInfos[index];
+					const sessionInfos = sessionResponse.success
+						? sessionResponse.session_list.map((session) => ({
+								sessionId: session.session_id,
+								workspacePath: session.workspace_path,
+								note: session.note ?? "",
+							}))
+						: [];
 
 					return {
 						sandboxId: sandbox.sandbox_id,
@@ -46,7 +62,7 @@ export class CodeAgentService {
 						createdAt: sandbox.created_at,
 						updatedAt: sandbox.updated_at,
 						deletedAt: sandbox.deleted_at,
-						sessionInfos: isFirstInit ? [] : (existingSandbox?.sessionInfos ?? []),
+						sessionInfos,
 					};
 				});
 				await claudeCodeSandboxStorage.setClaudeCodeSandboxes(list);
