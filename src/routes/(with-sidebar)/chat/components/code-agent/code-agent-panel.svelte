@@ -34,7 +34,7 @@
 	import { m } from "$lib/paraglide/messages";
 	import { codeAgentState } from "$lib/stores/code-agent";
 	import type { CodeAgentType } from "@shared/storage/code-agent";
-	import ClaudeCodeAgentPanel from "./claude-code-agent-panel.svelte";
+	import ClaudeCodePanel from "./claude-code-panel.svelte";
 
 	let { onClose }: Props = $props();
 
@@ -84,18 +84,20 @@
 			/>
 
 			{#if codeAgentState.currentAgentId === "claude-code"}
-				<ClaudeCodeAgentPanel />
+				<ClaudeCodePanel />
 			{/if}
 
 			<div class="flex flex-row justify-between">
-				<Button variant="secondary" onclick={() => handleOverlayAction("cancel")}
-					>{m.common_cancel()}</Button
-				>
+				<Button variant="secondary" onclick={() => handleOverlayAction("cancel")}>
+					{m.common_cancel()}
+				</Button>
 				{#if codeAgentState.enabled}
 					<Button
 						disabled={codeAgentState.inCodeAgentMode}
-						onclick={() => handleOverlayAction("close")}>{m.label_button_close()}</Button
+						onclick={() => handleOverlayAction("close")}
 					>
+						{m.label_button_close()}
+					</Button>
 				{:else}
 					<Button
 						disabled={isChecking || !codeAgentState.canEnable}

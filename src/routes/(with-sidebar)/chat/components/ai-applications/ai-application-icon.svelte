@@ -55,6 +55,7 @@
 		69: comfyUIToolboxIcon,
 		71: aiDrawingPromptWordExpertIcon,
 		73: aiImageCreativeStationIcon,
+		78: aiPortraitStudioIcon,
 
 		// * Audio Related
 		24: aiSpeechGeneratorIcon,
@@ -70,6 +71,7 @@
 		27: aiVideoTranslationIcon,
 		53: aiDeeplyTranslationIcon,
 		68: videoArenaIcon,
+		77: aiAvatarGeneratorIcon,
 
 		// * Code Related
 		8: aiWebpageGeneratorIcon,
@@ -82,6 +84,7 @@
 	import ai3DModelingIcon from "$lib/assets/icons/ai-application/AI-3D-Modeling.svg";
 	import aiAcademicPaperSearchIcon from "$lib/assets/icons/ai-application/AI-Academic-Paper-Search.svg";
 	import aiAnswerMachineIcon from "$lib/assets/icons/ai-application/AI-Answer-Machine.svg";
+	import aiAvatarGeneratorIcon from "$lib/assets/icons/ai-application/AI-Avatar-Generator.svg";
 	import aiAvatarProductionIcon from "$lib/assets/icons/ai-application/AI-Avatar-Production.svg";
 	import aiCardGenerationIcon from "$lib/assets/icons/ai-application/AI-Card-Generation.svg";
 	import aiChangeClothesIcon from "$lib/assets/icons/ai-application/AI-Change-Clothes.svg";
@@ -106,6 +109,7 @@
 	import aiPatentSearchIcon from "$lib/assets/icons/ai-application/AI-Patent-Search.svg";
 	import aiPhotoTranslationIcon from "$lib/assets/icons/ai-application/AI-Photo-Translation.svg";
 	import aiPodcastProductionIcon from "$lib/assets/icons/ai-application/AI-Podcast-Production.svg";
+	import aiPortraitStudioIcon from "$lib/assets/icons/ai-application/AI-Portrait-Studio.svg";
 	import aiPPTProductionIcon from "$lib/assets/icons/ai-application/AI-PPT-Production.svg";
 	import {
 		default as aiPromptExpert2Icon,

@@ -43,13 +43,16 @@ export type CodeAgentSandboxStatus = typeof codeAgentSandboxStatus.infer;
 export const claudeCodeSessionInfo = type({
 	sessionId: "string",
 	workspacePath: "string",
-	note: "string?",
+	note: "string",
 });
 export type ClaudeCodeSessionInfo = typeof claudeCodeSessionInfo.infer;
 
 export const claudeCodeSandboxInfo = type({
 	sandboxId: "string",
 	sandboxRemark: "string",
+	diskTotal: "string",
+	diskUsed: "string",
+	diskUsage: "'normal' | 'insufficient' | 'full' | 'pending'",
 	status: "'killed' | 'running' | 'paused'",
 	llmModel: "string",
 	createdAt: "string",

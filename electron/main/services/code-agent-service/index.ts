@@ -33,6 +33,9 @@ export class CodeAgentService {
 					return {
 						sandboxId: sandbox.sandbox_id,
 						sandboxRemark: sandbox.sandbox_name,
+						diskTotal: existingSandbox?.diskTotal ?? "",
+						diskUsed: existingSandbox?.diskUsed ?? "",
+						diskUsage: existingSandbox?.diskUsage ?? "pending",
 						status: sandbox.status,
 						llmModel: sandbox.llm_model,
 						createdAt: sandbox.created_at,
