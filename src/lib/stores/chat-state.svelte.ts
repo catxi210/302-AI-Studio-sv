@@ -1186,17 +1186,19 @@ export const chat = new Chat({
 				const serverPort = window.app?.serverPort ?? 8089;
 
 				const generatedTitle = await generateTitle(messages, titleModel, provider, serverPort);
-				persistedChatParamsState.current.title = generatedTitle;
-				if (codeAgentEnabled && provider) {
-					updateSessionNote(provider, {
-						note: generatedTitle,
-						sandbox_id: claudeCodeAgentState.sandboxId,
-						session_id: claudeCodeAgentState.currentSessionId,
-					});
-					// codeAgentState.updateSessionRemark(generatedTitle);
-				}
+				if (generatedTitle) {
+					persistedChatParamsState.current.title = generatedTitle;
+					if (codeAgentEnabled && provider) {
+						updateSessionNote(provider, {
+							note: generatedTitle,
+							sandbox_id: claudeCodeAgentState.sandboxId,
+							session_id: claudeCodeAgentState.currentSessionId,
+						});
+						// codeAgentState.updateSessionRemark(generatedTitle);
+					}
 
-				tabBarState.updateTabTitle(persistedChatParamsState.current.id, generatedTitle);
+					tabBarState.updateTabTitle(persistedChatParamsState.current.id, generatedTitle);
+				}
 			} catch (error) {
 				console.error("Failed to generate title:", error);
 			}
