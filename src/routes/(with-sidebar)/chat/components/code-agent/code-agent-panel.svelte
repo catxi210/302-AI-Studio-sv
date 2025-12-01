@@ -99,10 +99,7 @@
 						{m.label_button_close()}
 					</Button>
 				{:else}
-					<Button
-						disabled={isChecking || !codeAgentState.canEnable}
-						onclick={() => handleOverlayAction("enabled")}
-					>
+					<Button disabled={isChecking} onclick={() => handleOverlayAction("enabled")}>
 						{#if isChecking}
 							<LdrsLoader type="line-spinner" size={16} />
 							{m.text_button_checking()}

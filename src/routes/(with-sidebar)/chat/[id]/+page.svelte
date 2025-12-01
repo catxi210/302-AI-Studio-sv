@@ -189,7 +189,7 @@
 		if (codeAgentState.enabled && !hasAutoOpened) {
 			hasAutoOpened = true;
 			// Open immediately, even if sandboxId is empty/loading
-			agentPreviewState.openPreview(codeAgentState.getSandboxId() || "");
+			agentPreviewState.openPreview(codeAgentState.sandboxId || "");
 		}
 	});
 

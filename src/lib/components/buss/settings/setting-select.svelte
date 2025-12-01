@@ -38,7 +38,7 @@
 	}
 </script>
 
-<Select.Root type="single" {name} bind:value {onValueChange}>
+<Select.Root type="single" {name} bind:value {onValueChange} {disabled}>
 	<Select.Trigger
 		class={cn(
 			"!bg-settings-item-bg dark:!bg-settings-item-bg data-[size=default]:h-settings-item w-full",

@@ -65,7 +65,10 @@ export class CodeAgentService {
 						sessionInfos,
 					};
 				});
+
 				await claudeCodeSandboxStorage.setClaudeCodeSandboxes(list);
+
+				console.log("[CodeAgentService] Updated Claude code sandboxes, count: ", list.length);
 			}
 		} catch (error) {
 			console.error("Error listing Claude code sandboxes:", error);
@@ -132,12 +135,31 @@ export class CodeAgentService {
 	async checkClaudeCodeSandbox(
 		_event: IpcMainInvokeEvent,
 		sandboxId: string,
-	): Promise<{ isOK: boolean; valid: boolean }> {
+	): Promise<{
+		isOK: boolean;
+		valid: boolean;
+		sandboxInfo?: {
+			sandboxId: string;
+			sandboxRemark: string;
+			llmModel: string;
+		};
+	}> {
 		try {
 			const response = await listClaudeCodeSandboxes();
 			if (response.success) {
 				const sandbox = response.list.find((sandbox) => sandbox.sandbox_id === sandboxId);
-				return { isOK: true, valid: !!sandbox };
+				if (!sandbox) {
+					return { isOK: true, valid: false };
+				}
+				return {
+					isOK: true,
+					valid: true,
+					sandboxInfo: {
+						sandboxId,
+						sandboxRemark: sandbox.sandbox_name,
+						llmModel: sandbox.llm_model,
+					},
+				};
 			}
 			return { isOK: false, valid: false };
 		} catch (error) {

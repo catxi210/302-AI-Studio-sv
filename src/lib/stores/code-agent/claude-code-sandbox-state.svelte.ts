@@ -2,12 +2,19 @@ import { PersistedState } from "$lib/hooks/persisted-state.svelte";
 import { m } from "$lib/paraglide/messages";
 import type { ClaudeCodeSandboxInfo } from "@shared/storage/code-agent";
 import { toast } from "svelte-sonner";
+import { match } from "ts-pattern";
 import { claudeCodeAgentState } from "./claude-code-state.svelte";
 
 export const persistedClaudeCodeSandboxState = new PersistedState<ClaudeCodeSandboxInfo[]>(
 	"CodeAgentStorage:claude-code-sandbox-state",
 	[],
 );
+
+const newSessionItem = {
+	key: "new",
+	label: m.select_session_new(),
+	value: "new",
+};
 
 const {
 	updateClaudeCodeSandboxesByIpc,
@@ -40,14 +47,39 @@ class ClaudeCodeSandboxState {
 
 	sessions = $derived.by(() => {
 		const sanboxes = persistedClaudeCodeSandboxState.current;
-		const allSessionInfos = sanboxes.flatMap((sandbox) => sandbox.sessionInfos);
-		return allSessionInfos.map((session) => {
-			return {
-				key: session.workspacePath,
-				label: session.note && session.note !== "" ? session.note : session.sessionId,
-				value: session.sessionId,
-			};
-		});
+
+		return match(claudeCodeAgentState.selectedSandboxId)
+			.with("auto", () => {
+				const allSessionInfos = sanboxes.flatMap((sandbox) => sandbox.sessionInfos);
+				return [
+					newSessionItem,
+					...allSessionInfos.map((session) => {
+						return {
+							key: session.workspacePath,
+							label: session.note && session.note !== "" ? session.note : session.sessionId,
+							value: session.sessionId,
+						};
+					}),
+				];
+			})
+			.otherwise(() => {
+				const targetSandbox = sanboxes.find(
+					(sandbox) => sandbox.sandboxId === claudeCodeAgentState.selectedSandboxId,
+				);
+				if (!targetSandbox) {
+					return [newSessionItem];
+				}
+				return [
+					newSessionItem,
+					...targetSandbox.sessionInfos.map((session) => {
+						return {
+							key: session.workspacePath,
+							label: session.note && session.note !== "" ? session.note : session.sessionId,
+							value: session.sessionId,
+						};
+					}),
+				];
+			});
 	});
 
 	/**
@@ -160,6 +192,28 @@ class ClaudeCodeSandboxState {
 			toast.error("Update remark failed");
 		}
 		return isOK;
+	}
+
+	async handleSessionSelected(sessionId: string): Promise<void> {
+		if (sessionId !== "new") {
+			const sandboxList = persistedClaudeCodeSandboxState.current;
+			const targetSandboxId = sandboxList.find((sandbox) =>
+				sandbox.sessionInfos.find((sessionInfo) => sessionInfo.sessionId === sessionId),
+			);
+			if (targetSandboxId) {
+				claudeCodeAgentState.selectedSandboxId = targetSandboxId.sandboxId;
+			}
+		}
+
+		claudeCodeAgentState.selectedSessionId = sessionId;
+	}
+
+	async handleSelectSandbox(sandboxId: string): Promise<void> {
+		if (sandboxId === "auto") {
+			claudeCodeAgentState.selectedSessionId = "new";
+		}
+
+		claudeCodeAgentState.selectedSandboxId = sandboxId;
 	}
 }
 

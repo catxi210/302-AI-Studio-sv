@@ -19,7 +19,6 @@ import { toast } from "svelte-sonner";
 
 import { updateSessionNote } from "$lib/api/sandbox-session";
 import { claudeCodeAgentState } from "$lib/stores/code-agent/claude-code-state.svelte";
-import type { CodeAgentCfgs } from "@shared/storage/code-agent";
 import { codeAgentState } from "./code-agent";
 import { generalSettings } from "./general-settings.state.svelte";
 import { notificationState } from "./notification-state.svelte";
@@ -94,8 +93,6 @@ class ChatState {
 	private lastError: ChatError | null = $state(null);
 	private retryInProgress = $state(false);
 	private hydrateCheckInterval: ReturnType<typeof setInterval> | null = null;
-
-	private codeAgentCfgs: CodeAgentCfgs = $derived.by(() => codeAgentState.getCodeAgentCfgs());
 
 	// Track loading state for attachments (not persisted)
 	loadingAttachmentIds = $state(new Set<string>());
@@ -1074,7 +1071,7 @@ export const chat = new Chat({
 
 			return {
 				baseUrl: codeAgentEnabled
-					? codeAgentState.getCodeAgentCfgs().baseUrl
+					? codeAgentState.codeAgentCfgs.baseUrl
 					: chatState.currentProvider?.baseUrl,
 				temperature: persistedChatParamsState.current.temperature,
 				maxTokens: persistedChatParamsState.current.maxTokens,

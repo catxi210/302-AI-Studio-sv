@@ -25,10 +25,6 @@
 		isRefreshing = false;
 	}
 
-	async function handleSelectSandbox(sandboxId: string) {
-		claudeCodeAgentState.selectedSandboxId = sandboxId;
-	}
-
 	async function handleCreateSandbox() {
 		isCreatingSandbox = true;
 		const isOK = await claudeCodeAgentState.handleCreateNewSandbox();
@@ -54,12 +50,10 @@
 		</div>
 		<SettingSelect
 			name="session"
-			value={claudeCodeAgentState.customSessionId}
+			value={claudeCodeAgentState.selectedSessionId}
 			options={claudeCodeSandboxState.sessions}
 			placeholder={m.select_session_placeholder()}
-			onValueChange={(v) => {
-				claudeCodeAgentState.customSessionId = v;
-			}}
+			onValueChange={(v) => claudeCodeSandboxState.handleSessionSelected(v)}
 		/>
 	</div>
 {/snippet}
@@ -110,9 +104,8 @@
 			value={claudeCodeAgentState.selectedSandboxId}
 			options={claudeCodeSandboxState.sandboxes}
 			placeholder={m.select_sandbox_placeholder()}
-			onValueChange={(v) => {
-				handleSelectSandbox(v);
-			}}
+			onValueChange={(v) => claudeCodeSandboxState.handleSelectSandbox(v)}
+			disabled={claudeCodeAgentState.agentMode === "existing"}
 			class="!bg-background dark:!bg-background"
 		/>
 	</div>

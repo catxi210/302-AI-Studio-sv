@@ -52,11 +52,11 @@ class CodeAgentState {
 			)
 			.otherwise(() => "waiting-for-sandbox");
 	});
-	canEnable = $derived.by(() =>
-		match(this.currentAgentId)
-			.with("claude-code", () => claudeCodeAgentState.ready)
-			.otherwise(() => false),
-	);
+	// canEnable = $derived.by(() =>
+	// 	match(this.currentAgentId)
+	// 		.with("claude-code", () => claudeCodeAgentState.ready)
+	// 		.otherwise(() => false),
+	// );
 
 	private updateState(partial: Partial<CodeAgentConfigMetadata>): void {
 		persistedCodeAgentConfigState.current = {
@@ -81,15 +81,6 @@ class CodeAgentState {
 		this.updateState({ enabled });
 	}
 
-	getCodeAgentCfgs(): CodeAgentCfgs {
-		return match(this.currentAgentId)
-			.with("claude-code", () => ({
-				baseUrl: claudeCodeAgentState.baseUrl,
-				model: claudeCodeAgentState.sandboxId,
-			}))
-			.otherwise(() => ({ baseUrl: "", model: "" }));
-	}
-
 	async updateCodeAgentCfgs(): Promise<boolean> {
 		if (this.currentAgentId === "claude-code") {
 			return claudeCodeAgentState.handleAgentModeEnable();
@@ -103,13 +94,22 @@ class CodeAgentState {
 		}
 	}
 
-	getCurrentSessionId(): string {
+	get codeAgentCfgs(): CodeAgentCfgs {
+		return match(this.currentAgentId)
+			.with("claude-code", () => ({
+				baseUrl: claudeCodeAgentState.baseUrl,
+				model: claudeCodeAgentState.sandboxId,
+			}))
+			.otherwise(() => ({ baseUrl: "", model: "" }));
+	}
+
+	get currentSessionId(): string {
 		return match(this.currentAgentId)
 			.with("claude-code", () => claudeCodeAgentState.currentSessionId)
 			.otherwise(() => "");
 	}
 
-	getSandboxId(): string {
+	get sandboxId(): string {
 		return match(this.currentAgentId)
 			.with("claude-code", () => claudeCodeAgentState.sandboxId)
 			.otherwise(() => "");
@@ -123,7 +123,7 @@ class CodeAgentState {
 
 	async handleCodeAgentModelChange(model: Model): Promise<boolean> {
 		if (this.currentAgentId === "claude-code") {
-			const { isOK } = await updateClaudeCodeSandboxModel(threadId, this.getSandboxId(), model.id);
+			const { isOK } = await updateClaudeCodeSandboxModel(threadId, this.sandboxId, model.id);
 			return isOK;
 		}
 
