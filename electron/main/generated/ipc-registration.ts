@@ -1,23 +1,23 @@
 import { ipcMain } from "electron";
 import {
-	registryService,
-	broadcastService,
-	storageService,
-	pluginService,
-	generalSettingsService,
-	codeAgentService,
-	ghostWindowService,
-	windowService,
-	shortcutService,
-	tabService,
 	aiApplicationService,
 	appService,
+	broadcastService,
+	codeAgentService,
 	dataService,
 	externalLinkService,
+	generalSettingsService,
+	ghostWindowService,
 	mcpService,
+	pluginService,
+	registryService,
+	shortcutService,
 	ssoService,
+	storageService,
+	tabService,
 	threadService,
 	updaterService,
+	windowService,
 } from "../services";
 
 /**
@@ -183,6 +183,12 @@ export function registerIpcHandlers() {
 	);
 	ipcMain.handle("codeAgentService:deleteClaudeCodeSession", (event, sandbox_id, session_id) =>
 		codeAgentService.deleteClaudeCodeSession(event, sandbox_id, session_id),
+	);
+	ipcMain.handle("codeAgentService:checkClaudeCodeSandboxDisk", (event) =>
+		codeAgentService.checkClaudeCodeSandboxDisk(event),
+	);
+	ipcMain.handle("codeAgentService:findClaudeCodeSandboxWithValidDisk", (event, threadId) =>
+		codeAgentService.findClaudeCodeSandboxWithValidDisk(event, threadId),
 	);
 
 	// ghostWindowService service registration
@@ -430,6 +436,8 @@ export function removeIpcHandlers() {
 	ipcMain.removeHandler("codeAgentService:deleteClaudeCodeSandboxByIpc");
 	ipcMain.removeHandler("codeAgentService:updateClaudeCodeSessionRemark");
 	ipcMain.removeHandler("codeAgentService:deleteClaudeCodeSession");
+	ipcMain.removeHandler("codeAgentService:checkClaudeCodeSandboxDisk");
+	ipcMain.removeHandler("codeAgentService:findClaudeCodeSandboxWithValidDisk");
 	ipcMain.removeHandler("ghostWindowService:startTracking");
 	ipcMain.removeHandler("ghostWindowService:stopTracking");
 	ipcMain.removeHandler("ghostWindowService:updateInsertIndex");

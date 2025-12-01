@@ -119,6 +119,10 @@ const sandboxInfoSchema = type({
 	created_at: "string",
 	updated_at: "string",
 	deleted_at: "string",
+	max_thinking_token: "number",
+	disk_used: "number",
+	disk_total: "number",
+	session_num: "number",
 });
 export type SandboxInfo = typeof sandboxInfoSchema.infer;
 export const listClaudeCodeSandboxesResponse = type({

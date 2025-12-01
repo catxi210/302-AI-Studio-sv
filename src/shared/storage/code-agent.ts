@@ -50,9 +50,9 @@ export type ClaudeCodeSessionInfo = typeof claudeCodeSessionInfo.infer;
 export const claudeCodeSandboxInfo = type({
 	sandboxId: "string",
 	sandboxRemark: "string",
-	diskTotal: "string",
-	diskUsed: "string",
-	diskUsage: "'normal' | 'insufficient' | 'full' | 'pending'",
+	diskTotal: "number",
+	diskUsed: "number",
+	diskUsage: "'normal' | 'insufficient'",
 	status: "'killed' | 'running' | 'paused'",
 	llmModel: "string",
 	createdAt: "string",

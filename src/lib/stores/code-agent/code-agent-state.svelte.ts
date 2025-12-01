@@ -52,11 +52,6 @@ class CodeAgentState {
 			)
 			.otherwise(() => "waiting-for-sandbox");
 	});
-	// canEnable = $derived.by(() =>
-	// 	match(this.currentAgentId)
-	// 		.with("claude-code", () => claudeCodeAgentState.ready)
-	// 		.otherwise(() => false),
-	// );
 
 	private updateState(partial: Partial<CodeAgentConfigMetadata>): void {
 		persistedCodeAgentConfigState.current = {
@@ -81,11 +76,20 @@ class CodeAgentState {
 		this.updateState({ enabled });
 	}
 
-	async updateCodeAgentCfgs(): Promise<boolean> {
+	getCodeAgentCfgs(): CodeAgentCfgs {
+		return match(this.currentAgentId)
+			.with("claude-code", () => ({
+				baseUrl: claudeCodeAgentState.baseUrl,
+				model: claudeCodeAgentState.sandboxId,
+			}))
+			.otherwise(() => ({ baseUrl: "", model: "" }));
+	}
+
+	async updateCodeAgentCfgs(): Promise<{ isOK: boolean; sandboxInfo?: ClaudeCodeSandboxInfo }> {
 		if (this.currentAgentId === "claude-code") {
 			return claudeCodeAgentState.handleAgentModeEnable();
 		}
-		return false;
+		return { isOK: false };
 	}
 
 	async updateCurrentSessionId(sessionId: string): Promise<void> {

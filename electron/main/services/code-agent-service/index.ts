@@ -24,10 +24,15 @@ export class CodeAgentService {
 		this.updateClaudeCodeSandboxes();
 	}
 
+	private calculateDiskUsage(diskTotal: number, diskUsed: number): "normal" | "insufficient" {
+		if (diskTotal === -1 || diskUsed === -1) return "normal";
+		const availablePercentage = ((diskTotal - diskUsed) / diskTotal) * 100;
+		return availablePercentage > 10 ? "normal" : "insufficient";
+	}
+
 	private async _updateClaudeCodeSandboxes(): Promise<void> {
 		try {
-			const { isOK, sandboxes: existingSandboxes } =
-				await claudeCodeSandboxStorage.getClaudeCodeSandboxes();
+			const { isOK } = await claudeCodeSandboxStorage.getClaudeCodeSandboxes();
 
 			if (!isOK) {
 				throw new Error("Failed to get Claude code sandboxes");
@@ -41,7 +46,6 @@ export class CodeAgentService {
 				);
 
 				const list = validList.map((sandbox, index) => {
-					const existingSandbox = existingSandboxes.find((s) => s.sandboxId === sandbox.sandbox_id);
 					const sessionResponse = allSessionInfos[index];
 					const sessionInfos = sessionResponse.success
 						? sessionResponse.session_list.map((session) => ({
@@ -51,12 +55,14 @@ export class CodeAgentService {
 							}))
 						: [];
 
+					const diskUsage = this.calculateDiskUsage(sandbox.disk_total, sandbox.disk_used);
+
 					return {
 						sandboxId: sandbox.sandbox_id,
 						sandboxRemark: sandbox.sandbox_name,
-						diskTotal: existingSandbox?.diskTotal ?? "",
-						diskUsed: existingSandbox?.diskUsed ?? "",
-						diskUsage: existingSandbox?.diskUsage ?? "pending",
+						diskTotal: sandbox.disk_total,
+						diskUsed: sandbox.disk_used,
+						diskUsage: diskUsage as "normal" | "insufficient",
 						status: sandbox.status,
 						llmModel: sandbox.llm_model,
 						createdAt: sandbox.created_at,
@@ -142,6 +148,7 @@ export class CodeAgentService {
 			sandboxId: string;
 			sandboxRemark: string;
 			llmModel: string;
+			diskUsage: "normal" | "insufficient";
 		};
 	}> {
 		try {
@@ -158,6 +165,7 @@ export class CodeAgentService {
 						sandboxId,
 						sandboxRemark: sandbox.sandbox_name,
 						llmModel: sandbox.llm_model,
+						diskUsage: this.calculateDiskUsage(sandbox.disk_total, sandbox.disk_used),
 					},
 				};
 			}
@@ -324,6 +332,58 @@ export class CodeAgentService {
 			console.error("Error deleting Claude code session:", error);
 			return { isOK: false };
 		}
+	}
+
+	async checkClaudeCodeSandboxDisk(_event: IpcMainInvokeEvent) {}
+
+	async findClaudeCodeSandboxWithValidDisk(
+		_event: IpcMainInvokeEvent,
+		threadId: string,
+	): Promise<{
+		isOK: boolean;
+		sandboxInfo?: {
+			sandboxId: string;
+			sandboxRemark: string;
+			llmModel: string;
+			diskUsage: "normal" | "insufficient";
+		};
+	}> {
+		const { isOK, sandboxes } = await claudeCodeSandboxStorage.getClaudeCodeSandboxes();
+		if (!isOK) return { isOK: false };
+
+		const normalSandboxes = sandboxes.filter((sandbox) => sandbox.diskUsage === "normal");
+		if (normalSandboxes.length > 0) {
+			const randomSandbox = normalSandboxes[Math.floor(Math.random() * normalSandboxes.length)];
+			return {
+				isOK: true,
+				sandboxInfo: {
+					sandboxId: randomSandbox.sandboxId,
+					sandboxRemark: randomSandbox.sandboxRemark,
+					llmModel: randomSandbox.llmModel,
+					diskUsage: "normal",
+				},
+			};
+		}
+
+		const { createdResult, sandboxId } = await this._createClaudeCodeSandbox(threadId, {
+			llm_model: "claude-sonnet-4-5-20250929",
+		});
+
+		if (createdResult === "success" && sandboxId) {
+			await this._updateClaudeCodeSandboxes();
+
+			return {
+				isOK: true,
+				sandboxInfo: {
+					sandboxId,
+					sandboxRemark: "",
+					llmModel: "claude-sonnet-4-5-20250929",
+					diskUsage: "normal",
+				},
+			};
+		}
+
+		return { isOK: false };
 	}
 }
 

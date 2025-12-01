@@ -26,11 +26,9 @@
 	import SegButton from "$lib/components/buss/settings/seg-button.svelte";
 	import type { SelectOption } from "$lib/components/buss/settings/setting-select.svelte";
 	import SettingSelect from "$lib/components/buss/settings/setting-select.svelte";
-	import { Button } from "$lib/components/ui/button";
 	import * as Empty from "$lib/components/ui/empty/index.js";
 	import { Label } from "$lib/components/ui/label";
 
-	import { LdrsLoader } from "$lib/components/buss/ldrs-loader";
 	import { m } from "$lib/paraglide/messages";
 	import { codeAgentState } from "$lib/stores/code-agent";
 	import type { CodeAgentType } from "@shared/storage/code-agent";
@@ -38,27 +36,12 @@
 
 	let { onClose }: Props = $props();
 
-	let isChecking = $state(false);
-
 	async function handleSelect(key: string) {
 		codeAgentState.updateType(key as CodeAgentType);
 	}
 
 	function handleCodeAgentSelected(codeAgentId: string) {
 		codeAgentState.updateCurrentAgentId(codeAgentId);
-	}
-
-	async function handleOverlayAction(type: "enabled" | "disabled" | "cancel" | "close") {
-		if (type === "enabled") {
-			isChecking = true;
-			const isOK = await codeAgentState.updateCodeAgentCfgs();
-			isChecking = false;
-			if (!isOK) return;
-			codeAgentState.updateEnabled(true);
-		} else if (type === "close") {
-			codeAgentState.updateEnabled(false);
-		}
-		onClose();
 	}
 </script>
 
@@ -84,31 +67,8 @@
 			/>
 
 			{#if codeAgentState.currentAgentId === "claude-code"}
-				<ClaudeCodePanel />
+				<ClaudeCodePanel {onClose} />
 			{/if}
-
-			<div class="flex flex-row justify-between">
-				<Button variant="secondary" onclick={() => handleOverlayAction("cancel")}>
-					{m.common_cancel()}
-				</Button>
-				{#if codeAgentState.enabled}
-					<Button
-						disabled={codeAgentState.inCodeAgentMode}
-						onclick={() => handleOverlayAction("close")}
-					>
-						{m.label_button_close()}
-					</Button>
-				{:else}
-					<Button disabled={isChecking} onclick={() => handleOverlayAction("enabled")}>
-						{#if isChecking}
-							<LdrsLoader type="line-spinner" size={16} />
-							{m.text_button_checking()}
-						{:else}
-							{m.text_button_open()}
-						{/if}
-					</Button>
-				{/if}
-			</div>
 		{/if}
 		{#if codeAgentState.type === "local"}
 			<!-- TODO: local agent -->

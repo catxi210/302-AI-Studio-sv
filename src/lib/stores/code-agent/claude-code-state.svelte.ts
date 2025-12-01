@@ -3,7 +3,14 @@ import { m } from "$lib/paraglide/messages";
 import { type CodeAgentMetadata } from "@shared/storage/code-agent";
 import { toast } from "svelte-sonner";
 
-const { checkClaudeCodeSandbox, createClaudeCodeSandboxByIpc } =
+export interface ClaudeCodeSandboxInfo {
+	sandboxId: string;
+	sandboxRemark: string;
+	llmModel: string;
+	diskUsage: "normal" | "insufficient";
+}
+
+const { checkClaudeCodeSandbox, createClaudeCodeSandboxByIpc, findClaudeCodeSandboxWithValidDisk } =
 	window.electronAPI.codeAgentService;
 
 const tab = window.tab ?? null;
@@ -43,20 +50,15 @@ class ClaudeCodeAgentState {
 	customSandboxName = $state("");
 
 	selectedSessionId = $state("new");
+	selectedSessionRemark = $state("");
 	selectedSandboxId = $state("auto");
+	selectedSandboxRemark = $state("");
 
 	model = $derived(persistedClaudeCodeAgentState.current?.model ?? "");
 	currentSessionId = $derived(persistedClaudeCodeAgentState.current?.currentSessionId ?? "");
 	sessionIds = $derived(persistedClaudeCodeAgentState.current?.sessionIds ?? []);
 	sandboxId = $derived(persistedClaudeCodeAgentState.current?.sandboxId ?? "");
 	sandboxRemark = $derived(persistedClaudeCodeAgentState.current?.sandboxRemark ?? "");
-
-	// ready = $derived.by(() =>
-	// 	match(this.agentMode)
-	// 		.with("existing", () => this.customSessionId !== "" && this.selectedSandboxId !== "")
-	// 		.with("new", () => true)
-	// 		.otherwise(() => false),
-	// );
 
 	agentMode = $derived.by(() => {
 		return this.selectedSessionId === "new" ? "new" : "existing";
@@ -85,26 +87,53 @@ class ClaudeCodeAgentState {
 		this.updateState({ sandboxRemark });
 	}
 
-	async handleAgentModeEnable(): Promise<boolean> {
+	async handleAgentModeEnable(): Promise<{
+		isOK: boolean;
+		sandboxInfo?: ClaudeCodeSandboxInfo;
+	}> {
 		if (this.agentMode === "existing") {
 			const { isOK, valid, sandboxInfo } = await checkClaudeCodeSandbox(this.selectedSandboxId);
 			if (!isOK || !valid) {
 				toast.error(m.error_verify_sandbox());
-				return false;
+				return { isOK: false };
 			}
 
 			this.updateState({
 				sandboxId: this.selectedSandboxId,
 				sandboxRemark: sandboxInfo?.sandboxRemark,
-				model: sandboxInfo?.llmModel,
 			});
+
+			return { isOK: true, sandboxInfo };
 		} else if (this.agentMode === "new") {
-			this.updateState({
-				currentSessionId: this.selectedSessionId,
-				sandboxRemark: "",
-			});
+			if (this.selectedSandboxId === "auto") {
+				const { isOK, sandboxInfo } = await findClaudeCodeSandboxWithValidDisk(threadId);
+				if (!isOK) {
+					toast.error(m.error_verify_sandbox());
+					return { isOK: false };
+				}
+
+				this.updateState({
+					sandboxId: sandboxInfo?.sandboxId,
+					sandboxRemark: sandboxInfo?.sandboxRemark,
+				});
+
+				return { isOK: true, sandboxInfo };
+			} else {
+				const { isOK, valid, sandboxInfo } = await checkClaudeCodeSandbox(this.selectedSandboxId);
+				if (!isOK || !valid) {
+					toast.error(m.error_verify_sandbox());
+					return { isOK: false };
+				}
+
+				this.updateState({
+					sandboxId: this.selectedSandboxId,
+					sandboxRemark: sandboxInfo?.sandboxRemark,
+				});
+
+				return { isOK: true, sandboxInfo };
+			}
 		}
-		return true;
+		return { isOK: false };
 	}
 
 	async handleCreateNewSandbox(): Promise<boolean> {

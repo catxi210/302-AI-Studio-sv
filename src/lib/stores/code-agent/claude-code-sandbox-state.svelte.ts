@@ -195,25 +195,44 @@ class ClaudeCodeSandboxState {
 	}
 
 	async handleSessionSelected(sessionId: string): Promise<void> {
+		const sandboxList = persistedClaudeCodeSandboxState.current;
+
 		if (sessionId !== "new") {
-			const sandboxList = persistedClaudeCodeSandboxState.current;
-			const targetSandboxId = sandboxList.find((sandbox) =>
+			const targetSandbox = sandboxList.find((sandbox) =>
 				sandbox.sessionInfos.find((sessionInfo) => sessionInfo.sessionId === sessionId),
 			);
-			if (targetSandboxId) {
-				claudeCodeAgentState.selectedSandboxId = targetSandboxId.sandboxId;
+			if (targetSandbox) {
+				claudeCodeAgentState.selectedSandboxId = targetSandbox.sandboxId;
+				claudeCodeAgentState.selectedSandboxRemark = targetSandbox.sandboxRemark;
+				claudeCodeAgentState.selectedSessionRemark =
+					targetSandbox.sessionInfos.find((sessionInfo) => sessionInfo.sessionId === sessionId)
+						?.note || "";
 			}
+		} else {
+			claudeCodeAgentState.selectedSandboxId = "auto";
+			claudeCodeAgentState.selectedSandboxRemark = "";
 		}
 
 		claudeCodeAgentState.selectedSessionId = sessionId;
 	}
 
 	async handleSelectSandbox(sandboxId: string): Promise<void> {
+		const sandboxList = persistedClaudeCodeSandboxState.current;
+
 		if (sandboxId === "auto") {
 			claudeCodeAgentState.selectedSessionId = "new";
+			claudeCodeAgentState.selectedSessionRemark = "";
+			claudeCodeAgentState.selectedSandboxId = "auto";
+			claudeCodeAgentState.selectedSandboxRemark = "";
+		} else {
+			const targetSandbox = sandboxList.find((sandbox) => sandbox.sandboxId === sandboxId);
+			if (targetSandbox) {
+				claudeCodeAgentState.selectedSandboxId = targetSandbox.sandboxId;
+				claudeCodeAgentState.selectedSandboxRemark = targetSandbox.sandboxRemark;
+				claudeCodeAgentState.selectedSessionId = "new";
+				claudeCodeAgentState.selectedSessionRemark = "";
+			}
 		}
-
-		claudeCodeAgentState.selectedSandboxId = sandboxId;
 	}
 
 	async updateSessionRemark(
