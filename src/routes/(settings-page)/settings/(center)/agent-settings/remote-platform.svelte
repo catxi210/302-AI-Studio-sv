@@ -68,17 +68,9 @@
 		isDialogOpen = true;
 	}
 
-	async function handleDeleteSandbox() {
-		if (!selectedSandbox) return;
-
-		// Call delete API
-		const success = await claudeCodeSandboxState.deleteSandbox(selectedSandbox.sandboxId);
-
-		// If successful, refresh list and close dialog
-		if (success) {
-			isDialogOpen = false;
-			await handleRefresh();
-		}
+	async function handleSandboxDeleted() {
+		isDialogOpen = false;
+		await handleRefresh();
 	}
 
 	function handleCloseSandbox() {
@@ -188,7 +180,7 @@
 	<SandboxDialog
 		bind:open={isDialogOpen}
 		sandbox={selectedSandbox}
-		onDelete={handleDeleteSandbox}
+		onDelete={handleSandboxDeleted}
 		onClose={handleCloseSandbox}
 	/>
 
