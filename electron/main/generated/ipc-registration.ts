@@ -1,23 +1,23 @@
 import { ipcMain } from "electron";
 import {
+	registryService,
+	broadcastService,
+	storageService,
+	pluginService,
+	generalSettingsService,
+	codeAgentService,
+	ghostWindowService,
+	windowService,
+	shortcutService,
+	tabService,
 	aiApplicationService,
 	appService,
-	broadcastService,
-	codeAgentService,
 	dataService,
 	externalLinkService,
-	generalSettingsService,
-	ghostWindowService,
 	mcpService,
-	pluginService,
-	registryService,
-	shortcutService,
 	ssoService,
-	storageService,
-	tabService,
 	threadService,
 	updaterService,
-	windowService,
 } from "../services";
 
 /**

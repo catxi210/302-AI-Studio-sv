@@ -8,7 +8,7 @@ import {
 	type CodeAgentType,
 } from "@shared/storage/code-agent";
 import { match } from "ts-pattern";
-import { claudeCodeAgentState } from "./claude-code-state.svelte";
+import { claudeCodeAgentState, type ClaudeCodeSandboxInfo } from "./claude-code-state.svelte";
 
 const tab = window.tab ?? null;
 

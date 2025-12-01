@@ -208,9 +208,6 @@ class ClaudeCodeSandboxState {
 					targetSandbox.sessionInfos.find((sessionInfo) => sessionInfo.sessionId === sessionId)
 						?.note || "";
 			}
-		} else {
-			claudeCodeAgentState.selectedSandboxId = "auto";
-			claudeCodeAgentState.selectedSandboxRemark = "";
 		}
 
 		claudeCodeAgentState.selectedSessionId = sessionId;
