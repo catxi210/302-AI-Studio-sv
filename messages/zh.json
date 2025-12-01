@@ -913,5 +913,13 @@
 	"text_delete_sandbox_warning_confirm": "*所有数据和文件将会被删除，无法还原，是否继续？",
 	"label_delete_sandbox": "删除此沙盒",
 	"label_remark": "备注",
-	"select_session_new": "新建会话"
+	"select_session_new": "新建会话",
+	"title_delete_session": "删除会话",
+	"text_delete_session_warning_confirm": "所有数据和文件将会被删除，无法还原，是否继续？",
+	"update_remark_success": "更新备注成功",
+	"update_remark_failed": "更新备注失败",
+	"update_session_remark_success": "会话备注更新成功",
+	"update_session_remark_failed": "会话备注更新失败",
+	"delete_session_success": "会话删除成功",
+	"delete_session_failed": "会话删除失败"
 }

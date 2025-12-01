@@ -1,5 +1,8 @@
 <script lang="ts">
+	import { updateSessionNote } from "$lib/api/sandbox-session";
+	import { validate302Provider } from "$lib/api/webserve-deploy";
 	import { Button } from "$lib/components/ui/button";
+	import * as ContextMenu from "$lib/components/ui/context-menu";
 	import * as Dialog from "$lib/components/ui/dialog";
 	import * as Empty from "$lib/components/ui/empty/index.js";
 	import { m } from "$lib/paraglide/messages";
@@ -7,16 +10,26 @@
 		claudeCodeSandboxState,
 		persistedClaudeCodeSandboxState,
 	} from "$lib/stores/code-agent/claude-code-sandbox-state.svelte";
+	import { persistedProviderState } from "$lib/stores/provider-state.svelte";
 	import { Loader2 } from "@lucide/svelte";
 	import type { ClaudeCodeSandboxInfo } from "@shared/storage/code-agent";
+	import { toast } from "svelte-sonner";
 	import SandboxDeleteConfirmDialog from "./sandbox-delete-confirm-dialog.svelte";
-
+	import SessionDeleteConfirmDialog from "./session-delete-confirm-dialog.svelte";
+	import SessionRemarkDialog from "./session-remark-dialog.svelte";
 	interface Props {
 		open?: boolean;
 		sandbox?: ClaudeCodeSandboxInfo | null;
 		onDelete?: () => void;
 		onClose?: () => void;
 	}
+
+	type SessionType = {
+		sessionId: string;
+		workspacePath: string;
+		note?: string;
+		// createdAt?: string | number;
+	};
 
 	let {
 		open = $bindable(false),
@@ -26,6 +39,10 @@
 	}: Props = $props();
 
 	let isLoading = $state(false);
+	let isDeleteDialogOpen = $state(false);
+	let isSessionRemarkDialogOpen = $state(false);
+	let isSessionDeleteDialogOpen = $state(false);
+	let targetSession = $state<SessionType | null>(null);
 
 	// Get the latest sessions from the persisted state
 	const sessions = $derived.by(() => {
@@ -50,6 +67,16 @@
 		}
 	});
 
+	// Reset dialog states when main dialog closes
+	$effect(() => {
+		if (!open) {
+			isDeleteDialogOpen = false;
+			isSessionRemarkDialogOpen = false;
+			isSessionDeleteDialogOpen = false;
+			targetSession = null;
+		}
+	});
+
 	function formatTime(session: {
 		sessionId: string;
 		workspacePath: string;
@@ -68,41 +95,76 @@
 		}
 		return "";
 	}
-	let isDeleteDialogOpen = $state(false);
 
-	// Reset showConfirm when dialog opens/closes
-	$effect(() => {
-		if (!open) {
-			isDeleteDialogOpen = false;
+	function handleModifySessionRemark(session: SessionType) {
+		targetSession = session;
+		isSessionRemarkDialogOpen = true;
+	}
+
+	// function handleDeleteSession(session: SessionType) {
+	// 	targetSession = session;
+	// 	isSessionDeleteDialogOpen = true;
+	// }
+
+	async function handleConfirmSessionRename(newRemark: string) {
+		if (!sandbox || !targetSession) return;
+
+		const providerResult = validate302Provider(persistedProviderState.current);
+		if (!providerResult.valid || !providerResult.provider) {
+			toast.error("No 302.AI provider available");
+			return;
 		}
-	});
+
+		const result = await updateSessionNote(providerResult.provider, {
+			sandbox_id: sandbox.sandboxId,
+			session_id: targetSession.sessionId,
+			note: newRemark,
+		});
+
+		if (result.success) {
+			toast.success("Update session remark success");
+			// Refresh sessions
+			await claudeCodeSandboxState.refreshSessions(sandbox.sandboxId);
+		} else {
+			toast.error(result.error || "Update session remark failed");
+		}
+	}
+
+	async function handleConfirmSessionDelete() {
+		if (!sandbox || !targetSession) return;
+		// TODO: Implement deleteSession in claudeCodeSandboxState
+		// await claudeCodeSandboxState.deleteSession(sandbox.sandboxId, targetSession.sessionId);
+		console.log("Delete session:", sandbox.sandboxId, targetSession.sessionId);
+		isSessionDeleteDialogOpen = false;
+		// Refresh sessions
+		await claudeCodeSandboxState.refreshSessions(sandbox.sandboxId);
+	}
 </script>
 
 <Dialog.Root bind:open>
-	<!-- Using inline styles with hex colors -->
-	<Dialog.Content class="min-w-[568px] rounded-2xl p-6" style="background: #ffffff;">
+	<Dialog.Content class="min-w-[568px] rounded-2xl p-6">
 		<!-- Header -->
 		<div class="mb-6">
-			<h2 class="text-lg font-semibold" style="color: #1a1a1a;">
+			<h2 class="text-lg font-semibold text-foreground">
 				{sandbox?.sandboxRemark || sandbox?.sandboxId || "Sandbox"}
 			</h2>
-			<p class="text-sm" style="color: #999999;">{sandbox?.sandboxId}</p>
+			<p class="text-sm text-muted-foreground">{sandbox?.sandboxId}</p>
 		</div>
 
 		<!-- Main View -->
 		<div>
-			<h3 class="text-base font-medium mb-3" style="color: #1a1a1a;">
+			<h3 class="text-base font-medium mb-3 text-foreground">
 				{m.label_session_list()}
 			</h3>
 
 			{#if isLoading}
 				<div class="flex items-center justify-center py-8">
-					<Loader2 class="h-6 w-6 animate-spin" style="color: #999999;" />
+					<Loader2 class="h-6 w-6 animate-spin text-muted-foreground" />
 				</div>
 			{:else if sessions.length === 0}
 				<Empty.Root>
 					<Empty.Content class="h-[120px] flex flex-col items-center justify-center">
-						<Empty.Description style="color: #999999;">
+						<Empty.Description class="text-muted-foreground">
 							{m.no_sessions()}
 						</Empty.Description>
 					</Empty.Content>
@@ -110,21 +172,32 @@
 			{:else}
 				<div class="space-y-2 max-h-64 overflow-y-auto">
 					{#each sessions as session (session.sessionId)}
-						<!-- Inline style for list item background -->
-						<div
-							class="flex items-center justify-between p-4 rounded-xl"
-							style="background: #f8f5ff;"
-						>
-							<div>
-								<p class="text-sm font-medium" style="color: #1a1a1a;">
-									{session.note || session.sessionId}
-								</p>
-								{#if session.note}
-									<p class="text-xs" style="color: #999999;">{session.sessionId}</p>
-								{/if}
-							</div>
-							<span class="text-sm" style="color: #999999;">{formatTime(session)}</span>
-						</div>
+						<ContextMenu.Root>
+							<ContextMenu.Trigger>
+								<div class="flex items-center justify-between p-4 rounded-xl bg-muted/50">
+									<div>
+										<p class="text-sm font-medium text-foreground">
+											{session.note || session.sessionId}
+										</p>
+										{#if session.note}
+											<p class="text-xs text-muted-foreground">{session.sessionId}</p>
+										{/if}
+									</div>
+									<span class="text-sm text-muted-foreground">{formatTime(session)}</span>
+								</div>
+							</ContextMenu.Trigger>
+							<ContextMenu.Content>
+								<ContextMenu.Item onclick={() => handleModifySessionRemark(session)}>
+									{m.text_button_edit()}
+								</ContextMenu.Item>
+								<!-- <ContextMenu.Item
+									class="text-destructive focus:text-destructive"
+									onclick={() => handleDeleteSession(session)}
+								>
+									{m.text_button_delete()}
+								</ContextMenu.Item> -->
+							</ContextMenu.Content>
+						</ContextMenu.Root>
 					{/each}
 				</div>
 			{/if}
@@ -132,14 +205,14 @@
 
 		<!-- Footer Buttons -->
 		<div class="flex gap-3 mt-6 justify-between">
-			<!-- Inline styles for delete button -->
 			<Button
-				class="bg-[#F9F9F9] text-[#D82525] hover:!bg-[#FFF1F1] hover:!text-[#D82525] text-sm "
+				variant="ghost"
+				class="bg-destructive/5 text-destructive hover:bg-destructive/10 hover:text-destructive text-sm"
 				onclick={() => (isDeleteDialogOpen = true)}
-				variant="ghost">{m.label_delete_sandbox ? m.label_delete_sandbox() : "删除此沙盒"}</Button
 			>
-			<!-- Inline styles for close button -->
-			<Button class="text-sm" onclick={() => onClose()}>
+				{m.label_delete_sandbox()}
+			</Button>
+			<Button variant="outline" class="text-sm" onclick={() => onClose()}>
 				{m.btn_close()}
 			</Button>
 		</div>
@@ -153,6 +226,22 @@
 		onClose();
 		onDelete();
 	}}
+/>
+
+<SessionRemarkDialog
+	bind:open={isSessionRemarkDialogOpen}
+	sessionId={targetSession?.sessionId || ""}
+	remark={targetSession?.note || ""}
+	onClose={() => (isSessionRemarkDialogOpen = false)}
+	onSave={handleConfirmSessionRename}
+/>
+
+<SessionDeleteConfirmDialog
+	bind:open={isSessionDeleteDialogOpen}
+	sessionId={targetSession?.sessionId || ""}
+	remark={targetSession?.note || ""}
+	onClose={() => (isSessionDeleteDialogOpen = false)}
+	onConfirm={handleConfirmSessionDelete}
 />
 
 <style>

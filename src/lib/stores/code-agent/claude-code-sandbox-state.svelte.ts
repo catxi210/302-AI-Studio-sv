@@ -186,10 +186,10 @@ class ClaudeCodeSandboxState {
 	async updateSandboxRemark(sandboxId: string, remark: string): Promise<boolean> {
 		const { isOK } = await updateClaudeCodeSandboxRemark(sandboxId, remark);
 		if (isOK) {
-			toast.success("Update remark success");
+			toast.success(m.update_remark_success());
 			await this.refreshSandboxes();
 		} else {
-			toast.error("Update remark failed");
+			toast.error(m.update_remark_failed());
 		}
 		return isOK;
 	}
@@ -214,6 +214,37 @@ class ClaudeCodeSandboxState {
 		}
 
 		claudeCodeAgentState.selectedSandboxId = sandboxId;
+	}
+
+	async updateSessionRemark(
+		sandboxId: string,
+		sessionId: string,
+		remark: string,
+	): Promise<boolean> {
+		const { isOK } = await window.electronAPI.codeAgentService.updateClaudeCodeSessionRemark(
+			sandboxId,
+			sessionId,
+			remark,
+		);
+		if (isOK) {
+			toast.success(m.update_session_remark_success());
+		} else {
+			toast.error(m.update_session_remark_failed());
+		}
+		return isOK;
+	}
+
+	async deleteSession(sandboxId: string, sessionId: string): Promise<boolean> {
+		const { isOK } = await window.electronAPI.codeAgentService.deleteClaudeCodeSession(
+			sandboxId,
+			sessionId,
+		);
+		if (isOK) {
+			toast.success(m.delete_session_success());
+		} else {
+			toast.error(m.delete_session_failed());
+		}
+		return isOK;
 	}
 }
 

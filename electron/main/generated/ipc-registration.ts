@@ -176,6 +176,14 @@ export function registerIpcHandlers() {
 	ipcMain.handle("codeAgentService:deleteClaudeCodeSandboxByIpc", (event, sandbox_id) =>
 		codeAgentService.deleteClaudeCodeSandboxByIpc(event, sandbox_id),
 	);
+	ipcMain.handle(
+		"codeAgentService:updateClaudeCodeSessionRemark",
+		(event, sandbox_id, session_id, remark) =>
+			codeAgentService.updateClaudeCodeSessionRemark(event, sandbox_id, session_id, remark),
+	);
+	ipcMain.handle("codeAgentService:deleteClaudeCodeSession", (event, sandbox_id, session_id) =>
+		codeAgentService.deleteClaudeCodeSession(event, sandbox_id, session_id),
+	);
 
 	// ghostWindowService service registration
 	ipcMain.handle("ghostWindowService:startTracking", (event) =>
@@ -420,6 +428,8 @@ export function removeIpcHandlers() {
 	ipcMain.removeHandler("codeAgentService:updateClaudeCodeSandboxRemark");
 	ipcMain.removeHandler("codeAgentService:createClaudeCodeSandboxByIpc");
 	ipcMain.removeHandler("codeAgentService:deleteClaudeCodeSandboxByIpc");
+	ipcMain.removeHandler("codeAgentService:updateClaudeCodeSessionRemark");
+	ipcMain.removeHandler("codeAgentService:deleteClaudeCodeSession");
 	ipcMain.removeHandler("ghostWindowService:startTracking");
 	ipcMain.removeHandler("ghostWindowService:stopTracking");
 	ipcMain.removeHandler("ghostWindowService:updateInsertIndex");

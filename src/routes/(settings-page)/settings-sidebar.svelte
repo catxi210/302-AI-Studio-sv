@@ -30,11 +30,11 @@
 			path: "/settings/model-settings",
 			labelKey: m.text_button_settings_models(),
 		},
-		// {
-		// 	name: "agent-settings",
-		// 	path: "/settings/agent-settings",
-		// 	labelKey: "agent",
-		// },
+		{
+			name: "agent-settings",
+			path: "/settings/agent-settings",
+			labelKey: "Agent",
+		},
 		{
 			name: "mcp-settings",
 			path: "/settings/mcp-settings",

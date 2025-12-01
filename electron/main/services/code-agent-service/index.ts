@@ -280,6 +280,51 @@ export class CodeAgentService {
 			return { isOK: false, error: error instanceof Error ? error.message : "Unknown error" };
 		}
 	}
+
+	async updateClaudeCodeSessionRemark(
+		_event: IpcMainInvokeEvent,
+		sandbox_id: string,
+		session_id: string,
+		remark: string,
+	): Promise<{ isOK: boolean }> {
+		try {
+			// TODO: Call remote API when available
+			// const response = await updateClaudeCodeSession(sandbox_id, session_id, remark);
+			// if (response.success) {
+			// 	await this.updateClaudeCodeSessions(_event, sandbox_id);
+			// 	return { isOK: true };
+			// }
+
+			// Mock implementation for now
+			console.log("Mock update session remark:", sandbox_id, session_id, remark);
+			return { isOK: true };
+		} catch (error) {
+			console.error("Error updating Claude code session remark:", error);
+			return { isOK: false };
+		}
+	}
+
+	async deleteClaudeCodeSession(
+		_event: IpcMainInvokeEvent,
+		sandbox_id: string,
+		session_id: string,
+	): Promise<{ isOK: boolean }> {
+		try {
+			// TODO: Call remote API when available
+			// const response = await deleteClaudeCodeSession(sandbox_id, session_id);
+			// if (response.success) {
+			// 	await this.updateClaudeCodeSessions(_event, sandbox_id);
+			// 	return { isOK: true };
+			// }
+
+			// Mock implementation for now
+			console.log("Mock delete session:", sandbox_id, session_id);
+			return { isOK: true };
+		} catch (error) {
+			console.error("Error deleting Claude code session:", error);
+			return { isOK: false };
+		}
+	}
 }
 
 export const codeAgentService = new CodeAgentService();

@@ -6,7 +6,7 @@
 
 	interface Props {
 		open?: boolean;
-		sandboxId?: string;
+		sessionId?: string;
 		remark?: string;
 		onSave?: (remark: string) => Promise<void>;
 		onClose?: () => void;
@@ -14,7 +14,7 @@
 
 	let {
 		open = $bindable(false),
-		sandboxId = "",
+		sessionId = "",
 		remark = "",
 		onSave = async () => {},
 		onClose = () => {},
@@ -55,12 +55,12 @@
 
 		<!-- Content -->
 		<div class="mt-6 rounded-xl bg-white p-5 dark:bg-neutral-800">
-			<!-- 沙盒ID -->
+			<!-- 会话ID -->
 			<div class="mb-4">
 				<div class="mb-2 text-sm font-medium text-foreground">
-					{m.title_sandbox_id()}
+					{m.title_session_id()}
 				</div>
-				<div class="text-sm text-muted-foreground">{sandboxId}</div>
+				<div class="text-sm text-muted-foreground">{sessionId}</div>
 			</div>
 
 			<!-- 备注输入 -->

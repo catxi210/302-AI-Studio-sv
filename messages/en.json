@@ -917,5 +917,13 @@
 	"text_delete_sandbox_warning_confirm": "* All data and files will be deleted and cannot be restored. Continue?",
 	"label_delete_sandbox": "Delete this sandbox",
 	"label_remark": "Remark",
-	"select_session_new": "New session"
+	"select_session_new": "New session",
+	"title_delete_session": "Delete Session",
+	"text_delete_session_warning_confirm": "All data and files will be deleted and cannot be restored. Continue?",
+	"update_remark_success": "Update remark successful",
+	"update_remark_failed": "Failed to update remark",
+	"update_session_remark_success": "Session remark updated successfully",
+	"update_session_remark_failed": "Failed to update session remark",
+	"delete_session_success": "Session deleted successfully",
+	"delete_session_failed": "Failed to delete session"
 }
