@@ -31,7 +31,7 @@ function getInitialData() {
 		workspacePaths: [],
 		variables: [],
 		currentSessionId: "",
-		sessionIds: [],
+		// sessionIds: [],
 		sandboxId: "",
 		sandboxRemark: "",
 	};
@@ -56,7 +56,7 @@ class ClaudeCodeAgentState {
 
 	model = $derived(persistedClaudeCodeAgentState.current?.model ?? "");
 	currentSessionId = $derived(persistedClaudeCodeAgentState.current?.currentSessionId ?? "");
-	sessionIds = $derived(persistedClaudeCodeAgentState.current?.sessionIds ?? []);
+	// sessionIds = $derived(persistedClaudeCodeAgentState.current?.sessionIds ?? []);
 	sandboxId = $derived(persistedClaudeCodeAgentState.current?.sandboxId ?? "");
 	sandboxRemark = $derived(persistedClaudeCodeAgentState.current?.sandboxRemark ?? "");
 
@@ -71,9 +71,9 @@ class ClaudeCodeAgentState {
 		};
 	}
 
-	addSessionId(sessionId: string): void {
-		this.updateState({ sessionIds: [...this.sessionIds, sessionId] });
-	}
+	// addSessionId(sessionId: string): void {
+	// 	this.updateState({ sessionIds: [...this.sessionIds, sessionId] });
+	// }
 
 	updateCurrentSessionId(sessionId: string): void {
 		this.updateState({ currentSessionId: sessionId });
@@ -101,6 +101,7 @@ class ClaudeCodeAgentState {
 			this.updateState({
 				sandboxId: this.selectedSandboxId,
 				sandboxRemark: sandboxInfo?.sandboxRemark,
+				currentSessionId: this.selectedSessionId,
 			});
 
 			return { isOK: true, sandboxInfo };

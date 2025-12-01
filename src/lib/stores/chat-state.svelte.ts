@@ -1043,27 +1043,28 @@ export const chat = new Chat({
 			const codeAgentEnabled = codeAgentState.enabled;
 			const sessionId = codeAgentEnabled
 				? (() => {
-						const getId = (s: string | { id: string }) => (typeof s === "string" ? s : s.id);
+						// const getId = (s: string | { id: string }) => (typeof s === "string" ? s : s.id);
 
 						// If currentSessionId matches one of the known valid sessionIds, use it
 						if (
-							claudeCodeAgentState.currentSessionId &&
-							claudeCodeAgentState.sessionIds.some(
-								(s) => getId(s) === claudeCodeAgentState.currentSessionId,
-							)
+							claudeCodeAgentState.currentSessionId
+							// &&
+							// claudeCodeAgentState.sessionIds.some(
+							// 	(s) => getId(s) === claudeCodeAgentState.currentSessionId,
+							// )
 						) {
 							return claudeCodeAgentState.currentSessionId;
 						}
 						// Otherwise fallback to the first available session ID (assuming single active session in most cases)
 						// Filter out empty IDs just in case
-						const firstValidSession = claudeCodeAgentState.sessionIds.find((s) => getId(s));
-						if (firstValidSession) {
-							return getId(firstValidSession);
-						}
+						// const firstValidSession = claudeCodeAgentState.sessionIds.find((s) => getId(s));
+						// if (firstValidSession) {
+						// 	return getId(firstValidSession);
+						// }
 
 						// If no session exists, generate a new one
 						const newSessionId = nanoid();
-						claudeCodeAgentState.addSessionId(newSessionId);
+						// claudeCodeAgentState.addSessionId(newSessionId);
 						claudeCodeAgentState.updateCurrentSessionId(newSessionId);
 						return newSessionId;
 					})()

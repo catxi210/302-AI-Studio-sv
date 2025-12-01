@@ -36,6 +36,8 @@
 
 	let { onClose }: Props = $props();
 
+	let disabled = $derived(!codeAgentState.isFreshTab);
+
 	async function handleSelect(key: string) {
 		codeAgentState.updateType(key as CodeAgentType);
 	}
@@ -53,6 +55,7 @@
 				options={platformOptions}
 				selectedKey={codeAgentState.type}
 				onSelect={handleSelect}
+				{disabled}
 			/>
 		</div>
 
@@ -62,6 +65,7 @@
 				name="agent"
 				value={codeAgentState.currentAgentId}
 				{options}
+				{disabled}
 				placeholder={m.select_agent()}
 				onValueChange={(codeAgentId) => handleCodeAgentSelected(codeAgentId)}
 			/>

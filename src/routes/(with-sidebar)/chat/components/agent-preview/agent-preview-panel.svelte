@@ -93,22 +93,21 @@
 	const isAgentMode = $derived(codeAgentState.enabled);
 	const currentSandboxId = $derived(claudeCodeAgentState.sandboxId);
 	const currentSessionId = $derived.by(() => {
-		const getId = (s: string | { id: string }) => (typeof s === "string" ? s : s.id);
-
 		// If currentSessionId matches one of the known valid sessionIds, use it
 		if (
-			claudeCodeAgentState.currentSessionId &&
-			claudeCodeAgentState.sessionIds.some(
-				(s) => getId(s) === claudeCodeAgentState.currentSessionId,
-			)
+			claudeCodeAgentState.currentSessionId
+			// &&
+			// claudeCodeAgentState.sessionIds.some(
+			// 	(s) => getId(s) === claudeCodeAgentState.currentSessionId,
+			// )
 		) {
 			return claudeCodeAgentState.currentSessionId;
 		}
 		// Otherwise fallback to the first available session ID (assuming single active session in most cases)
-		const firstValidSession = claudeCodeAgentState.sessionIds.find((s) => getId(s));
-		if (firstValidSession) {
-			return getId(firstValidSession);
-		}
+		// const firstValidSession = claudeCodeAgentState.sessionIds.find((s) => getId(s));
+		// if (firstValidSession) {
+		// 	return getId(firstValidSession);
+		// }
 		return "";
 	});
 

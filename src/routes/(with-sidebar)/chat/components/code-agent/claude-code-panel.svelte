@@ -28,11 +28,43 @@
 
 	let { onClose }: Props = $props();
 
+	let disabled = $derived(!codeAgentState.isFreshTab);
+
+	let executionIterator: AsyncGenerator<string, void, boolean> | null = null;
+
 	let isRefreshing = $state(false);
 	let isCreateSandboxDialogOpen = $state(false);
 	let isCreatingSandbox = $state(false);
 	let isChecking = $state(false);
 	let showLackOfDiskDialog = $state(false);
+
+	async function* enableCodeAgentFlow() {
+		isChecking = true;
+
+		const { isOK, sandboxInfo } = await codeAgentState.updateCodeAgentCfgs();
+		if (!isOK) {
+			isChecking = false;
+			return;
+		}
+
+		if (sandboxInfo) {
+			if (chatState.selectedModel && chatState.selectedModel.id !== sandboxInfo.llmModel) {
+				await codeAgentState.handleCodeAgentModelChange(chatState.selectedModel);
+			}
+
+			if (sandboxInfo.diskUsage === "insufficient") {
+				showLackOfDiskDialog = true;
+				const shouldContinue: boolean = yield "wait_user_choice";
+				if (!shouldContinue) {
+					isChecking = false;
+					return;
+				}
+			}
+		}
+		codeAgentState.updateEnabled(true);
+		isChecking = false;
+		onClose();
+	}
 
 	async function handleRefresh() {
 		isRefreshing = true;
@@ -51,31 +83,31 @@
 
 	async function handleOverlayAction(type: "enabled" | "disabled" | "cancel" | "close") {
 		if (type === "enabled") {
-			isChecking = true;
-
-			const { isOK, sandboxInfo } = await codeAgentState.updateCodeAgentCfgs();
-			if (!isOK) {
-				isChecking = false;
-				return;
-			}
-
-			if (sandboxInfo) {
-				if (chatState.selectedModel && chatState.selectedModel.id !== sandboxInfo.llmModel) {
-					await codeAgentState.handleCodeAgentModelChange(chatState.selectedModel);
-				}
-
-				if (sandboxInfo.diskUsage === "insufficient") {
-					showLackOfDiskDialog = true;
-					return;
-				}
-			}
-			codeAgentState.updateEnabled(true);
-
-			isChecking = false;
+			executionIterator = enableCodeAgentFlow();
+			await executionIterator.next();
 		} else if (type === "close") {
 			codeAgentState.updateEnabled(false);
+			onClose();
+		} else if (type === "cancel") {
+			onClose();
 		}
-		onClose();
+	}
+
+	async function handleContinueAnyway() {
+		showLackOfDiskDialog = false;
+		if (executionIterator) {
+			await executionIterator.next(true);
+			executionIterator = null;
+		}
+	}
+
+	function handleChangeSandbox() {
+		showLackOfDiskDialog = false;
+		if (executionIterator) {
+			executionIterator.return();
+			executionIterator = null;
+		}
+		isChecking = false;
 	}
 </script>
 
@@ -97,6 +129,7 @@
 			value={claudeCodeAgentState.selectedSessionId}
 			options={claudeCodeSandboxState.sessions}
 			placeholder={m.select_session_placeholder()}
+			{disabled}
 			onValueChange={(v) => claudeCodeSandboxState.handleSessionSelected(v)}
 		/>
 	</div>
@@ -149,7 +182,7 @@
 			options={claudeCodeSandboxState.sandboxes}
 			placeholder={m.select_sandbox_placeholder()}
 			onValueChange={(v) => claudeCodeSandboxState.handleSelectSandbox(v)}
-			disabled={claudeCodeAgentState.agentMode === "existing"}
+			disabled={claudeCodeAgentState.agentMode === "existing" || disabled}
 			class="!bg-background dark:!bg-background"
 		/>
 	</div>
@@ -221,10 +254,10 @@
 					</Dialog.Description>
 
 					<Dialog.Footer class="flex flex-row items-center sm:justify-between">
-						<Button variant="secondary" onclick={() => (showLackOfDiskDialog = false)}>
+						<Button variant="secondary" onclick={handleContinueAnyway}>
 							{m.text_button_still_continue()}
 						</Button>
-						<Button variant="default" onclick={() => (showLackOfDiskDialog = false)}>
+						<Button onclick={handleChangeSandbox}>
 							{m.text_button_replace_sandbox()}
 						</Button>
 					</Dialog.Footer>
