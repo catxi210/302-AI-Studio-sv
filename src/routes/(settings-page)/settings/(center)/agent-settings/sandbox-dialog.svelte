@@ -101,10 +101,10 @@
 		isSessionRemarkDialogOpen = true;
 	}
 
-	// function handleDeleteSession(session: SessionType) {
-	// 	targetSession = session;
-	// 	isSessionDeleteDialogOpen = true;
-	// }
+	function handleDeleteSession(session: SessionType) {
+		targetSession = session;
+		isSessionDeleteDialogOpen = true;
+	}
 
 	async function handleConfirmSessionRename(newRemark: string) {
 		if (!sandbox || !targetSession) return;
@@ -132,12 +132,9 @@
 
 	async function handleConfirmSessionDelete() {
 		if (!sandbox || !targetSession) return;
-		// TODO: Implement deleteSession in claudeCodeSandboxState
-		// await claudeCodeSandboxState.deleteSession(sandbox.sandboxId, targetSession.sessionId);
-		console.log("Delete session:", sandbox.sandboxId, targetSession.sessionId);
+		// The actual deletion is handled by the dialog component
 		isSessionDeleteDialogOpen = false;
-		// Refresh sessions
-		await claudeCodeSandboxState.refreshSessions(sandbox.sandboxId);
+		// Refresh is handled in the deleteSession method
 	}
 </script>
 
@@ -190,12 +187,12 @@
 								<ContextMenu.Item onclick={() => handleModifySessionRemark(session)}>
 									{m.text_button_edit()}
 								</ContextMenu.Item>
-								<!-- <ContextMenu.Item
+								<ContextMenu.Item
 									class="text-destructive focus:text-destructive"
 									onclick={() => handleDeleteSession(session)}
 								>
 									{m.text_button_delete()}
-								</ContextMenu.Item> -->
+								</ContextMenu.Item>
 							</ContextMenu.Content>
 						</ContextMenu.Root>
 					{/each}
@@ -238,6 +235,7 @@
 
 <SessionDeleteConfirmDialog
 	bind:open={isSessionDeleteDialogOpen}
+	sandboxId={sandbox?.sandboxId || ""}
 	sessionId={targetSession?.sessionId || ""}
 	remark={targetSession?.note || ""}
 	onClose={() => (isSessionDeleteDialogOpen = false)}

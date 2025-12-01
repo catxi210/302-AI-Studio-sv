@@ -3,9 +3,11 @@
 	import * as Dialog from "$lib/components/ui/dialog";
 	import { m } from "$lib/paraglide/messages";
 	import { Loader2 } from "@lucide/svelte";
+	import { claudeCodeSandboxState } from "$lib/stores/code-agent/claude-code-sandbox-state.svelte";
 
 	interface Props {
 		open?: boolean;
+		sandboxId?: string;
 		sessionId?: string;
 		remark?: string;
 		onClose?: () => void;
@@ -14,6 +16,7 @@
 
 	let {
 		open = $bindable(false),
+		sandboxId = "",
 		sessionId = "",
 		remark = "",
 		onClose = () => {},
@@ -25,8 +28,12 @@
 	async function handleDelete() {
 		isDeleting = true;
 		try {
-			await onConfirm();
-			open = false;
+			// Call the deleteSession method with sandboxId and sessionId
+			const success = await claudeCodeSandboxState.deleteSession(sandboxId, sessionId);
+			if (success) {
+				await onConfirm();
+				open = false;
+			}
 		} finally {
 			isDeleting = false;
 		}
