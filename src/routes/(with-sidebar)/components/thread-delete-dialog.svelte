@@ -17,6 +17,7 @@
 
 	let {
 		open = $bindable(false),
+		threadId: _threadId = "",
 		sandboxId = "",
 		sessionId = "",
 		onClose = () => {},

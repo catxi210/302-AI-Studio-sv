@@ -37,23 +37,21 @@
 
 			const attachmentId = nanoid();
 
+			chatState.setAttachmentLoading(attachmentId, true);
+			const preview = await generateFilePreview(file);
+
 			const attachment: AttachmentFile = {
 				id: attachmentId,
 				name: file.name,
 				type: file.type,
 				size: file.size,
 				file: file,
-				preview: undefined,
+				preview: preview,
 				filePath,
 			};
-
 			chatState.addAttachment(attachment);
-			chatState.setAttachmentLoading(attachmentId, true);
-
-			generateFilePreview(file).then((preview) => {
-				chatState.updateAttachment(attachmentId, { preview });
-				chatState.setAttachmentLoading(attachmentId, false);
-			});
+			// chatState.updateAttachment(attachmentId, { preview });
+			chatState.setAttachmentLoading(attachmentId, false);
 		}
 
 		target.value = "";
@@ -71,7 +69,7 @@
 	type="file"
 	multiple
 	class="hidden"
-	accept="image/*,text/*,audio/*,video/*,.pdf,.json,.csv,.xlsx,.xls,.docx,.doc,.pptx,.ppt"
+	accept="image/*,text/*,audio/*,video/*,.pdf,.json,.csv,.xlsx,.xls,.docx,.doc,.pptx,.ppt,.md,.markdown"
 	onchange={handleFileSelect}
 />
 

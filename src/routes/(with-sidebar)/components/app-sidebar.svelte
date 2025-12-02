@@ -17,6 +17,7 @@
 		currentSessionId?: string;
 	}
 
+	import type { CodeAgentMetadata } from "@shared/storage/code-agent";
 	import RenameDialog from "./rename-dialog.svelte";
 	import ThreadDeleteDialog from "./thread-delete-dialog.svelte";
 	import ThreadItem from "./thread-item.svelte";
@@ -174,21 +175,36 @@
 			const configKey = `CodeAgentStorage:code-agent-config-state-${threadId}`;
 			const config = await window.electronAPI.storageService.getItem(configKey);
 
+			console.log(`[isCodeAgentThread] Checking thread ${threadId}:`, {
+				configKey,
+				config,
+				enabled: (config as CodeAgentConfigMetadata)?.enabled,
+				currentAgentId: (config as CodeAgentConfigMetadata)?.currentAgentId,
+			});
+
 			if (
 				(config as CodeAgentConfigMetadata)?.enabled &&
 				(config as CodeAgentConfigMetadata)?.currentAgentId === "claude-code"
 			) {
 				// Get the Claude Code state for this thread
 				const claudeStateKey = `CodeAgentStorage:claude-code-agent-state-${threadId}`;
-				const claudeState = (await window.electronAPI.storageService.getItem(
-					claudeStateKey,
-				)) as ClaudeCodeState;
+				const claudeState = await window.electronAPI.storageService.getItem(claudeStateKey);
 
-				if (claudeState?.sandboxId && claudeState?.currentSessionId) {
+				console.log(`[isCodeAgentThread] Claude state for thread ${threadId}:`, {
+					claudeStateKey,
+					claudeState,
+					sandboxId: (claudeState as CodeAgentMetadata)?.sandboxId,
+					currentSessionId: (claudeState as CodeAgentMetadata)?.currentSessionId,
+				});
+
+				if (
+					(claudeState as CodeAgentMetadata)?.sandboxId &&
+					(claudeState as CodeAgentMetadata)?.currentSessionId
+				) {
 					return {
 						isCodeAgent: true,
-						sandboxId: claudeState.sandboxId,
-						sessionId: claudeState.currentSessionId,
+						sandboxId: (claudeState as CodeAgentMetadata).sandboxId,
+						sessionId: (claudeState as CodeAgentMetadata).currentSessionId,
 					};
 				}
 			}

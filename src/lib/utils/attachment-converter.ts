@@ -116,15 +116,30 @@ async function readPdfFile(attachment: AttachmentFile): Promise<string> {
 	}
 }
 
+/**
+ * Decode base64 string to UTF-8 text
+ * Uses TextDecoder to properly handle multi-byte UTF-8 characters (e.g., Chinese)
+ */
+function decodeBase64ToUtf8(base64: string): string {
+	const binaryString = atob(base64);
+	const bytes = new Uint8Array(binaryString.length);
+	for (let i = 0; i < binaryString.length; i++) {
+		bytes[i] = binaryString.charCodeAt(i);
+	}
+	return new TextDecoder("utf-8").decode(bytes);
+}
+
 async function readTextFile(attachment: AttachmentFile): Promise<string> {
-	if (attachment.file) {
+	// First try to read from file if it's a valid File object
+	if (attachment.file && typeof attachment.file.text === "function") {
 		return await attachment.file.text();
 	}
 
+	// Then try to read from preview (data URL)
 	if (attachment.preview && typeof attachment.preview === "string") {
-		if (attachment.preview.startsWith("data:text/")) {
+		if (attachment.preview.startsWith("data:")) {
 			const base64Content = attachment.preview.split(",")[1];
-			return atob(base64Content);
+			return decodeBase64ToUtf8(base64Content);
 		} else {
 			const response = await fetch(attachment.preview);
 			return await response.text();

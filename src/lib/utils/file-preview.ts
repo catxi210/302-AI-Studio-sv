@@ -115,5 +115,21 @@ export async function generateFilePreview(file: File): Promise<string | undefine
 		});
 	}
 
+	// Handle Markdown files
+	const isMarkdownFile =
+		file.type === "text/markdown" ||
+		file.type === "text/x-markdown" ||
+		file.name.toLowerCase().endsWith(".md") ||
+		file.name.toLowerCase().endsWith(".markdown");
+
+	if (isMarkdownFile) {
+		return new Promise((resolve) => {
+			const reader = new FileReader();
+			reader.onload = (e) => resolve(e.target?.result as string);
+			reader.onerror = () => resolve(undefined);
+			reader.readAsDataURL(file);
+		});
+	}
+
 	return undefined;
 }
