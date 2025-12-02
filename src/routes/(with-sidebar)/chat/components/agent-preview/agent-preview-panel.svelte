@@ -133,7 +133,7 @@
 		try {
 			// First refresh sandboxes to ensure the sandbox exists in the list
 			// This is needed because refreshSessions requires the sandbox to exist
-			await claudeCodeSandboxState.refreshSandboxes();
+			// await claudeCodeSandboxState.refreshSandboxes();
 
 			// Then refresh sessions to get workspace_path for the current session
 			// This ensures the file tree has the correct workspace path before loading
