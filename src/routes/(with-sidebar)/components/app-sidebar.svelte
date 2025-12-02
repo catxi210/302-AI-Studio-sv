@@ -9,15 +9,8 @@
 	import { TIME_GROUP_ORDER, TimeGroup } from "$lib/types/time-group";
 	import type { MessagePart } from "$lib/utils/attachment-converter";
 	import { ChevronDown } from "@lucide/svelte";
-	import type { CodeAgentConfigMetadata } from "@shared/storage/code-agent";
+	import type { CodeAgentConfigMetadata, CodeAgentMetadata } from "@shared/storage/code-agent";
 	import { onMount } from "svelte";
-
-	interface ClaudeCodeState {
-		sandboxId?: string;
-		currentSessionId?: string;
-	}
-
-	import type { CodeAgentMetadata } from "@shared/storage/code-agent";
 	import RenameDialog from "./rename-dialog.svelte";
 	import ThreadDeleteDialog from "./thread-delete-dialog.svelte";
 	import ThreadItem from "./thread-item.svelte";
