@@ -28,7 +28,7 @@
 		sessionId: string;
 		workspacePath: string;
 		note?: string;
-		// createdAt?: string | number;
+		usedAt?: string;
 	};
 
 	let {
@@ -80,13 +80,14 @@
 	function formatTime(session: {
 		sessionId: string;
 		workspacePath: string;
-		note: string;
-		createdAt?: string | number;
+		note?: string;
+		usedAt?: string;
 	}) {
 		// 如果有时间戳，格式化显示
-		if (session.createdAt) {
-			const date = new Date(session.createdAt);
+		if (session.usedAt) {
+			const date = new Date(session.usedAt);
 			return date.toLocaleString("zh-CN", {
+				year: "numeric",
 				month: "numeric",
 				day: "numeric",
 				hour: "2-digit",

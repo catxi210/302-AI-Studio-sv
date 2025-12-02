@@ -96,6 +96,7 @@ export class CodeAgentService {
 								sessionId: session.session_id,
 								workspacePath: session.workspace_path,
 								note: session.note ?? "",
+								usedAt: session.used_at,
 							}))
 						: [];
 
@@ -243,6 +244,7 @@ export class CodeAgentService {
 				sessionId: session.session_id,
 				workspacePath: session.workspace_path,
 				note: session.note ?? "",
+				usedAt: session.used_at,
 			}));
 			await claudeCodeSandboxStorage.setClaudeCodeSessions(sandboxId, list);
 			return { isOK: true };

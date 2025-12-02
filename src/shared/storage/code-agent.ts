@@ -45,6 +45,7 @@ export const claudeCodeSessionInfo = type({
 	sessionId: "string",
 	workspacePath: "string",
 	note: "string",
+	usedAt: "string?",
 });
 export type ClaudeCodeSessionInfo = typeof claudeCodeSessionInfo.infer;
 

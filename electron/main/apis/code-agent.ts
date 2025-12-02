@@ -161,6 +161,7 @@ export const sessionInfoSchema = type({
 	session_id: "string",
 	workspace_path: "string",
 	note: "string?",
+	used_at: "string?",
 });
 export type SessionInfo = typeof sessionInfoSchema.infer;
 export const listClaudeCodeSessionsResponse = type({
