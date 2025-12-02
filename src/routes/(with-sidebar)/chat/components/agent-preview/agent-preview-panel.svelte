@@ -534,15 +534,19 @@
 			/>
 
 			<div class="flex flex-1 min-w-0 min-h-0">
-				<div
-					class="flex-shrink flex-1 max-w-64 min-w-[100px] border-r border-border overflow-hidden {activeTab ===
-					TAB_CODE
-						? ''
-						: 'hidden'}"
-				>
-					{#if codeAgentState.isDeleted}
+				{#if codeAgentState.isDeleted && activeTab === TAB_CODE}
+					<!-- When deleted on CODE tab, show SessionDeleted full-width without file tree -->
+					<div class="flex-1 flex items-center justify-center">
 						<SessionDeleted />
-					{:else}
+					</div>
+				{:else}
+					<!-- Normal layout with file tree and code area -->
+					<div
+						class="flex-shrink flex-1 max-w-64 min-w-[100px] border-r border-border overflow-hidden {activeTab ===
+						TAB_CODE
+							? ''
+							: 'hidden'}"
+					>
 						<FileTree
 							sandboxId={currentSandboxId}
 							workspacePath={claudeCodeSandboxState.currentSessionWorkspacePath}
@@ -550,128 +554,128 @@
 							{refreshTrigger}
 							onFileDelete={handleFileDelete}
 						/>
-					{/if}
-				</div>
+					</div>
 
-				<div class="flex-1 flex flex-col min-w-[140px] min-h-0">
-					{#if activeTab === TAB_PREVIEW}
-						{#if isAgentMode}
-							{#if deployment.url}
-								<div class="flex-1 overflow-auto bg-muted/30 min-h-0">
-									<div
-										class="h-full w-full mx-auto transition-all duration-300 ease-in-out
+					<div class="flex-1 flex flex-col min-w-[140px] min-h-0">
+						{#if activeTab === TAB_PREVIEW}
+							{#if isAgentMode}
+								{#if deployment.url}
+									<div class="flex-1 overflow-auto bg-muted/30 min-h-0">
+										<div
+											class="h-full w-full mx-auto transition-all duration-300 ease-in-out
                               {deviceMode === DEVICE_MODE_MOBILE ? 'max-w-[375px]' : ''}"
-									>
-										{#key iframeRefreshKey}
-											<iframe
-												class="w-full h-full border-0 {deviceMode === DEVICE_MODE_MOBILE
-													? 'shadow-lg border-x border-border'
-													: ''}"
-												sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-modals"
-												referrerpolicy="no-referrer"
-												title="Sandbox Preview"
-												src={deployment.url}
-											></iframe>
-										{/key}
+										>
+											{#key iframeRefreshKey}
+												<iframe
+													class="w-full h-full border-0 {deviceMode === DEVICE_MODE_MOBILE
+														? 'shadow-lg border-x border-border'
+														: ''}"
+													sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-modals"
+													referrerpolicy="no-referrer"
+													title="Sandbox Preview"
+													src={deployment.url}
+												></iframe>
+											{/key}
+										</div>
 									</div>
-								</div>
+								{:else if codeAgentState.isDeleted}
+									<SessionDeleted />
+								{:else}
+									<div
+										class="flex h-full flex-col items-center justify-center gap-2 text-muted-foreground"
+									>
+										<Bot class="h-8 w-8" />
+										<p class="text-sm font-medium">{m.empty_agent_preview_title()}</p>
+									</div>
+								{/if}
+							{:else if fileViewer.selectedFile}
+								<PreviewPanel html={fileViewer.content} {deviceMode} />
 							{:else if codeAgentState.isDeleted}
 								<SessionDeleted />
 							{:else}
-								<div
-									class="flex h-full flex-col items-center justify-center gap-2 text-muted-foreground"
-								>
-									<Bot class="h-8 w-8" />
-									<p class="text-sm font-medium">{m.empty_agent_preview_title()}</p>
+								<div class="flex h-full items-center justify-center text-muted-foreground text-sm">
+									{m.empty_html_preview_title()}
 								</div>
 							{/if}
-						{:else if fileViewer.selectedFile}
-							<PreviewPanel html={fileViewer.content} {deviceMode} />
-						{:else if codeAgentState.isDeleted}
-							<SessionDeleted />
-						{:else}
-							<div class="flex h-full items-center justify-center text-muted-foreground text-sm">
-								{m.empty_html_preview_title()}
-							</div>
-						{/if}
-					{:else if activeTab === TAB_CODE}
-						{#if fileViewer.selectedFile}
-							<div class="flex-1 flex flex-col min-h-0">
-								{#if !fileViewer.isLoading}
-									<div
-										class="flex items-center justify-end gap-2 border-b border-border bg-background px-3 py-2"
-									>
-										{#if isEditing}
-											<div class="flex items-center gap-2">
-												<button
-													class="flex flex-shrink-0 items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground disabled:pointer-events-none disabled:opacity-50"
-													onclick={handleCancelEdit}
-													disabled={isSaving}
-												>
-													<X class="h-3.5 w-3.5 flex-shrink-0" />
-													<span class="whitespace-nowrap">{m.text_button_cancel()}</span>
-												</button>
-												<button
-													class="flex flex-shrink-0 items-center gap-1.5 rounded-md bg-primary px-2 py-1 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:pointer-events-none disabled:opacity-50"
-													onclick={handleSaveEdit}
-													disabled={isSaving}
-												>
-													{#if isSaving}
-														<Loader2 class="h-3.5 w-3.5 flex-shrink-0 animate-spin" />
-													{:else}
-														<Save class="h-3.5 w-3.5 flex-shrink-0" />
-													{/if}
-													<span class="whitespace-nowrap"
-														>{isSaving ? m.text_button_saving() : m.text_button_save()}</span
+						{:else if activeTab === TAB_CODE}
+							{#if fileViewer.selectedFile}
+								<div class="flex-1 flex flex-col min-h-0">
+									{#if !fileViewer.isLoading}
+										<div
+											class="flex items-center justify-end gap-2 border-b border-border bg-background px-3 py-2"
+										>
+											{#if isEditing}
+												<div class="flex items-center gap-2">
+													<button
+														class="flex flex-shrink-0 items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground disabled:pointer-events-none disabled:opacity-50"
+														onclick={handleCancelEdit}
+														disabled={isSaving}
 													>
+														<X class="h-3.5 w-3.5 flex-shrink-0" />
+														<span class="whitespace-nowrap">{m.text_button_cancel()}</span>
+													</button>
+													<button
+														class="flex flex-shrink-0 items-center gap-1.5 rounded-md bg-primary px-2 py-1 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:pointer-events-none disabled:opacity-50"
+														onclick={handleSaveEdit}
+														disabled={isSaving}
+													>
+														{#if isSaving}
+															<Loader2 class="h-3.5 w-3.5 flex-shrink-0 animate-spin" />
+														{:else}
+															<Save class="h-3.5 w-3.5 flex-shrink-0" />
+														{/if}
+														<span class="whitespace-nowrap"
+															>{isSaving ? m.text_button_saving() : m.text_button_save()}</span
+														>
+													</button>
+												</div>
+											{:else}
+												<button
+													class="flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+													onclick={handleStartEdit}
+												>
+													<Pencil class="h-3.5 w-3.5" />
+													{m.text_button_edit()}
 												</button>
+											{/if}
+										</div>
+									{/if}
+
+									<div class="flex-1 min-h-0">
+										{#if fileViewer.isLoading}
+											<div class="flex h-full items-center justify-center">
+												<Loader2 class="h-6 w-6 animate-spin text-muted-foreground" />
 											</div>
 										{:else}
-											<button
-												class="flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
-												onclick={handleStartEdit}
-											>
-												<Pencil class="h-3.5 w-3.5" />
-												{m.text_button_edit()}
-											</button>
+											<CodeMirrorEditor
+												value={isEditing ? editContent : fileViewer.content}
+												language={fileViewer.language}
+												readOnly={!isEditing}
+												onChange={(val) => {
+													if (isEditing) editContent = val;
+												}}
+											/>
 										{/if}
 									</div>
-								{/if}
-
-								<div class="flex-1 min-h-0">
-									{#if fileViewer.isLoading}
-										<div class="flex h-full items-center justify-center">
-											<Loader2 class="h-6 w-6 animate-spin text-muted-foreground" />
-										</div>
-									{:else}
-										<CodeMirrorEditor
-											value={isEditing ? editContent : fileViewer.content}
-											language={fileViewer.language}
-											readOnly={!isEditing}
-											onChange={(val) => {
-												if (isEditing) editContent = val;
-											}}
-										/>
-									{/if}
 								</div>
-							</div>
-						{:else}
-							<div class="flex h-full items-center justify-center text-muted-foreground text-sm">
-								{m.empty_html_preview_title()}
-							</div>
+							{:else}
+								<div class="flex h-full items-center justify-center text-muted-foreground text-sm">
+									{m.empty_html_preview_title()}
+								</div>
+							{/if}
+						{:else if activeTab === TAB_TERMINAL && isAgentMode}
+							{#if codeAgentState.isDeleted}
+								<SessionDeleted />
+							{:else if currentSandboxId}
+								<Terminal sandboxId={currentSandboxId} sessionId={currentSessionId} />
+							{:else}
+								<div class="flex h-full items-center justify-center text-muted-foreground text-sm">
+									Sandbox not available
+								</div>
+							{/if}
 						{/if}
-					{:else if activeTab === TAB_TERMINAL && isAgentMode}
-						{#if codeAgentState.isDeleted}
-							<SessionDeleted />
-						{:else if currentSandboxId}
-							<Terminal sandboxId={currentSandboxId} sessionId={currentSessionId} />
-						{:else}
-							<div class="flex h-full items-center justify-center text-muted-foreground text-sm">
-								Sandbox not available
-							</div>
-						{/if}
-					{/if}
-				</div>
+					</div>
+				{/if}
 			</div>
 		</div>
 	{/if}

@@ -937,5 +937,7 @@
 	"no_remark": "No remark",
 	"text_button_still_continue": "Still Continue",
 	"text_button_replace_sandbox": "Change Sandbox",
-	"text_session_deleted": "Session deleted"
+	"text_session_deleted": "Session deleted",
+	"button_start_new_session": "Start New Session",
+	"button_delete_current_conversation": "Delete Current Conversation"
 }
