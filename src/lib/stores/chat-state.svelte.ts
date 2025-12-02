@@ -129,6 +129,14 @@ class ChatState {
 		}
 	}
 
+	private resetChat() {
+		persistedChatParamsState.current = {
+			...(persistedChatParamsState.current ?? initialThread),
+			inputValue: "",
+			attachments: [],
+		};
+	}
+
 	get id(): string {
 		return persistedChatParamsState.current.id;
 	}
@@ -541,8 +549,10 @@ class ChatState {
 
 				await broadcastService.broadcastToAll("thread-list-updated", { threadId });
 
-				this.inputValue = "";
-				this.attachments = [];
+				// this.inputValue = "";
+				// this.attachments = [];
+
+				this.resetChat();
 			} catch (error) {
 				this.handleChatError(error);
 			}
