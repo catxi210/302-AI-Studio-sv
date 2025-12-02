@@ -34,7 +34,7 @@
 </script>
 
 <div
-	class="absolute top-0 left-0 right-0 z-50 flex h-12 w-full flex-row items-center justify-between bg-transparent px-2"
+	class="absolute top-0 left-0 right-0 z-40 flex h-12 w-full flex-row items-center justify-between bg-transparent px-2"
 >
 	<ButtonWithTooltip
 		tooltip={useSidebar().state === "expanded" ? m.title_sidebar_close() : m.title_sidebar_open()}
