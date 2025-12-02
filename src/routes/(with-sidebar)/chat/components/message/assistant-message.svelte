@@ -377,6 +377,7 @@
 						content={part.text}
 						messageId={message.id}
 						messagePartIndex={partIndex}
+						isStreaming={isCurrentMessageStreaming}
 						codeTheme={persistedThemeState.current.shouldUseDarkColors
 							? "vitesse-dark"
 							: "vitesse-light"}
@@ -410,6 +411,7 @@
 											content={part.text}
 											messageId={message.id}
 											messagePartIndex={partIndex}
+											isStreaming={isCurrentMessageStreaming}
 											codeTheme={persistedThemeState.current.shouldUseDarkColors
 												? "vitesse-dark"
 												: "vitesse-light"}

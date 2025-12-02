@@ -47,6 +47,8 @@
 		codeTheme?: string;
 		messageId?: string;
 		messagePartIndex?: number;
+		/** Whether the message is currently streaming. When false, tool-loading blocks won't be rendered. */
+		isStreaming?: boolean;
 	}
 
 	type BlockDescriptor =
@@ -682,7 +684,7 @@
 			/>
 		{:else if block.kind === "todo"}
 			<TodoListRenderer todos={block.todos} />
-		{:else if block.kind === "tool-loading" && block.toolType}
+		{:else if block.kind === "tool-loading" && block.toolType && props.isStreaming}
 			<BlockLoading type={block.toolType} />
 		{:else if block.kind === "write"}
 			<WriteToolRenderer
