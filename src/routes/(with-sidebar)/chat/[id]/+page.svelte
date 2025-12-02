@@ -282,47 +282,55 @@
 			</Resizable.PaneGroup>
 		{/if}
 	</div>
-{:else}
-	<div class="flex h-full flex-col gap-y-4">
-		<div class="flex-1 overflow-hidden relative" data-layoutid="chat-message-list">
-			{#if htmlPreviewState.isVisible && htmlPreviewState.isPinned}
-				<div class="h-full overflow-hidden flex flex-col">
+{:else if htmlPreviewState.isVisible && !agentPreviewState.isVisible}
+	<div class="flex h-full overflow-hidden relative">
+		{#if htmlPreviewState.isPinned}
+			<div class="flex-1 flex flex-col h-full min-w-0">
+				<div class="flex-1 overflow-hidden relative">
 					<PageHeader />
 					<MessageList messages={chatState.messages} />
 				</div>
-				<div
-					class="absolute right-0 top-0 bottom-0 h-full flex flex-col bg-background border-l border-border z-[100]"
-					style="width: 50%;"
+				{@render ChatInputArea()}
+			</div>
+			<div
+				class="absolute right-0 top-0 bottom-5 flex flex-col bg-background border-l border-border z-[50]"
+				style="width: 50%;"
+			>
+				<button
+					type="button"
+					aria-label="Resize panel"
+					class="bg-border focus-visible:ring-ring absolute -left-px top-0 bottom-0 flex w-px cursor-col-resize items-center justify-center after:absolute after:inset-y-0 after:left-1/2 after:w-1 after:-translate-x-1/2 focus-visible:ring-1 focus-visible:ring-offset-1 focus-visible:outline-hidden"
+					onmousedown={setupPanelResize}
 				>
-					<button
-						type="button"
-						aria-label="Resize panel"
-						class="bg-border focus-visible:ring-ring absolute -left-px top-0 bottom-0 flex w-px cursor-col-resize items-center justify-center after:absolute after:inset-y-0 after:left-1/2 after:w-1 after:-translate-x-1/2 focus-visible:ring-1 focus-visible:ring-offset-1 focus-visible:outline-hidden"
-						onmousedown={setupPanelResize}
-					>
-						<div class="bg-border z-10 flex h-4 w-3 items-center justify-center rounded-xs border">
-							<GripVerticalIcon class="size-2.5" />
-						</div>
-					</button>
-					<HtmlPreviewPanel />
-				</div>
-			{:else if htmlPreviewState.isVisible}
-				<Resizable.PaneGroup direction="horizontal" class="h-full">
-					<Resizable.Pane defaultSize={50} minSize={20} class="min-w-0">
-						<div class="h-full overflow-hidden relative">
+					<div class="bg-border z-10 flex h-4 w-3 items-center justify-center rounded-xs border">
+						<GripVerticalIcon class="size-2.5" />
+					</div>
+				</button>
+				<HtmlPreviewPanel />
+			</div>
+		{:else}
+			<Resizable.PaneGroup direction="horizontal" class="h-full">
+				<Resizable.Pane defaultSize={50} minSize={30} class="min-w-0" style="min-width: 320px;">
+					<div class="flex h-full flex-col min-w-0">
+						<div class="flex-1 overflow-hidden relative">
 							<PageHeader />
 							<MessageList messages={chatState.messages} />
 						</div>
-					</Resizable.Pane>
-					<Resizable.Handle withHandle />
-					<Resizable.Pane defaultSize={50} minSize={20} class="min-w-0" style="min-width: 227px;">
-						<HtmlPreviewPanel />
-					</Resizable.Pane>
-				</Resizable.PaneGroup>
-			{:else}
-				<PageHeader />
-				<MessageList messages={chatState.messages} />
-			{/if}
+						{@render ChatInputArea()}
+					</div>
+				</Resizable.Pane>
+				<Resizable.Handle withHandle class="mb-6" />
+				<Resizable.Pane defaultSize={50} minSize={30} class="min-w-0 pb-6">
+					<HtmlPreviewPanel />
+				</Resizable.Pane>
+			</Resizable.PaneGroup>
+		{/if}
+	</div>
+{:else}
+	<div class="flex h-full flex-col gap-y-4">
+		<div class="flex-1 overflow-hidden relative" data-layoutid="chat-message-list">
+			<PageHeader />
+			<MessageList messages={chatState.messages} />
 
 			<!-- AgentPreviewPanel 需要始终挂载以监听状态，但当不在 Resizable 布局时隐藏 -->
 			{#if !htmlPreviewState.isVisible && !agentPreviewState.isVisible}

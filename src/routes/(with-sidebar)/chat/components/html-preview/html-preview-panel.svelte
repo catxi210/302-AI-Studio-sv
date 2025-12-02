@@ -42,7 +42,7 @@
 	const deployedUrl = $derived(latestDeployment ? latestDeployment.url : null);
 	const isAgentMode = $derived(codeAgentState.enabled);
 
-	// Tabs definition
+	// Tabs definition - only show 2 tabs in HTML preview mode
 	const tabs: PreviewTab[] = [
 		{ id: "preview", label: m.label_tab_preview() },
 		{ id: "code", label: m.label_tab_code() },
@@ -258,42 +258,44 @@
 	};
 </script>
 
-{#if htmlPreviewState.isVisible}
-	<div
-		class="h-full min-w-0 max-w-full overflow-hidden border-l border-border bg-background flex flex-col"
-		style="min-height: 0; max-height: 100%;"
-	>
-		<!-- Header -->
-		<PreviewHeader
-			{activeTab}
-			{tabs}
-			{deviceMode}
-			{isDeploying}
-			{deployedUrl}
-			isPinned={htmlPreviewState.isPinned}
-			onTabChange={(t) => handleTabChange(t as "preview" | "code")}
-			onDeviceModeChange={handleDeviceModeChange}
-			onDeploy={handleDeploy}
-			onClose={() => htmlPreviewState.closePreview()}
-			onOpenDeployedUrl={openDeployedUrl}
-			onOpenInNewTab={handleOpenInNewTab}
-			onCopyDeployedUrl={handleCopyDeploymentUrl}
-			onPin={() => htmlPreviewState.togglePin()}
-		/>
+<div class="h-full">
+	{#if htmlPreviewState.isVisible}
+		<div
+			class="flex flex-col h-full min-w-0 max-w-full overflow-hidden border-l border-border bg-background"
+			style="container-type: inline-size;"
+		>
+			<!-- Header -->
+			<PreviewHeader
+				{activeTab}
+				{tabs}
+				{deviceMode}
+				{isDeploying}
+				{deployedUrl}
+				isPinned={htmlPreviewState.isPinned}
+				onTabChange={(t) => handleTabChange(t as "preview" | "code")}
+				onDeviceModeChange={handleDeviceModeChange}
+				onDeploy={handleDeploy}
+				onClose={() => htmlPreviewState.closePreview()}
+				onOpenDeployedUrl={openDeployedUrl}
+				onOpenInNewTab={handleOpenInNewTab}
+				onCopyDeployedUrl={handleCopyDeploymentUrl}
+				onPin={() => htmlPreviewState.togglePin()}
+			/>
 
-		<!-- Content area -->
-		<div class="flex-1 flex flex-col" style="min-height: 0;">
-			{#if htmlPreviewState.mode === "preview"}
-				<PreviewPanel html={htmlPreviewState.editedHtml} {deviceMode} />
-			{:else}
-				<EditorPanel
-					bind:this={editorPanelRef}
-					value={htmlPreviewState.editedHtml}
-					language={htmlPreviewState.selectedLanguage}
-					onValueChange={handleValueChange}
-					readOnly={!isAgentMode}
-				/>
-			{/if}
+			<!-- Content area -->
+			<div class="flex-1 flex flex-col min-h-0">
+				{#if activeTab === "preview"}
+					<PreviewPanel html={htmlPreviewState.editedHtml} {deviceMode} />
+				{:else if activeTab === "code"}
+					<EditorPanel
+						bind:this={editorPanelRef}
+						value={htmlPreviewState.editedHtml}
+						language={htmlPreviewState.selectedLanguage}
+						onValueChange={handleValueChange}
+						readOnly={!isAgentMode}
+					/>
+				{/if}
+			</div>
 		</div>
-	</div>
-{/if}
+	{/if}
+</div>

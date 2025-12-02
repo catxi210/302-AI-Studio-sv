@@ -74,10 +74,7 @@
 		class="flex h-10 w-full items-center justify-between min-w-0 gap-2 px-2 [@container(max-width:349px)]:gap-1 [@container(max-width:349px)]:px-1"
 	>
 		<!-- 左侧：Tabs -->
-		<div
-			class="flex flex-row items-center gap-0.5 rounded-md bg-muted p-0.5 overflow-hidden shrink"
-			style="min-width: 120px;"
-		>
+		<div class="flex flex-row items-center gap-0.5 rounded-md bg-muted p-0.5 overflow-hidden shrink">
 			{#each tabs as tab (tab.id)}
 				<button
 					type="button"
