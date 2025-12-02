@@ -7,6 +7,11 @@
 	import type { AttachmentFile } from "@shared/types";
 	import { nanoid } from "nanoid";
 
+	interface Props {
+		disabled?: boolean;
+	}
+	let { disabled = false }: Props = $props();
+
 	let isMaxReached = $derived(chatState.attachments.length >= MAX_ATTACHMENT_COUNT);
 	let fileInput: HTMLInputElement;
 
@@ -73,7 +78,7 @@
 <ButtonWithTooltip
 	class="hover:!bg-chat-action-hover"
 	tooltip={`${m.title_upload_attachment()} (${chatState.attachments.length}/${MAX_ATTACHMENT_COUNT})`}
-	disabled={isMaxReached}
+	disabled={isMaxReached || disabled}
 	onclick={handleClick}
 >
 	<Paperclip />

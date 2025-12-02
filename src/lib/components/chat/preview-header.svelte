@@ -39,6 +39,7 @@
 		onRefreshPreview?: () => void;
 		onPin: () => void;
 		isAgentMode?: boolean;
+		isDeleted?: boolean;
 	}
 
 	let {
@@ -60,6 +61,7 @@
 		onRefreshPreview,
 		onPin,
 		isAgentMode = false,
+		isDeleted = false,
 	}: Props = $props();
 </script>
 
@@ -133,7 +135,7 @@
 		<div class="grid h-10 w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-2 px-2 min-w-0">
 			<!-- 左侧：部署按钮 -->
 			<div class="flex items-center gap-1 min-w-0">
-				{#if (!deployedUrl && !compactDeployButton) || isAgentMode}
+				{#if (!deployedUrl && !compactDeployButton && !isDeleted) || (isAgentMode && !isDeleted)}
 					<button
 						type="button"
 						class="flex items-center gap-1.5 px-2.5 py-1 rounded border border-border/40 bg-background text-foreground text-xs font-medium shadow-none transition-colors hover:bg-muted/70 disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
@@ -148,7 +150,7 @@
 						{/if}
 						<span class="shrink-0">{m.text_button_deploy()}</span>
 					</button>
-				{:else}
+				{:else if !isDeleted}
 					<ButtonWithTooltip
 						tooltip={isDeploying ? m.tooltip_deploying() : m.tooltip_deploy_to_302()}
 						class="hover:!bg-icon-btn-hover shrink-0"

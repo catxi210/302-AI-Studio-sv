@@ -168,6 +168,10 @@ export class StorageService<T extends StorageValue> {
 		await this.storage.removeItem(this.ensureJsonExtension(key), options);
 	}
 
+	async getKeysInternal(base?: string): Promise<string[]> {
+		return await this.storage.getKeys(base);
+	}
+
 	private async migrateIfNeeded(key: string, value: T | null): Promise<T | null> {
 		if (!value || !this.migrationConfig) {
 			return value;

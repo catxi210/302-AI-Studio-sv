@@ -932,5 +932,6 @@
 	"description_lack_of_disk_4": "建议您更换一个沙盒或创建一个新的沙盒进行使用。",
 	"no_remark": "未备注",
 	"text_button_still_continue": "仍然继续",
-	"text_button_replace_sandbox": "更换沙盒"
+	"text_button_replace_sandbox": "更换沙盒",
+	"text_session_deleted": "此会话已被删除。"
 }

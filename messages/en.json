@@ -936,5 +936,6 @@
 	"description_lack_of_disk_4": "It is recommended that you change the sandbox or create a new sandbox for use.",
 	"no_remark": "No remark",
 	"text_button_still_continue": "Still Continue",
-	"text_button_replace_sandbox": "Change Sandbox"
+	"text_button_replace_sandbox": "Change Sandbox",
+	"text_session_deleted": "Session deleted"
 }

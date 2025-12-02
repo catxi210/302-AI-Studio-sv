@@ -2,8 +2,8 @@
 	import { Button } from "$lib/components/ui/button";
 	import * as Dialog from "$lib/components/ui/dialog";
 	import { m } from "$lib/paraglide/messages";
-	import { Loader2 } from "@lucide/svelte";
 	import { claudeCodeSandboxState } from "$lib/stores/code-agent/claude-code-sandbox-state.svelte";
+	import { Loader2 } from "@lucide/svelte";
 
 	interface Props {
 		open?: boolean;

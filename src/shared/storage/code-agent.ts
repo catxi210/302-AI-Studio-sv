@@ -7,6 +7,7 @@ export const CodeAgentConfigMetadata = type({
 	threadId: "string",
 	type: codeAgentType,
 	currentAgentId: "string",
+	isDeleted: "boolean?",
 });
 export type CodeAgentConfigMetadata = typeof CodeAgentConfigMetadata.infer;
 

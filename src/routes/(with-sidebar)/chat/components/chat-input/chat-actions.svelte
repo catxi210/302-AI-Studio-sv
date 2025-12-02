@@ -13,6 +13,11 @@
 	import CodeAgentPanel from "../code-agent/code-agent-panel.svelte";
 	import ParametersPanel from "./parameters-panel.svelte";
 
+	interface Props {
+		disabled?: boolean;
+	}
+	let { disabled = false }: Props = $props();
+
 	let actionDisabled = $derived(chatState.providerType !== "302ai");
 
 	let isParametersOpen = $state(false);
@@ -62,6 +67,7 @@
 		)}
 		tooltip={actionDisabled ? m.title_unsupport_action() : m.title_thinking()}
 		onclick={() => chatState.handleThinkingActiveChange(!chatState.isThinkingActive)}
+		{disabled}
 	>
 		<Lightbulb class={cn(chatState.isThinkingActive && "!text-chat-action-active-fg")} />
 	</ButtonWithTooltip>
@@ -75,6 +81,7 @@
 		)}
 		tooltip={actionDisabled ? m.title_unsupport_action() : m.title_online_search()}
 		onclick={() => chatState.handleOnlineSearchActiveChange(!chatState.isOnlineSearchActive)}
+		{disabled}
 	>
 		<Globe class={cn(chatState.isOnlineSearchActive && "!text-chat-action-active-fg")} />
 	</ButtonWithTooltip>
@@ -88,6 +95,7 @@
 		)}
 		tooltip={m.title_mcpServers()}
 		onclick={handleMCPClick}
+		{disabled}
 	>
 		<img
 			src={mcpIcon}
@@ -113,6 +121,7 @@
 		class="hover:!bg-chat-action-hover"
 		tooltip={m.title_chat_parameters()}
 		onclick={() => (isParametersOpen = true)}
+		{disabled}
 	>
 		<Settings2 />
 	</ButtonWithTooltip>
@@ -127,7 +136,7 @@
 {/snippet}
 
 {#snippet actionUploadAttachment()}
-	<AttachmentUploader />
+	<AttachmentUploader {disabled} />
 {/snippet}
 
 {#snippet actionCodeAgent()}
@@ -140,6 +149,7 @@
 		tooltip={m.title_code_agent()}
 		onclick={() => handleCodeAgentClick()}
 		size="sm"
+		{disabled}
 	>
 		<div class="flex items-center">
 			<Bot class={cn("size-4", codeAgentState.enabled && "!text-chat-action-active-fg")} />

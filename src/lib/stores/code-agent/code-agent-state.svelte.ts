@@ -26,6 +26,7 @@ const INITIAL_CODE_AGENT_CONFIG: CodeAgentConfigMetadata = {
 	threadId: threadId,
 	type: "remote",
 	currentAgentId: "claude-code",
+	isDeleted: false,
 };
 
 export const persistedCodeAgentConfigState = new PersistedState<CodeAgentConfigMetadata>(
@@ -41,6 +42,7 @@ class CodeAgentState {
 	currentAgentId = $derived.by(
 		() => persistedCodeAgentConfigState.current?.currentAgentId ?? "claude-code",
 	);
+	isDeleted = $derived.by(() => persistedCodeAgentConfigState.current?.isDeleted ?? false);
 
 	isFreshTab = $derived(!chatState.hasMessages);
 	inCodeAgentMode = $derived(!this.isFreshTab && this.enabled);

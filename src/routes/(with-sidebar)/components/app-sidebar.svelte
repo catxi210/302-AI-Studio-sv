@@ -9,11 +9,17 @@
 	import { TIME_GROUP_ORDER, TimeGroup } from "$lib/types/time-group";
 	import type { MessagePart } from "$lib/utils/attachment-converter";
 	import { ChevronDown } from "@lucide/svelte";
-	import { onMount } from "svelte";
-	import RenameDialog from "./rename-dialog.svelte";
-	import ThreadItem from "./thread-item.svelte";
-	import ThreadDeleteDialog from "./thread-delete-dialog.svelte";
 	import type { CodeAgentConfigMetadata } from "@shared/storage/code-agent";
+	import { onMount } from "svelte";
+
+	interface ClaudeCodeState {
+		sandboxId?: string;
+		currentSessionId?: string;
+	}
+
+	import RenameDialog from "./rename-dialog.svelte";
+	import ThreadDeleteDialog from "./thread-delete-dialog.svelte";
+	import ThreadItem from "./thread-item.svelte";
 
 	let searchQuery = $state("");
 	let searchInputElement: HTMLInputElement | null = $state(null);
@@ -168,33 +174,21 @@
 			const configKey = `CodeAgentStorage:code-agent-config-state-${threadId}`;
 			const config = await window.electronAPI.storageService.getItem(configKey);
 
-			console.log(`[isCodeAgentThread] Checking thread ${threadId}:`, {
-				configKey,
-				config,
-				enabled: (config as any)?.enabled,
-				currentAgentId: (config as any)?.currentAgentId,
-			});
-
 			if (
 				(config as CodeAgentConfigMetadata)?.enabled &&
 				(config as CodeAgentConfigMetadata)?.currentAgentId === "claude-code"
 			) {
 				// Get the Claude Code state for this thread
 				const claudeStateKey = `CodeAgentStorage:claude-code-agent-state-${threadId}`;
-				const claudeState = await window.electronAPI.storageService.getItem(claudeStateKey);
-
-				console.log(`[isCodeAgentThread] Claude state for thread ${threadId}:`, {
+				const claudeState = (await window.electronAPI.storageService.getItem(
 					claudeStateKey,
-					claudeState,
-					sandboxId: (claudeState as any)?.sandboxId,
-					currentSessionId: (claudeState as any)?.currentSessionId,
-				});
+				)) as ClaudeCodeState;
 
-				if ((claudeState as any)?.sandboxId && (claudeState as any)?.currentSessionId) {
+				if (claudeState?.sandboxId && claudeState?.currentSessionId) {
 					return {
 						isCodeAgent: true,
-						sandboxId: (claudeState as any).sandboxId,
-						sessionId: (claudeState as any).currentSessionId,
+						sandboxId: claudeState.sandboxId,
+						sessionId: claudeState.currentSessionId,
 					};
 				}
 			}
@@ -253,7 +247,7 @@
 		deleteDialogOpen = true;
 	}
 
-	async function handleDeleteDialogConfirm(deleteRemoteSession: boolean) {
+	async function handleDeleteDialogConfirm(_deleteRemoteSession: boolean) {
 		if (!deleteTargetThreadId) return;
 
 		// Perform the thread deletion

@@ -31,6 +31,7 @@
 		type TabType,
 	} from "./constants";
 	import FileTree from "./file-tree.svelte";
+	import SessionDeleted from "./session-deleted.svelte";
 	import Terminal from "./terminal.svelte";
 	import { handleError, isFileStillSelected, withRetry } from "./utils";
 
@@ -529,6 +530,7 @@
 				onRefreshPreview={isAgentMode ? handleRefreshPreview : undefined}
 				onPin={() => agentPreviewState.togglePin()}
 				{isAgentMode}
+				isDeleted={codeAgentState.isDeleted}
 			/>
 
 			<div class="flex flex-1 min-w-0 min-h-0">
@@ -538,13 +540,17 @@
 						? ''
 						: 'hidden'}"
 				>
-					<FileTree
-						sandboxId={currentSandboxId}
-						workspacePath={claudeCodeSandboxState.currentSessionWorkspacePath}
-						onFileSelect={handleFileSelect}
-						{refreshTrigger}
-						onFileDelete={handleFileDelete}
-					/>
+					{#if codeAgentState.isDeleted}
+						<SessionDeleted />
+					{:else}
+						<FileTree
+							sandboxId={currentSandboxId}
+							workspacePath={claudeCodeSandboxState.currentSessionWorkspacePath}
+							onFileSelect={handleFileSelect}
+							{refreshTrigger}
+							onFileDelete={handleFileDelete}
+						/>
+					{/if}
 				</div>
 
 				<div class="flex-1 flex flex-col min-w-[140px] min-h-0">
@@ -569,6 +575,8 @@
 										{/key}
 									</div>
 								</div>
+							{:else if codeAgentState.isDeleted}
+								<SessionDeleted />
 							{:else}
 								<div
 									class="flex h-full flex-col items-center justify-center gap-2 text-muted-foreground"
@@ -579,6 +587,8 @@
 							{/if}
 						{:else if fileViewer.selectedFile}
 							<PreviewPanel html={fileViewer.content} {deviceMode} />
+						{:else if codeAgentState.isDeleted}
+							<SessionDeleted />
 						{:else}
 							<div class="flex h-full items-center justify-center text-muted-foreground text-sm">
 								{m.empty_html_preview_title()}
@@ -651,7 +661,9 @@
 							</div>
 						{/if}
 					{:else if activeTab === TAB_TERMINAL && isAgentMode}
-						{#if currentSandboxId}
+						{#if codeAgentState.isDeleted}
+							<SessionDeleted />
+						{:else if currentSandboxId}
 							<Terminal sandboxId={currentSandboxId} sessionId={currentSessionId} />
 						{:else}
 							<div class="flex h-full items-center justify-center text-muted-foreground text-sm">

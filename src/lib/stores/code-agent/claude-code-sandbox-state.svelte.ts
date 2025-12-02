@@ -1,12 +1,12 @@
+import { deleteSession } from "$lib/api/sandbox-session";
+import { validate302Provider } from "$lib/api/webserve-deploy";
 import { PersistedState } from "$lib/hooks/persisted-state.svelte";
 import { m } from "$lib/paraglide/messages";
+import { persistedProviderState } from "$lib/stores/provider-state.svelte";
 import type { ClaudeCodeSandboxInfo } from "@shared/storage/code-agent";
 import { toast } from "svelte-sonner";
 import { match } from "ts-pattern";
 import { claudeCodeAgentState } from "./claude-code-state.svelte";
-import { deleteSession } from "$lib/api/sandbox-session";
-import { validate302Provider } from "$lib/api/webserve-deploy";
-import { persistedProviderState } from "$lib/stores/provider-state.svelte";
 
 export const persistedClaudeCodeSandboxState = new PersistedState<ClaudeCodeSandboxInfo[]>(
 	"CodeAgentStorage:claude-code-sandbox-state",
@@ -267,6 +267,8 @@ class ClaudeCodeSandboxState {
 
 		if (result.success) {
 			toast.success(m.delete_session_success());
+			// Cleanup threads using this session
+			await window.electronAPI.codeAgentService.deleteClaudeCodeSession(sandboxId, sessionId);
 			// Refresh sessions after successful deletion
 			await this.refreshSessions(sandboxId);
 		} else {

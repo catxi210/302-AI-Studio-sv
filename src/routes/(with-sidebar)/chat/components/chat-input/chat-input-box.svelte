@@ -237,13 +237,13 @@
 					"border-none shadow-none focus-within:ring-0 focus-within:outline-hidden focus-visible:ring-0",
 				)}
 				bind:value={chatState.inputValue}
-				placeholder={m.placeholder_input_chat()}
 				onkeydown={(e) => {
 					if (e.key === "Enter" && !e.shiftKey && !isComposing) {
 						handleSendMessage();
 						e.preventDefault();
 					}
 				}}
+				placeholder={m.placeholder_input_chat()}
 				oncompositionstart={() => {
 					isComposing = true;
 				}}
@@ -251,12 +251,13 @@
 					isComposing = false;
 				}}
 				onpaste={handlePaste}
+				disabled={codeAgentState.isDeleted}
 			/>
 		</div>
 
 		<div class="mt-1.5 flex flex-row justify-between gap-2 min-w-0 overflow-hidden shrink-0">
 			<div class="flex items-center gap-2 shrink-0">
-				<ChatActions />
+				<ChatActions disabled={codeAgentState.isDeleted} />
 			</div>
 
 			<div class="flex items-center gap-2 min-w-0">
@@ -312,7 +313,7 @@
 				/>
 
 				<button
-					disabled={!chatState.sendMessageEnabled}
+					disabled={!chatState.sendMessageEnabled || codeAgentState.isDeleted}
 					class={cn(
 						"shrink-0 flex size-9 items-center justify-center rounded-[10px] bg-chat-send-message-button text-foreground hover:!bg-chat-send-message-button/80",
 						"disabled:cursor-not-allowed disabled:bg-chat-send-message-button/50 disabled:hover:!bg-chat-send-message-button/50",

@@ -70,7 +70,7 @@
 
 	async function handleSandboxDeleted() {
 		isDialogOpen = false;
-		await handleRefresh();
+		// await handleRefresh();
 	}
 
 	function handleCloseSandbox() {
@@ -91,12 +91,12 @@
 		if (!targetSandbox) return;
 		await claudeCodeSandboxState.updateSandboxRemark(targetSandbox.sandboxId, newName);
 		isRenameDialogOpen = false;
-		await handleRefresh();
+		// await handleRefresh();
 	}
 
 	// Auto-refresh on mount
 	onMount(() => {
-		handleRefresh();
+		// handleRefresh();
 	});
 </script>
 
@@ -192,9 +192,5 @@
 		onSave={handleConfirmRename}
 	/>
 
-	<SandboxDeleteConfirmDialog
-		bind:open={isDeleteDialogOpen}
-		sandbox={targetSandbox}
-		onSuccess={handleRefresh}
-	/>
+	<SandboxDeleteConfirmDialog bind:open={isDeleteDialogOpen} sandbox={targetSandbox} />
 </div>

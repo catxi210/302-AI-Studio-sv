@@ -30,6 +30,50 @@ export class CodeAgentService {
 		return availablePercentage > 10 ? "normal" : "insufficient";
 	}
 
+	private async cleanupThreadsForSandbox(sandboxId: string): Promise<void> {
+		try {
+			const keys = await claudeCodeStorage.getKeysInternal();
+			for (const key of keys) {
+				if (key.startsWith("claude-code-agent-state-")) {
+					const threadId = key.replace("claude-code-agent-state-", "").replace(".json", "");
+					const state = await claudeCodeStorage.getItemInternal(key);
+					if (state && state.sandboxId === sandboxId) {
+						const configKey = `code-agent-config-state-${threadId}`;
+						const config = await codeAgentStorage.getItemInternal(configKey);
+						if (config) {
+							config.isDeleted = true;
+							await codeAgentStorage.setItemInternal(configKey, config);
+						}
+					}
+				}
+			}
+		} catch (error) {
+			console.error("Error cleaning up threads for sandbox:", error);
+		}
+	}
+
+	private async cleanupThreadsForSession(sandboxId: string, sessionId: string): Promise<void> {
+		try {
+			const keys = await claudeCodeStorage.getKeysInternal();
+			for (const key of keys) {
+				if (key.startsWith("claude-code-agent-state-")) {
+					const threadId = key.replace("claude-code-agent-state-", "").replace(".json", "");
+					const state = await claudeCodeStorage.getItemInternal(key);
+					if (state && state.sandboxId === sandboxId && state.currentSessionId === sessionId) {
+						const configKey = `code-agent-config-state-${threadId}`;
+						const config = await codeAgentStorage.getItemInternal(configKey);
+						if (config) {
+							config.isDeleted = true;
+							await codeAgentStorage.setItemInternal(configKey, config);
+						}
+					}
+				}
+			}
+		} catch (error) {
+			console.error("Error cleaning up threads for session:", error);
+		}
+	}
+
 	private async _updateClaudeCodeSandboxes(): Promise<void> {
 		try {
 			const { isOK } = await claudeCodeSandboxStorage.getClaudeCodeSandboxes();
@@ -281,6 +325,7 @@ export class CodeAgentService {
 			const response = await deleteClaudeCodeSandbox(sandbox_id);
 			if (response.success) {
 				await this.updateClaudeCodeSandboxes();
+				await this.cleanupThreadsForSandbox(sandbox_id);
 				return { isOK: true };
 			}
 			return { isOK: false };
@@ -318,15 +363,7 @@ export class CodeAgentService {
 		session_id: string,
 	): Promise<{ isOK: boolean }> {
 		try {
-			// TODO: Call remote API when available
-			// const response = await deleteClaudeCodeSession(sandbox_id, session_id);
-			// if (response.success) {
-			// 	await this.updateClaudeCodeSessions(_event, sandbox_id);
-			// 	return { isOK: true };
-			// }
-
-			// Mock implementation for now
-			console.log("Mock delete session:", sandbox_id, session_id);
+			await this.cleanupThreadsForSession(sandbox_id, session_id);
 			return { isOK: true };
 		} catch (error) {
 			console.error("Error deleting Claude code session:", error);
