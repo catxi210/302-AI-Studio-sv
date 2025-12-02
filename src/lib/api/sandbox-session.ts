@@ -139,15 +139,17 @@ export async function deleteSession(
 	try {
 		// Use the base URL without /v1 suffix
 		const baseUrl = provider.baseUrl.replace(/\/v1\/?$/, "");
-		const endpoint = `${baseUrl}/302/claude-code/sandbox/session`;
+		const params = new URLSearchParams({
+			sandbox_id: request.sandbox_id,
+			session_id: request.session_id,
+		});
+		const endpoint = `${baseUrl}/302/claude-code/sandbox/session?${params.toString()}`;
 
 		const response = await fetch(endpoint, {
 			method: "DELETE",
 			headers: {
-				"Content-Type": "application/json",
 				Authorization: `Bearer ${provider.apiKey}`,
 			},
-			body: JSON.stringify(request),
 		});
 
 		if (!response.ok) {

@@ -99,7 +99,7 @@
 			</Button>
 			<Button variant="destructive" onclick={handleDelete} disabled={isDeleting}>
 				{#if isDeleting}
-					<Loader2 class="mr-2 h-4 w-4 animate-spin" />
+					<Loader2 class=" h-4 w-4 animate-spin" />
 				{/if}
 				{m.label_button_confirm()}
 			</Button>

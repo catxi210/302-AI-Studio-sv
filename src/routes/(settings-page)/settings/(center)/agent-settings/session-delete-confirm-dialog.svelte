@@ -64,10 +64,9 @@
 		</div>
 
 		<!-- Footer Buttons -->
-		<div class="flex gap-3 mt-6">
+		<div class="flex justify-between">
 			<Button
 				variant="outline"
-				class="flex-1 rounded-lg h-10"
 				onclick={() => {
 					open = false;
 					onClose();
@@ -76,12 +75,7 @@
 			>
 				{m.common_cancel()}
 			</Button>
-			<Button
-				variant="destructive"
-				class="flex-1 rounded-lg h-10"
-				onclick={handleDelete}
-				disabled={isDeleting}
-			>
+			<Button variant="destructive" onclick={handleDelete} disabled={isDeleting}>
 				{#if isDeleting}
 					<Loader2 class="mr-2 h-4 w-4 animate-spin" />
 				{/if}
