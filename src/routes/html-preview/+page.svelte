@@ -6,42 +6,57 @@
 	let deviceMode = $state<"desktop" | "mobile">("desktop");
 
 	// Get current window's tabs from persisted state
-	const windowId = window.windowId;
+	let windowId = $state(window.windowId);
 	const currentWindowTabs = $derived(persistedTabState.current[windowId]?.tabs ?? []);
 	const activeTab = $derived(currentWindowTabs.find((tab) => tab.active));
 
 	// Reactively get HTML content from active tab
-	const htmlContent = $derived(
+	const rawHtmlContent = $derived(
 		activeTab?.type === "htmlPreview" && activeTab?.content ? activeTab.content : "",
 	);
+
+	// Cache content to prevent flickering during window migration
+	let cachedHtmlContent = $state("");
+	let isMigrating = $state(false);
+
+	$effect(() => {
+		if (rawHtmlContent) {
+			cachedHtmlContent = rawHtmlContent;
+			isMigrating = false;
+		}
+	});
+
+	const htmlContent = $derived(rawHtmlContent || (isMigrating ? cachedHtmlContent : ""));
+
+	$effect(() => {
+		const handleWindowIdChanged = (event: Event) => {
+			const customEvent = event as CustomEvent<{ newWindowId: string }>;
+			console.log("[HTML Preview] windowIdChanged event received:", customEvent.detail.newWindowId);
+
+			isMigrating = true;
+			windowId = customEvent.detail.newWindowId;
+
+			// Force refresh state to ensure we have the latest data for the new window
+			persistedTabState.refresh();
+
+			// Safety timeout in case data never syncs
+			setTimeout(() => {
+				if (isMigrating) {
+					console.warn("[HTML Preview] Migration timeout");
+					isMigrating = false;
+				}
+			}, 2000);
+		};
+
+		window.addEventListener("windowIdChanged", handleWindowIdChanged);
+
+		return () => {
+			window.removeEventListener("windowIdChanged", handleWindowIdChanged);
+		};
+	});
 </script>
 
 <div class="h-full w-full flex flex-col bg-background">
-	<!-- Simple toolbar -->
-	<!-- <div class="flex h-12 items-center justify-between border-b border-border px-4 bg-background">
-			<h1 class="text-lg font-semibold">HTML Preview</h1>
-			<div class="flex items-center gap-2">
-				<button
-					type="button"
-					class="px-3 py-1.5 text-sm rounded-md transition-colors {deviceMode === 'desktop'
-						? 'bg-primary text-primary-foreground'
-						: 'bg-muted hover:bg-muted/80'}"
-					onclick={() => (deviceMode = "desktop")}
-				>
-					Desktop View
-				</button>
-				<button
-					type="button"
-					class="px-3 py-1.5 text-sm rounded-md transition-colors {deviceMode === 'mobile'
-						? 'bg-primary text-primary-foreground'
-						: 'bg-muted hover:bg-muted/80'}"
-					onclick={() => (deviceMode = "mobile")}
-				>
-					Mobile View
-				</button>
-			</div>
-		</div> -->
-
 	<!-- Preview content -->
 	<div class="flex-1 overflow-hidden">
 		{#if htmlContent.length > 0}
