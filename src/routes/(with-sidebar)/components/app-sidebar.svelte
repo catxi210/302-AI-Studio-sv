@@ -184,6 +184,11 @@
 				const currentSessionId = (claudeState as CodeAgentMetadata)?.currentSessionId;
 
 				if (sandboxId && currentSessionId) {
+					// Wait for sandbox state to be hydrated before accessing
+					if (!persistedClaudeCodeSandboxState.isHydrated) {
+						await persistedClaudeCodeSandboxState.refresh();
+					}
+
 					// Find the real session id from sessionInfos
 					const sandbox = persistedClaudeCodeSandboxState.current.find(
 						(s) => s.sandboxId === sandboxId,
@@ -198,13 +203,13 @@
 							};
 						}
 						// Session not found in sessionInfos
-						console.error(
-							`Session ${currentSessionId} not found in sandbox ${sandboxId} sessionInfos`,
-						);
+						// console.error(
+						// 	`Session ${currentSessionId} not found in sandbox ${sandboxId} sessionInfos`,
+						// );
 						return { isCodeAgent: false };
 					}
 					// Sandbox not found in local state
-					console.error(`Sandbox ${sandboxId} not found in local state`);
+					// console.error(`Sandbox ${sandboxId} not found in local state`);
 					return { isCodeAgent: false };
 				}
 			}

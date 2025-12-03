@@ -21,7 +21,7 @@
 	import { tabBarState } from "$lib/stores/tab-bar-state.svelte";
 	import { Loader2, Pencil, Save, X } from "@lucide/svelte";
 	import type { ModelProvider } from "@shared/types";
-	import { onDestroy } from "svelte";
+	import { onDestroy, untrack } from "svelte";
 	import { toast } from "svelte-sonner";
 	import {
 		DEVICE_MODE_DESKTOP,
@@ -89,7 +89,7 @@
 
 	// Internal logic variables (non-reactive)
 	let abortController: AbortController | null = null;
-	let isRestoringState = false; // 替代原先的 restoreState.running
+	let isRestoringState = $state(false); // Track loading state for UI
 	let previousStreamingState = false; // 用于追踪流式状态边缘
 
 	// --- Derived ---
@@ -129,32 +129,44 @@
 	// --- Effects & Logic ---
 
 	// 1. State Restoration Logic
-	const restoreState = async () => {
-		if (isRestoringState || !currentSandboxId || !currentSessionId) return;
+	// Track the last restored session to prevent duplicate restores
+	let lastRestoredKey = "";
+
+	const restoreState = async (sandboxId: string, sessionId: string) => {
+		const key = `${sandboxId}:${sessionId}`;
+
+		// Skip if already restored this session or currently restoring
+		if (lastRestoredKey === key || isRestoringState) {
+			return;
+		}
+
+		if (!sandboxId || !sessionId) {
+			return;
+		}
 
 		isRestoringState = true;
-		try {
-			// First refresh sandboxes to ensure the sandbox exists in the list
-			// This is needed because refreshSessions requires the sandbox to exist
-			// await claudeCodeSandboxState.refreshSandboxes();
 
+		try {
 			// Then refresh sessions to get workspace_path for the current session
 			// This ensures the file tree has the correct workspace path before loading
-			await claudeCodeSandboxState.refreshSessions(currentSandboxId);
+			await claudeCodeSandboxState.refreshSessions(sandboxId);
 
 			const [info, savedPath] = await Promise.all([
-				agentPreviewState.getDeploymentInfo(currentSandboxId, currentSessionId),
-				agentPreviewState.getSelectedFilePath(currentSandboxId, currentSessionId),
+				agentPreviewState.getDeploymentInfo(sandboxId, sessionId),
+				agentPreviewState.getSelectedFilePath(sandboxId, sessionId),
 			]);
 
 			deployment.url = info?.url ?? null;
 			deployment.deploymentId = info?.deploymentId ?? null;
 
 			if (savedPath) {
-				const storage = await agentPreviewState.loadFromStorage(currentSandboxId, currentSessionId);
+				const storage = await agentPreviewState.loadFromStorage(sandboxId, sessionId);
 				const file = storage?.fileList?.find((f) => f.path === savedPath);
 				if (file) await handleFileSelect(file);
 			}
+
+			// Mark as restored only after successful completion
+			lastRestoredKey = key;
 		} catch (e) {
 			console.warn("[AgentPreview] State restore failed (ignored):", e);
 		} finally {
@@ -164,13 +176,17 @@
 
 	$effect(() => {
 		// Track sandboxId and sessionId to detect changes
-		// Accessing these derived values ensures the effect re-runs when they change
 		const sandboxId = currentSandboxId;
 		const sessionId = currentSessionId;
+		const isVisible = agentPreviewState.isVisible;
+		const agentMode = isAgentMode;
 
 		// Only restore state when panel is visible and all conditions are met
-		if (agentPreviewState.isVisible && isAgentMode && sandboxId && sessionId) {
-			restoreState();
+		if (isVisible && agentMode && sandboxId && sessionId) {
+			// Use untrack to prevent restoreState's internal state changes from triggering re-runs
+			untrack(() => {
+				restoreState(sandboxId, sessionId);
+			});
 		}
 	});
 
@@ -561,7 +577,11 @@
 					<div class="flex-1 flex flex-col min-w-[140px] min-h-0">
 						{#if activeTab === TAB_PREVIEW}
 							{#if isAgentMode}
-								{#if deployment.url}
+								{#if isRestoringState}
+									<div class="flex h-full items-center justify-center">
+										<Loader2 class="h-6 w-6 animate-spin text-muted-foreground" />
+									</div>
+								{:else if deployment.url}
 									<div class="flex-1 overflow-auto bg-muted/30 min-h-0">
 										<div
 											class="h-full w-full mx-auto transition-all duration-300 ease-in-out

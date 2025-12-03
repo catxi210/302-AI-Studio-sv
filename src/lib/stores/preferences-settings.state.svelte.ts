@@ -48,7 +48,7 @@ const getDefaults = (): PreferencesSettingsState => ({
 	suggestionsTiming: "auto",
 	showOnlyLastSuggestion: false,
 	// Preview panel defaults
-	previewPanelPinned: false,
+	previewPanelPinned: true,
 });
 
 const persistedPreferencesSettings = new PersistedState<PreferencesSettingsState>(

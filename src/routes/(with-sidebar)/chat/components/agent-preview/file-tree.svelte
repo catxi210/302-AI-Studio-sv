@@ -188,6 +188,7 @@
 	let previousSessionId = $state<string | null>(null);
 	let previousWorkspacePath = $state<string | undefined>(undefined);
 	let hasLoadedWithWorkspacePath = $state(false);
+	let isLoadingFromStorage = $state(true); // Prevent workspace effect from firing during initial load
 
 	// Effect to update workspace path when it changes
 	$effect(() => {
@@ -195,25 +196,17 @@
 		const wasEmpty = !previousWorkspacePath;
 		const isNowValid = !!currentWorkspacePath;
 
-		console.log("[FileTree] Workspace path effect:", {
-			currentWorkspacePath,
-			previousWorkspacePath,
-			wasEmpty,
-			isNowValid,
-			hasLoadedWithWorkspacePath,
-		});
-
 		if (currentWorkspacePath && currentWorkspacePath !== previousWorkspacePath) {
 			previousWorkspacePath = currentWorkspacePath;
 			fileTreeState.updateWorkspacePath(currentWorkspacePath);
 
 			// If workspace path just became available and we haven't loaded with it yet,
 			// trigger a refresh to load files from the correct path
-			if (wasEmpty && isNowValid && !hasLoadedWithWorkspacePath && sandboxId) {
-				console.log(
-					"[FileTree] Workspace path now available, triggering refresh with correct path:",
-					currentWorkspacePath,
-				);
+			// Skip if we're still loading from storage (initial load)
+			const shouldRefresh =
+				wasEmpty && isNowValid && !hasLoadedWithWorkspacePath && !isLoadingFromStorage && sandboxId;
+
+			if (shouldRefresh) {
 				hasLoadedWithWorkspacePath = true;
 				if (!fileTreeState.isStreaming) {
 					fileTreeState.refreshFileTree();
@@ -237,11 +230,6 @@
 			previousSandboxId = sandboxId;
 			previousSessionId = currentSessionId;
 
-			// Reset workspace path tracking on sandbox/session change
-			if (sandboxChanged || sessionChanged) {
-				hasLoadedWithWorkspacePath = false;
-			}
-
 			// 1. Update Sandbox ID in state
 			if (sandboxChanged) {
 				fileTreeState.updateSandboxId(sandboxId);
@@ -253,22 +241,25 @@
 			const isComponentRecreation = oldSandboxId === undefined && oldSessionId === null;
 
 			if (sandboxId && currentSessionId) {
-				console.log("[FileTree] Sandbox or session changed:", {
-					sandboxId,
-					sessionId: currentSessionId,
-					sandboxChanged,
-					sessionChanged,
-					previousSandboxId: oldSandboxId,
-					previousSessionId: oldSessionId,
-					isRealChange,
-					isComponentRecreation,
-					workspacePath,
-				});
-
 				const shouldClear = isRealChange;
 
 				(async () => {
+					// Reset workspace path tracking only for real changes (not component recreation)
+					// This must be done inside the async block to avoid race condition with workspace path effect
+					if (isRealChange) {
+						hasLoadedWithWorkspacePath = false;
+					}
+
 					await fileTreeState.loadFromStorage(shouldClear);
+
+					// Mark initial loading as complete - this allows workspace path effect to work for future changes
+					isLoadingFromStorage = false;
+
+					// If we successfully loaded files from storage, mark as loaded to prevent
+					// the workspace path effect from triggering an unnecessary API refresh
+					if (fileTreeState.files.length > 0) {
+						hasLoadedWithWorkspacePath = true;
+					}
 
 					const shouldLoadFromAPI =
 						(isRealChange || isComponentRecreation) && fileTreeState.files.length === 0;
@@ -278,26 +269,12 @@
 					if (shouldLoadFromAPI) {
 						if (!fileTreeState.isStreaming) {
 							if (workspacePath) {
-								console.log("[FileTree] Loading files with workspace path:", workspacePath);
 								hasLoadedWithWorkspacePath = true;
 								await fileTreeState.refreshFileTree();
-							} else {
-								console.log("[FileTree] Waiting for workspace path before loading files");
 							}
-						} else {
-							console.log(
-								"[FileTree] Skipping initial load - agent is busy (streaming or submitted)",
-							);
 						}
-					} else {
-						console.log(
-							"[FileTree] Skipping API load -",
-							isComponentRecreation ? "component recreation with cached data" : "using cached data",
-						);
 					}
 				})();
-			} else if (sandboxChanged && !sandboxId) {
-				console.log("[FileTree] Sandbox cleared, keeping current files");
 			}
 		}
 	});
@@ -312,15 +289,8 @@
 				// Only refresh if workspace path is available
 				// If not, the workspace path effect will handle it when path becomes available
 				if (workspacePath) {
-					console.log("[FileTree] Refresh triggered by parent, refreshing file tree");
 					fileTreeState.refreshFileTree();
-				} else {
-					console.log("[FileTree] Skipping refresh - waiting for workspace path");
 				}
-			} else if (fileTreeState.isStreaming) {
-				console.log("[FileTree] Skipping refresh - agent is streaming");
-			} else if (!sandboxId) {
-				console.log("[FileTree] Skipping refresh - no sandboxId available");
 			}
 		}
 	});

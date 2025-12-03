@@ -165,22 +165,17 @@ export class AgentPreviewState {
 	 */
 	async loadFromStorage(sandboxId: string, sessionId: string): Promise<AgentPreviewStorage | null> {
 		if (!sandboxId || !sessionId) {
-			console.warn("[AgentPreviewState] loadFromStorage called with missing IDs:", {
-				sandboxId,
-				sessionId,
-			});
 			return null;
 		}
 
+		// Wait for storage to be hydrated before accessing
+		if (!persistedAgentPreviewStorage.isHydrated) {
+			await persistedAgentPreviewStorage.refresh();
+		}
+
 		const key = getStorageKey(sandboxId, sessionId);
-		// Access storageMap via getter to ensure safety and logging
 		const map = this.storageMap;
 		const storage = map[key];
-
-		if (!storage) {
-			console.log("[AgentPreviewState] No storage found for key:", key);
-			console.log("[AgentPreviewState] Available keys:", Object.keys(map));
-		}
 
 		return storage || null;
 	}
