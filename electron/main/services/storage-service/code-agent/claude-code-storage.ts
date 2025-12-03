@@ -9,7 +9,6 @@ import { StorageService } from "..";
 
 class ClaudeCodeStorage extends StorageService<CodeAgentMetadata> {
 	private prefix = "claude-code-agent-state";
-	private defaultModel = "claude-sonnet-4-5-20250929";
 
 	constructor() {
 		super();
@@ -108,6 +107,38 @@ class ClaudeCodeSandboxStorage extends StorageService<ClaudeCodeSandboxInfo[]> {
 			return { isOK: true };
 		} catch (error) {
 			console.error("Error setting Claude code sandboxes:", error);
+			return { isOK: false };
+		}
+	}
+
+	async addSandbox(
+		sandboxId: string,
+		sandboxName: string,
+		llmModel: string,
+	): Promise<{ isOK: boolean }> {
+		try {
+			const { isOK, sandboxes } = await this.getClaudeCodeSandboxes();
+			if (!isOK) return { isOK: false };
+
+			const newSandbox: ClaudeCodeSandboxInfo = {
+				sandboxId,
+				sandboxRemark: sandboxName,
+				llmModel,
+				sessionInfos: [],
+				diskTotal: -1,
+				diskUsed: -1,
+				diskUsage: "normal",
+				status: "paused",
+				createdAt: new Date().toISOString(),
+				updatedAt: new Date().toISOString(),
+				deletedAt: "",
+			};
+
+			sandboxes.push(newSandbox);
+			await this.setItemInternal(this.prefix, sandboxes);
+			return { isOK: true };
+		} catch (error) {
+			console.error("Error adding Claude code sandbox:", error);
 			return { isOK: false };
 		}
 	}

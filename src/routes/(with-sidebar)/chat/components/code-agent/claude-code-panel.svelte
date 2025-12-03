@@ -29,41 +29,9 @@
 
 	let disabled = $derived(!codeAgentState.isFreshTab);
 
-	let executionIterator: AsyncGenerator<string, void, boolean> | null = null;
-
 	let isRefreshing = $state(false);
 	let isCreateSandboxDialogOpen = $state(false);
 	let isCreatingSandbox = $state(false);
-	let isChecking = $state(false);
-	let showLackOfDiskDialog = $state(false);
-
-	// async function* enableCodeAgentFlow() {
-	// 	isChecking = true;
-
-	// 	const { isOK, sandboxInfo } = await codeAgentState.updateCodeAgentCfgs();
-	// 	if (!isOK) {
-	// 		isChecking = false;
-	// 		return;
-	// 	}
-
-	// 	if (sandboxInfo) {
-	// 		if (chatState.selectedModel && chatState.selectedModel.id !== sandboxInfo.llmModel) {
-	// 			await codeAgentState.handleCodeAgentModelChange(chatState.selectedModel);
-	// 		}
-
-	// 		if (sandboxInfo.diskUsage === "insufficient") {
-	// 			showLackOfDiskDialog = true;
-	// 			const shouldContinue: boolean = yield "wait_user_choice";
-	// 			if (!shouldContinue) {
-	// 				isChecking = false;
-	// 				return;
-	// 			}
-	// 		}
-	// 	}
-	// 	codeAgentState.updateEnabled(true);
-	// 	isChecking = false;
-	// 	onClose();
-	// }
 
 	async function handleRefresh() {
 		isRefreshing = true;
@@ -82,31 +50,12 @@
 
 	async function handleOverlayAction(type: "enabled" | "disabled" | "cancel" | "close") {
 		if (type === "enabled") {
-			// executionIterator = enableCodeAgentFlow();
-			// await executionIterator.next();
 			codeAgentState.updateEnabled(true);
 		} else if (type === "close") {
 			codeAgentState.updateEnabled(false);
 		}
 
 		onClose();
-	}
-
-	async function handleContinueAnyway() {
-		showLackOfDiskDialog = false;
-		if (executionIterator) {
-			await executionIterator.next(true);
-			executionIterator = null;
-		}
-	}
-
-	function handleChangeSandbox() {
-		showLackOfDiskDialog = false;
-		if (executionIterator) {
-			executionIterator.return();
-			executionIterator = null;
-		}
-		isChecking = false;
 	}
 </script>
 
@@ -216,53 +165,12 @@
 		<Button variant="secondary" onclick={() => handleOverlayAction("cancel")}>
 			{m.common_cancel()}
 		</Button>
-		{#if codeAgentState.enabled}
-			<Button
-				disabled={codeAgentState.inCodeAgentMode}
-				onclick={() => handleOverlayAction("close")}
-			>
-				{m.label_button_close()}
-			</Button>
-		{:else}
-			<Dialog.Root bind:open={showLackOfDiskDialog}>
-				<Button disabled={isChecking} onclick={() => handleOverlayAction("enabled")}>
-					{#if isChecking}
-						<LdrsLoader type="line-spinner" size={16} />
-						{m.text_button_checking()}
-					{:else}
-						{m.text_button_open()}
-					{/if}
-				</Button>
-				<Dialog.Content>
-					<Dialog.Header>
-						<Dialog.Title>{m.title_lack_of_disk()}</Dialog.Title>
-					</Dialog.Header>
-
-					<Dialog.Description>
-						<p>
-							{m.description_lack_of_disk()}: {claudeCodeAgentState.selectedSandboxRemark === ""
-								? m.no_remark()
-								: claudeCodeAgentState.selectedSandboxRemark}
-						</p>
-						<p>{m.description_lack_of_disk_2()}: {claudeCodeAgentState.selectedSandboxId}</p>
-					</Dialog.Description>
-
-					<Dialog.Description>
-						<p>{m.description_lack_of_disk_3()}</p>
-						<p>{m.description_lack_of_disk_4()}</p>
-					</Dialog.Description>
-
-					<Dialog.Footer class="flex flex-row items-center sm:justify-between">
-						<Button variant="secondary" onclick={handleContinueAnyway}>
-							{m.text_button_still_continue()}
-						</Button>
-						<Button onclick={handleChangeSandbox}>
-							{m.text_button_replace_sandbox()}
-						</Button>
-					</Dialog.Footer>
-				</Dialog.Content>
-			</Dialog.Root>
-		{/if}
+		<Button
+			disabled={codeAgentState.inCodeAgentMode}
+			onclick={() => handleOverlayAction("enabled")}
+		>
+			{m.text_button_open()}
+		</Button>
 	</div>
 {/snippet}
 

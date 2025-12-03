@@ -25,11 +25,17 @@ const {
 	updateClaudeCodeSandboxRemark,
 } = window.electronAPI.codeAgentService;
 
+$effect.root(() => {
+	$effect(() => {
+		// eslint-disable-next-line @typescript-eslint/no-unused-expressions
+		persistedClaudeCodeSandboxState.current;
+	});
+});
+
 class ClaudeCodeSandboxState {
 	sandboxRemarkMap = $state(new Map<string, string>());
 
 	sandboxes = $derived.by(() => {
-		const _sanboxes = persistedClaudeCodeSandboxState.current;
 		return [
 			{
 				key: "auto",

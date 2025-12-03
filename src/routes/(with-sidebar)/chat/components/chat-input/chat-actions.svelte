@@ -22,7 +22,6 @@
 
 	let isParametersOpen = $state(false);
 	let isMCPSelectorOpen = $state(false);
-	let isCodeAgentPanelOpen = $state(false);
 
 	function handleParametersClose() {
 		isParametersOpen = false;
@@ -42,20 +41,16 @@
 	}
 
 	function handleCodeAgentClick() {
-		if (
-			codeAgentState.inCodeAgentMode ||
-			(!codeAgentState.inCodeAgentMode && codeAgentState.enabled)
-		) {
-			isCodeAgentPanelOpen = true;
-		} else if (codeAgentState.enabled) {
-			codeAgentState.resetCurrentAgentId();
-		} else {
-			isCodeAgentPanelOpen = true;
+		if (codeAgentState.enabled && codeAgentState.isFreshTab) {
+			codeAgentState.updateEnabled(false);
+			return;
 		}
+
+		codeAgentState.isCodeAgentPanelOpen = true;
 	}
 
 	function handleCodeAgentPanelClose() {
-		isCodeAgentPanelOpen = false;
+		codeAgentState.isCodeAgentPanelOpen = false;
 	}
 </script>
 
@@ -149,7 +144,7 @@
 		tooltip={m.title_code_agent()}
 		onclick={() => handleCodeAgentClick()}
 		size="sm"
-		{disabled}
+		disabled={disabled || (codeAgentState.isFreshTab ? false : !codeAgentState.inCodeAgentMode)}
 	>
 		<div class="flex items-center">
 			<Bot class={cn("size-4", codeAgentState.enabled && "!text-chat-action-active-fg")} />
@@ -166,7 +161,7 @@
 
 	<Overlay
 		title={m.title_code_agent()}
-		open={isCodeAgentPanelOpen}
+		open={codeAgentState.isCodeAgentPanelOpen}
 		onClose={handleCodeAgentPanelClose}
 	>
 		<CodeAgentPanel onClose={handleCodeAgentPanelClose} />

@@ -80,7 +80,7 @@ class ClaudeCodeAgentState {
 		this.updateState({ sandboxRemark });
 	}
 
-	async handleAgentModeEnable(): Promise<{
+	async handleAgentModeExecute(): Promise<{
 		isOK: boolean;
 		sandboxInfo?: ClaudeCodeSandboxInfo;
 	}> {

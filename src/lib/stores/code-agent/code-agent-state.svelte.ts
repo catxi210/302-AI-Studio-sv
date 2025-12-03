@@ -37,6 +37,8 @@ export const persistedCodeAgentConfigState = new PersistedState<CodeAgentConfigM
 const { updateClaudeCodeSandboxModel } = window.electronAPI.codeAgentService;
 
 class CodeAgentState {
+	isCodeAgentPanelOpen = $state(false);
+
 	enabled = $derived.by(() => persistedCodeAgentConfigState.current?.enabled ?? false);
 	type = $derived.by(() => persistedCodeAgentConfigState.current?.type ?? "remote");
 	currentAgentId = $derived.by(
@@ -66,10 +68,6 @@ class CodeAgentState {
 		this.updateState({ currentAgentId: agentId });
 	}
 
-	resetCurrentAgentId(): void {
-		this.updateState({ currentAgentId: "" });
-	}
-
 	updateType(type: CodeAgentType): void {
 		this.updateState({ type });
 	}
@@ -87,9 +85,9 @@ class CodeAgentState {
 			.otherwise(() => ({ baseUrl: "", model: "" }));
 	}
 
-	async updateCodeAgentCfgs(): Promise<{ isOK: boolean; sandboxInfo?: ClaudeCodeSandboxInfo }> {
+	async executeCodeAgentMode(): Promise<{ isOK: boolean; sandboxInfo?: ClaudeCodeSandboxInfo }> {
 		if (this.currentAgentId === "claude-code") {
-			return claudeCodeAgentState.handleAgentModeEnable();
+			return claudeCodeAgentState.handleAgentModeExecute();
 		}
 		return { isOK: false };
 	}

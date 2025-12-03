@@ -75,12 +75,6 @@ export class CodeAgentService {
 
 	private async _updateClaudeCodeSandboxes(): Promise<void> {
 		try {
-			const { isOK } = await claudeCodeSandboxStorage.getClaudeCodeSandboxes();
-
-			if (!isOK) {
-				throw new Error("Failed to get Claude code sandboxes");
-			}
-
 			const response = await listClaudeCodeSandboxes();
 			if (response.success) {
 				const validList = response.list.filter((sandbox) => sandbox.status !== "killed");
@@ -293,15 +287,17 @@ export class CodeAgentService {
 			if (!targetThread) {
 				return { isOK: false, sandboxId: "" };
 			}
+			const llmModel =
+				(targetThread as ThreadParmas).selectedModel?.id ?? "claude-sonnet-4-5-20250929";
 			const cfg: CreateClaudeCodeSandboxRequest = {
-				llm_model: (targetThread as ThreadParmas).selectedModel?.id ?? "claude-sonnet-4-5-20250929",
+				llm_model: llmModel,
 				sandbox_name: sandboxName,
 			};
 
 			const { createdResult, sandboxId } = await this._createClaudeCodeSandbox(threadId, cfg);
 			const isOK = createdResult === "success";
 			if (isOK) {
-				this._updateClaudeCodeSandboxes();
+				await claudeCodeSandboxStorage.addSandbox(sandboxId, sandboxName, llmModel);
 			}
 			return { isOK, sandboxId };
 		} catch (error) {
@@ -397,19 +393,21 @@ export class CodeAgentService {
 		if (!targetThread) {
 			return { isOK: false };
 		}
+		const llmModel =
+			(targetThread as ThreadParmas).selectedModel?.id ?? "claude-sonnet-4-5-20250929";
 		const { createdResult, sandboxId } = await this._createClaudeCodeSandbox(threadId, {
-			llm_model: (targetThread as ThreadParmas).selectedModel?.id ?? "claude-sonnet-4-5-20250929",
+			llm_model: llmModel,
 		});
 
 		if (createdResult === "success" && sandboxId) {
-			await this._updateClaudeCodeSandboxes();
+			await claudeCodeSandboxStorage.addSandbox(sandboxId, "", llmModel);
 
 			return {
 				isOK: true,
 				sandboxInfo: {
 					sandboxId,
 					sandboxRemark: "",
-					llmModel: "claude-sonnet-4-5-20250929",
+					llmModel,
 					diskUsage: "normal",
 				},
 			};

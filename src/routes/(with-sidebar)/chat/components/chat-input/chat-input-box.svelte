@@ -8,6 +8,7 @@
 	import { m } from "$lib/paraglide/messages.js";
 	import { chatState } from "$lib/stores/chat-state.svelte";
 	import { codeAgentState } from "$lib/stores/code-agent";
+	import { codeAgentSendMessageButtonState } from "$lib/stores/code-agent/code-agent-send-message-button-state.svelte";
 	import { modelPanelState } from "$lib/stores/model-panel-state.svelte";
 	import { persistedProviderState } from "$lib/stores/provider-state.svelte";
 	import { cn } from "$lib/utils";
@@ -19,6 +20,7 @@
 	import { match } from "ts-pattern";
 	import { AttachmentThumbnailBar } from "../attachment";
 	import ChatActions from "./chat-actions.svelte";
+	import SendMessageButton from "./code-agent/send-message-button.svelte";
 	import StreamingIndicator from "./streaming-indicator.svelte";
 
 	let openModelSelect = $state<() => void>();
@@ -91,54 +93,61 @@
 		await window.electronAPI.windowService.handleOpenSettingsWindow("/settings/model-settings");
 	}
 
-	function handleSendMessage() {
+	async function handleSendMessage() {
 		// 如果不满足发送条件，直接返回，不执行任何操作
 		if (!chatState.sendMessageEnabled) {
 			return;
 		}
 
-		match({
-			isEmpty: chatState.inputValue.trim() === "" && chatState.attachments.length === 0,
-			noProviders: !hasConfiguredProviders(),
-			noModel: chatState.selectedModel === null,
-		})
-			.with({ isEmpty: true }, () => {
-				toast.warning(m.toast_empty_message());
+		const fn = () =>
+			match({
+				isEmpty: chatState.inputValue.trim() === "" && chatState.attachments.length === 0,
+				noProviders: !hasConfiguredProviders(),
+				noModel: chatState.selectedModel === null,
 			})
-			.with({ noProviders: true }, () => {
-				toast.info(m.toast_no_provider_configured(), {
-					action: {
-						label: m.text_button_go_to_settings(),
-						onClick: () => handleGoToModelSettings(),
-					},
-				});
-			})
-			.with({ noModel: true }, () => {
-				toast.warning(m.toast_no_model(), {
-					action: {
-						label: m.text_button_select_model(),
-						onClick: () => {
-							if (!hasConfiguredProviders()) {
-								toast.info(m.toast_no_provider_configured(), {
-									action: {
-										label: m.text_button_go_to_settings(),
-										onClick: () => handleGoToModelSettings(),
-									},
-								});
-								return;
-							}
-							openModelSelect?.();
+				.with({ isEmpty: true }, () => {
+					toast.warning(m.toast_empty_message());
+				})
+				.with({ noProviders: true }, () => {
+					toast.info(m.toast_no_provider_configured(), {
+						action: {
+							label: m.text_button_go_to_settings(),
+							onClick: () => handleGoToModelSettings(),
 						},
-					},
+					});
+				})
+				.with({ noModel: true }, () => {
+					toast.warning(m.toast_no_model(), {
+						action: {
+							label: m.text_button_select_model(),
+							onClick: () => {
+								if (!hasConfiguredProviders()) {
+									toast.info(m.toast_no_provider_configured(), {
+										action: {
+											label: m.text_button_go_to_settings(),
+											onClick: () => handleGoToModelSettings(),
+										},
+									});
+									return;
+								}
+								openModelSelect?.();
+							},
+						},
+					});
+				})
+				.otherwise(() => {
+					if (chatState.hasMessages) {
+						chatState.sendMessage();
+					} else {
+						document.startViewTransition(() => chatState.sendMessage());
+					}
 				});
-			})
-			.otherwise(() => {
-				if (chatState.hasMessages) {
-					chatState.sendMessage();
-				} else {
-					document.startViewTransition(() => chatState.sendMessage());
-				}
-			});
+
+		if (codeAgentState.enabled && codeAgentState.isFreshTab) {
+			await codeAgentSendMessageButtonState.handleCodeAgentFlow(fn);
+		} else {
+			fn();
+		}
 	}
 
 	async function handlePaste(event: ClipboardEvent) {
@@ -312,16 +321,20 @@
 					class="shrink-0 rounded-2xl data-[orientation=vertical]:h-1/2 data-[orientation=vertical]:w-0.5"
 				/>
 
-				<button
-					disabled={!chatState.sendMessageEnabled || codeAgentState.isDeleted}
-					class={cn(
-						"shrink-0 flex size-9 items-center justify-center rounded-[10px] bg-chat-send-message-button text-foreground hover:!bg-chat-send-message-button/80",
-						"disabled:cursor-not-allowed disabled:bg-chat-send-message-button/50 disabled:hover:!bg-chat-send-message-button/50",
-					)}
-					onclick={handleSendMessage}
-				>
-					<img src={sendMessageIcon} alt="plane" class="size-5" />
-				</button>
+				{#if codeAgentState.enabled && codeAgentState.isFreshTab}
+					<SendMessageButton onClick={handleSendMessage} />
+				{:else}
+					<button
+						disabled={!chatState.sendMessageEnabled}
+						class={cn(
+							"shrink-0 flex size-9 items-center justify-center rounded-[10px] bg-chat-send-message-button text-foreground hover:!bg-chat-send-message-button/80",
+							"disabled:cursor-not-allowed disabled:bg-chat-send-message-button/50 disabled:hover:!bg-chat-send-message-button/50",
+						)}
+						onclick={handleSendMessage}
+					>
+						<img src={sendMessageIcon} alt="plane" class="size-5" />
+					</button>
+				{/if}
 			</div>
 		</div>
 	</div>
