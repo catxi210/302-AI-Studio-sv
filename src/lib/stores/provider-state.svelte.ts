@@ -315,6 +315,7 @@ class ProviderState {
 
 	/**
 	 * Clear the API key from the 302.AI provider if it matches the given key
+	 * Also clears all models associated with the provider
 	 * Used when logging out to unlink the associated API key
 	 * @param associatedApiKey - The API key to compare against
 	 * @returns true if the key was cleared, false if it didn't match or provider not found
@@ -326,7 +327,11 @@ class ProviderState {
 		// Only clear if the current API key matches the associated key
 		if (provider.apiKey === associatedApiKey) {
 			this.updateProvider("302AI", { apiKey: "" });
-			console.log("[Provider] Cleared associated API key from 302.AI provider");
+			// Also clear all models for this provider
+			const removedCount = this.removeModelsByProvider("302AI");
+			console.log(
+				`[Provider] Cleared associated API key and ${removedCount} models from 302.AI provider`,
+			);
 			return true;
 		}
 

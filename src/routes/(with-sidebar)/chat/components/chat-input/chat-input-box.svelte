@@ -277,12 +277,7 @@
 					{#snippet trigger({ onclick })}
 						{((openModelSelect = () => {
 							if (!hasConfiguredProviders()) {
-								toast.info(m.toast_no_provider_configured(), {
-									action: {
-										label: m.text_button_go_to_settings(),
-										onClick: () => handleGoToModelSettings(),
-									},
-								});
+								handleGoToModelSettings();
 								return;
 							}
 							onclick();
@@ -290,21 +285,21 @@
 						"")}
 						<Button
 							variant="ghost"
-							class="text-sm text-foreground/50 hover:!bg-chat-action-hover min-w-0 max-w-[300px] !shrink"
+							class="relative text-sm text-foreground/50 hover:!bg-chat-action-hover min-w-0 max-w-[300px] !shrink overflow-visible"
 							onclick={() => {
 								if (!hasConfiguredProviders()) {
-									toast.info(m.toast_no_provider_configured(), {
-										action: {
-											label: m.text_button_go_to_settings(),
-											onClick: () => handleGoToModelSettings(),
-										},
-									});
+									handleGoToModelSettings();
 									return;
 								}
 								openModelSelect?.();
 							}}
 							disabled={isCodeAgentModelChanging}
 						>
+							{#if !hasConfiguredProviders()}
+								<span
+									class="absolute top-0 right-0 size-2 rounded-full bg-red-500 pointer-events-none"
+								></span>
+							{/if}
 							{#if isCodeAgentModelChanging}
 								<LdrsLoader type="line-spinner" size={16} />
 							{:else}
