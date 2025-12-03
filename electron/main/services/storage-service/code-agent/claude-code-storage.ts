@@ -16,28 +16,6 @@ class ClaudeCodeStorage extends StorageService<CodeAgentMetadata> {
 		this.storage = prefixStorage(this.storage, "CodeAgentStorage");
 	}
 
-	// private async ensureMetadata(key: string): Promise<CodeAgentMetadata> {
-	// 	const existingMetadata = await this.getItemInternal(key);
-	// 	if (!isNull(existingMetadata)) {
-	// 		return existingMetadata;
-	// 	}
-
-	// 	const sessionId = nanoid();
-	// 	const initialMetadata: CodeAgentMetadata = {
-	// 		model: this.defaultModel,
-	// 		currentWorkspacePath: "",
-	// 		workspacePaths: [],
-	// 		variables: [],
-	// 		currentSessionId: sessionId,
-	// 		sessionIds: [sessionId],
-	// 		sandboxId: "",
-	// 		sandboxRemark: "",
-	// 	};
-
-	// 	await this.setItemInternal(key, initialMetadata);
-	// 	return initialMetadata;
-	// }
-
 	async setClaudeCodeSandboxInfo(
 		threadId: string,
 		sandboxId: string,

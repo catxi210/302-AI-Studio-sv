@@ -17,7 +17,6 @@
 	import { Input } from "$lib/components/ui/input";
 	import { Label } from "$lib/components/ui/label";
 	import { m } from "$lib/paraglide/messages";
-	import { chatState } from "$lib/stores/chat-state.svelte";
 	import {
 		claudeCodeAgentState,
 		claudeCodeSandboxState,
@@ -38,33 +37,33 @@
 	let isChecking = $state(false);
 	let showLackOfDiskDialog = $state(false);
 
-	async function* enableCodeAgentFlow() {
-		isChecking = true;
+	// async function* enableCodeAgentFlow() {
+	// 	isChecking = true;
 
-		const { isOK, sandboxInfo } = await codeAgentState.updateCodeAgentCfgs();
-		if (!isOK) {
-			isChecking = false;
-			return;
-		}
+	// 	const { isOK, sandboxInfo } = await codeAgentState.updateCodeAgentCfgs();
+	// 	if (!isOK) {
+	// 		isChecking = false;
+	// 		return;
+	// 	}
 
-		if (sandboxInfo) {
-			if (chatState.selectedModel && chatState.selectedModel.id !== sandboxInfo.llmModel) {
-				await codeAgentState.handleCodeAgentModelChange(chatState.selectedModel);
-			}
+	// 	if (sandboxInfo) {
+	// 		if (chatState.selectedModel && chatState.selectedModel.id !== sandboxInfo.llmModel) {
+	// 			await codeAgentState.handleCodeAgentModelChange(chatState.selectedModel);
+	// 		}
 
-			if (sandboxInfo.diskUsage === "insufficient") {
-				showLackOfDiskDialog = true;
-				const shouldContinue: boolean = yield "wait_user_choice";
-				if (!shouldContinue) {
-					isChecking = false;
-					return;
-				}
-			}
-		}
-		codeAgentState.updateEnabled(true);
-		isChecking = false;
-		onClose();
-	}
+	// 		if (sandboxInfo.diskUsage === "insufficient") {
+	// 			showLackOfDiskDialog = true;
+	// 			const shouldContinue: boolean = yield "wait_user_choice";
+	// 			if (!shouldContinue) {
+	// 				isChecking = false;
+	// 				return;
+	// 			}
+	// 		}
+	// 	}
+	// 	codeAgentState.updateEnabled(true);
+	// 	isChecking = false;
+	// 	onClose();
+	// }
 
 	async function handleRefresh() {
 		isRefreshing = true;
@@ -83,14 +82,14 @@
 
 	async function handleOverlayAction(type: "enabled" | "disabled" | "cancel" | "close") {
 		if (type === "enabled") {
-			executionIterator = enableCodeAgentFlow();
-			await executionIterator.next();
+			// executionIterator = enableCodeAgentFlow();
+			// await executionIterator.next();
+			codeAgentState.updateEnabled(true);
 		} else if (type === "close") {
 			codeAgentState.updateEnabled(false);
-			onClose();
-		} else if (type === "cancel") {
-			onClose();
 		}
+
+		onClose();
 	}
 
 	async function handleContinueAnyway() {

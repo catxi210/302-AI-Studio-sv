@@ -184,9 +184,6 @@ export function registerIpcHandlers() {
 	ipcMain.handle("codeAgentService:deleteClaudeCodeSession", (event, sandbox_id, session_id) =>
 		codeAgentService.deleteClaudeCodeSession(event, sandbox_id, session_id),
 	);
-	ipcMain.handle("codeAgentService:checkClaudeCodeSandboxDisk", (event) =>
-		codeAgentService.checkClaudeCodeSandboxDisk(event),
-	);
 	ipcMain.handle("codeAgentService:findClaudeCodeSandboxWithValidDisk", (event, threadId) =>
 		codeAgentService.findClaudeCodeSandboxWithValidDisk(event, threadId),
 	);
@@ -436,7 +433,6 @@ export function removeIpcHandlers() {
 	ipcMain.removeHandler("codeAgentService:deleteClaudeCodeSandboxByIpc");
 	ipcMain.removeHandler("codeAgentService:updateClaudeCodeSessionRemark");
 	ipcMain.removeHandler("codeAgentService:deleteClaudeCodeSession");
-	ipcMain.removeHandler("codeAgentService:checkClaudeCodeSandboxDisk");
 	ipcMain.removeHandler("codeAgentService:findClaudeCodeSandboxWithValidDisk");
 	ipcMain.removeHandler("ghostWindowService:startTracking");
 	ipcMain.removeHandler("ghostWindowService:stopTracking");

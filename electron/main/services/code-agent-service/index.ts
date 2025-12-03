@@ -11,7 +11,6 @@ import type {
 } from "@shared/storage/code-agent";
 import type { ThreadParmas } from "@shared/types";
 import type { IpcMainInvokeEvent } from "electron";
-import { broadcastService } from "../broadcast-service";
 import { storageService } from "../storage-service";
 import {
 	claudeCodeSandboxStorage,
@@ -133,7 +132,6 @@ export class CodeAgentService {
 	): Promise<{ createdResult: CodeAgentCreateResult; sandboxId: string }> {
 		const { isOK, sandboxId } = await claudeCodeStorage.getClaudeCodeSandboxId(threadId);
 		if (isOK && sandboxId !== "") {
-			this.notifySandboxUpdated(threadId, sandboxId);
 			return { createdResult: "already-exist", sandboxId };
 		}
 
@@ -141,7 +139,6 @@ export class CodeAgentService {
 		if (response.success) {
 			const { sandbox_id: sandboxId, sandbox_name: sandboxRemark } = response.data;
 
-			this.notifySandboxUpdated(threadId, sandboxId);
 			await claudeCodeStorage.setClaudeCodeSandboxInfo(threadId, sandboxId, sandboxRemark);
 
 			return { createdResult: "success", sandboxId };
@@ -198,24 +195,24 @@ export class CodeAgentService {
 		};
 	}> {
 		try {
-			const response = await listClaudeCodeSandboxes();
-			if (response.success) {
-				const sandbox = response.list.find((sandbox) => sandbox.sandbox_id === sandboxId);
-				if (!sandbox) {
-					return { isOK: true, valid: false };
-				}
-				return {
-					isOK: true,
-					valid: true,
-					sandboxInfo: {
-						sandboxId,
-						sandboxRemark: sandbox.sandbox_name,
-						llmModel: sandbox.llm_model,
-						diskUsage: this.calculateDiskUsage(sandbox.disk_total, sandbox.disk_used),
-					},
-				};
+			const { isOK, sandboxes } = await claudeCodeSandboxStorage.getClaudeCodeSandboxes();
+			if (!isOK) {
+				return { isOK: false, valid: false };
 			}
-			return { isOK: false, valid: false };
+			const sandbox = sandboxes.find((sandbox) => sandbox.sandboxId === sandboxId);
+			if (!sandbox) {
+				return { isOK: true, valid: false };
+			}
+			return {
+				isOK: true,
+				valid: true,
+				sandboxInfo: {
+					sandboxId,
+					sandboxRemark: sandbox.sandboxRemark,
+					llmModel: sandbox.llmModel,
+					diskUsage: sandbox.diskUsage,
+				},
+			};
 		} catch (error) {
 			console.error("Error checking Claude code sandbox:", error);
 			return { isOK: false, valid: false };
@@ -245,7 +242,7 @@ export class CodeAgentService {
 				sessionId: session.session_id,
 				workspacePath: session.workspace_path,
 				note: session.note ?? "",
-				usedAt: session.used_at,
+				usedAt: session.used_at ?? "",
 			}));
 			await claudeCodeSandboxStorage.setClaudeCodeSessions(sandboxId, list);
 			return { isOK: true };
@@ -253,13 +250,6 @@ export class CodeAgentService {
 			console.error("Error updating Claude code sessions:", error);
 			return { isOK: false };
 		}
-	}
-
-	private notifySandboxUpdated(threadId: string, sandboxId: string): void {
-		broadcastService.broadcastChannelToAll("code-agent:sandbox-updated", {
-			threadId,
-			sandboxId,
-		});
 	}
 
 	async updateClaudeCodeCurrentSessionIdByThreadId(
@@ -374,8 +364,6 @@ export class CodeAgentService {
 		}
 	}
 
-	async checkClaudeCodeSandboxDisk(_event: IpcMainInvokeEvent) {}
-
 	async findClaudeCodeSandboxWithValidDisk(
 		_event: IpcMainInvokeEvent,
 		threadId: string,
@@ -405,8 +393,12 @@ export class CodeAgentService {
 			};
 		}
 
+		const targetThread = await storageService.getItemInternal("app-thread:" + threadId);
+		if (!targetThread) {
+			return { isOK: false };
+		}
 		const { createdResult, sandboxId } = await this._createClaudeCodeSandbox(threadId, {
-			llm_model: "claude-sonnet-4-5-20250929",
+			llm_model: (targetThread as ThreadParmas).selectedModel?.id ?? "claude-sonnet-4-5-20250929",
 		});
 
 		if (createdResult === "success" && sandboxId) {

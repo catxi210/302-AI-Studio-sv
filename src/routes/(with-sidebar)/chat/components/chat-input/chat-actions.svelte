@@ -170,27 +170,19 @@
 		onClose={handleCodeAgentPanelClose}
 	>
 		<CodeAgentPanel onClose={handleCodeAgentPanelClose} />
-		<!-- <Switch
-			class={cn("absolute top-4 right-12", "data-[state=unchecked]:border-settings-switch-border")}
-			checked={claudeCodeAgentState.enabled}
-			onclick={(e) => {
-				if (!claudeCodeAgentState.sandboxId) {
-					e.preventDefault();
-					toast.warning(m.code_agent_claude_code_sandbox_not_exist());
-				}
-			}}
-			onCheckedChange={(checked) => handleCodeAgentSwitchChange(checked)}
-		/> -->
 	</Overlay>
 {/snippet}
 
 <div class="flex h-chat-bar items-center gap-chat-bar-gap">
-	{@render actionUploadAttachment()}
-	{#if chatState.providerType === "302ai"}
-		{@render actionEnableThinking()}
-		{@render actionEnableOnlineSearch()}
+	{#if !codeAgentState.enabled}
+		{@render actionUploadAttachment()}
+		{#if chatState.providerType === "302ai"}
+			{@render actionEnableThinking()}
+			{@render actionEnableOnlineSearch()}
+		{/if}
+		{@render actionEnableMCP()}
+		{@render actionSetParameters()}
 	{/if}
-	{@render actionEnableMCP()}
-	{@render actionSetParameters()}
+
 	{@render actionCodeAgent()}
 </div>

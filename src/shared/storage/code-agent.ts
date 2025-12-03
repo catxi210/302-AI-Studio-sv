@@ -7,7 +7,7 @@ export const CodeAgentConfigMetadata = type({
 	threadId: "string",
 	type: codeAgentType,
 	currentAgentId: "string",
-	isDeleted: "boolean?",
+	isDeleted: "boolean",
 });
 export type CodeAgentConfigMetadata = typeof CodeAgentConfigMetadata.infer;
 
@@ -44,7 +44,7 @@ export const claudeCodeSessionInfo = type({
 	sessionId: "string",
 	workspacePath: "string",
 	note: "string",
-	usedAt: "string?",
+	usedAt: "string",
 });
 export type ClaudeCodeSessionInfo = typeof claudeCodeSessionInfo.infer;
 
