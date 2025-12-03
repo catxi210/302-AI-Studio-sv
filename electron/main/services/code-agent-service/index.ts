@@ -85,20 +85,21 @@ export class CodeAgentService {
 			const response = await listClaudeCodeSandboxes();
 			if (response.success) {
 				const validList = response.list.filter((sandbox) => sandbox.status !== "killed");
-				const allSessionInfos = await Promise.all(
+				const allSessionInfos = await Promise.allSettled(
 					validList.map((sandbox) => listClaudeCodeSessions(sandbox.sandbox_id)),
 				);
 
 				const list = validList.map((sandbox, index) => {
-					const sessionResponse = allSessionInfos[index];
-					const sessionInfos = sessionResponse.success
-						? sessionResponse.session_list.map((session) => ({
-								sessionId: session.session_id,
-								workspacePath: session.workspace_path,
-								note: session.note ?? "",
-								usedAt: session.used_at,
-							}))
-						: [];
+					const result = allSessionInfos[index];
+					const sessionInfos =
+						result.status === "fulfilled" && result.value.success
+							? result.value.session_list.map((session) => ({
+									sessionId: session.session_id,
+									workspacePath: session.workspace_path,
+									note: session.note ?? "",
+									usedAt: session.used_at ?? "",
+								}))
+							: [];
 
 					const diskUsage = this.calculateDiskUsage(sandbox.disk_total, sandbox.disk_used);
 
