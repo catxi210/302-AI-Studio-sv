@@ -1,5 +1,6 @@
 import type { SandboxFileInfo } from "$lib/api/sandbox-file";
 import { PersistedState } from "$lib/hooks/persisted-state.svelte";
+import { preferencesSettings } from "$lib/stores/preferences-settings.state.svelte";
 import type { CodeAgentType } from "@shared/storage/code-agent";
 import { SvelteDate } from "svelte/reactivity";
 
@@ -72,9 +73,13 @@ const persistedAgentPreviewStorage = new PersistedState<AgentPreviewStorageMap>(
 
 export class AgentPreviewState {
 	isVisible = $state(false);
-	isPinned = $state(true);
 	mode = $state<HtmlPreviewMode>("preview");
 	sandBoxId = $state<string | undefined>(undefined);
+
+	// Use global preferencesSettings for isPinned
+	get isPinned(): boolean {
+		return preferencesSettings.previewPanelPinned;
+	}
 
 	// Track active execution states in memory only (not persisted)
 	// Key: "sandboxId:sessionId" -> Value: boolean (isExecuting)
@@ -470,7 +475,6 @@ export class AgentPreviewState {
 
 	closePreview() {
 		this.isVisible = false;
-		this.isPinned = false;
 		this.mode = "preview";
 	}
 
@@ -481,7 +485,7 @@ export class AgentPreviewState {
 	}
 
 	togglePin() {
-		this.isPinned = !this.isPinned;
+		preferencesSettings.togglePreviewPanelPinned();
 	}
 }
 

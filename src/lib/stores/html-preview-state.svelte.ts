@@ -1,3 +1,5 @@
+import { preferencesSettings } from "$lib/stores/preferences-settings.state.svelte";
+
 export type HtmlPreviewMode = "preview" | "edit";
 
 export interface HtmlPreviewContext {
@@ -14,13 +16,17 @@ export interface HtmlPreviewPayload extends HtmlPreviewContext {
 
 export class HtmlPreviewState {
 	isVisible = $state(false);
-	isPinned = $state(true);
 	mode = $state<HtmlPreviewMode>("preview");
 	context = $state<HtmlPreviewContext | null>(null);
 	initialHtml = $state<string | null>(null);
 	editedHtml = $state("");
 	initialLanguage = $state<string | null>(null);
 	selectedLanguage = $state<string | null>(null);
+
+	// Use global preferencesSettings for isPinned
+	get isPinned(): boolean {
+		return preferencesSettings.previewPanelPinned;
+	}
 
 	openPreview(payload: HtmlPreviewPayload) {
 		this.context = {
@@ -39,7 +45,6 @@ export class HtmlPreviewState {
 
 	closePreview() {
 		this.isVisible = false;
-		this.isPinned = false;
 		this.mode = "preview";
 		this.context = null;
 		this.initialHtml = null;
@@ -100,7 +105,7 @@ export class HtmlPreviewState {
 	}
 
 	togglePin() {
-		this.isPinned = !this.isPinned;
+		preferencesSettings.togglePreviewPanelPinned();
 	}
 }
 

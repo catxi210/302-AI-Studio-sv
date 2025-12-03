@@ -25,6 +25,8 @@ export interface PreferencesSettingsState {
 	suggestionsCount: number;
 	suggestionsTiming: SuggestionsTiming;
 	showOnlyLastSuggestion: boolean;
+	// Preview panel settings
+	previewPanelPinned: boolean;
 }
 
 const getDefaults = (): PreferencesSettingsState => ({
@@ -45,6 +47,8 @@ const getDefaults = (): PreferencesSettingsState => ({
 	suggestionsCount: 3,
 	suggestionsTiming: "auto",
 	showOnlyLastSuggestion: false,
+	// Preview panel defaults
+	previewPanelPinned: true,
 });
 
 const persistedPreferencesSettings = new PersistedState<PreferencesSettingsState>(
@@ -233,6 +237,21 @@ class PreferencesSettingsManager {
 			...persistedPreferencesSettings.current,
 			showOnlyLastSuggestion: value,
 		};
+	}
+
+	get previewPanelPinned(): boolean {
+		return persistedPreferencesSettings.current.previewPanelPinned;
+	}
+
+	setPreviewPanelPinned(value: boolean): void {
+		persistedPreferencesSettings.current = {
+			...persistedPreferencesSettings.current,
+			previewPanelPinned: value,
+		};
+	}
+
+	togglePreviewPanelPinned(): void {
+		this.setPreviewPanelPinned(!this.previewPanelPinned);
 	}
 
 	update(partial: Partial<PreferencesSettingsState>): void {
