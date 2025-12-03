@@ -72,7 +72,7 @@ const persistedAgentPreviewStorage = new PersistedState<AgentPreviewStorageMap>(
 
 export class AgentPreviewState {
 	isVisible = $state(false);
-	isPinned = $state(false);
+	isPinned = $state(true);
 	mode = $state<HtmlPreviewMode>("preview");
 	sandBoxId = $state<string | undefined>(undefined);
 

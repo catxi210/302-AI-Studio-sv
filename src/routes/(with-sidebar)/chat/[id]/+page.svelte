@@ -241,6 +241,22 @@
 {:else if agentPreviewState.isVisible && !htmlPreviewState.isVisible}
 	<div class="flex h-full overflow-hidden relative">
 		{#if agentPreviewState.isPinned}
+			<Resizable.PaneGroup direction="horizontal" class="h-full">
+				<Resizable.Pane defaultSize={50} minSize={30} class="min-w-0" style="min-width: 320px;">
+					<div class="flex h-full flex-col min-w-0">
+						<div class="flex-1 overflow-hidden relative">
+							<PageHeader />
+							<MessageList messages={chatState.messages} />
+						</div>
+						{@render ChatInputArea()}
+					</div>
+				</Resizable.Pane>
+				<Resizable.Handle withHandle class="mb-6" />
+				<Resizable.Pane defaultSize={50} minSize={30} class="min-w-0 pb-6">
+					<AgentPreviewPanel />
+				</Resizable.Pane>
+			</Resizable.PaneGroup>
+		{:else}
 			<div class="flex-1 flex flex-col h-full min-w-0">
 				<div class="flex-1 overflow-hidden relative">
 					<PageHeader />
@@ -264,7 +280,11 @@
 				</button>
 				<AgentPreviewPanel />
 			</div>
-		{:else}
+		{/if}
+	</div>
+{:else if htmlPreviewState.isVisible && !agentPreviewState.isVisible}
+	<div class="flex h-full overflow-hidden relative">
+		{#if htmlPreviewState.isPinned}
 			<Resizable.PaneGroup direction="horizontal" class="h-full">
 				<Resizable.Pane defaultSize={50} minSize={30} class="min-w-0" style="min-width: 320px;">
 					<div class="flex h-full flex-col min-w-0">
@@ -277,14 +297,10 @@
 				</Resizable.Pane>
 				<Resizable.Handle withHandle class="mb-6" />
 				<Resizable.Pane defaultSize={50} minSize={30} class="min-w-0 pb-6">
-					<AgentPreviewPanel />
+					<HtmlPreviewPanel />
 				</Resizable.Pane>
 			</Resizable.PaneGroup>
-		{/if}
-	</div>
-{:else if htmlPreviewState.isVisible && !agentPreviewState.isVisible}
-	<div class="flex h-full overflow-hidden relative">
-		{#if htmlPreviewState.isPinned}
+		{:else}
 			<div class="flex-1 flex flex-col h-full min-w-0">
 				<div class="flex-1 overflow-hidden relative">
 					<PageHeader />
@@ -308,22 +324,6 @@
 				</button>
 				<HtmlPreviewPanel />
 			</div>
-		{:else}
-			<Resizable.PaneGroup direction="horizontal" class="h-full">
-				<Resizable.Pane defaultSize={50} minSize={30} class="min-w-0" style="min-width: 320px;">
-					<div class="flex h-full flex-col min-w-0">
-						<div class="flex-1 overflow-hidden relative">
-							<PageHeader />
-							<MessageList messages={chatState.messages} />
-						</div>
-						{@render ChatInputArea()}
-					</div>
-				</Resizable.Pane>
-				<Resizable.Handle withHandle class="mb-6" />
-				<Resizable.Pane defaultSize={50} minSize={30} class="min-w-0 pb-6">
-					<HtmlPreviewPanel />
-				</Resizable.Pane>
-			</Resizable.PaneGroup>
 		{/if}
 	</div>
 {:else}

@@ -14,7 +14,7 @@ export interface HtmlPreviewPayload extends HtmlPreviewContext {
 
 export class HtmlPreviewState {
 	isVisible = $state(false);
-	isPinned = $state(false);
+	isPinned = $state(true);
 	mode = $state<HtmlPreviewMode>("preview");
 	context = $state<HtmlPreviewContext | null>(null);
 	initialHtml = $state<string | null>(null);
