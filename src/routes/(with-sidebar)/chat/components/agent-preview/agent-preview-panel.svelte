@@ -2,6 +2,7 @@
 	import { deploySandboxProject } from "$lib/api/sandbox-deploy";
 	import { getFileContent, uploadSandboxFile, type SandboxFileInfo } from "$lib/api/sandbox-file";
 	import { deployHtmlTo302, validate302Provider } from "$lib/api/webserve-deploy";
+	import UnDeployedIcon from "$lib/assets/icons/code-agent/unDeployed.svg";
 	import CodeMirrorEditor from "$lib/components/buss/editor/codemirror-editor.svelte";
 	import PreviewHeader, { type PreviewTab } from "$lib/components/chat/preview-header.svelte";
 	import PreviewPanel from "$lib/components/html-preview/preview-panel.svelte";
@@ -17,7 +18,7 @@
 	import { htmlPreviewState } from "$lib/stores/html-preview-state.svelte";
 	import { persistedProviderState } from "$lib/stores/provider-state.svelte";
 	import { tabBarState } from "$lib/stores/tab-bar-state.svelte";
-	import { Bot, Loader2, Pencil, Save, X } from "@lucide/svelte";
+	import { Loader2, Pencil, Save, X } from "@lucide/svelte";
 	import type { ModelProvider } from "@shared/types";
 	import { onDestroy } from "svelte";
 	import { toast } from "svelte-sonner";
@@ -584,8 +585,20 @@
 									<div
 										class="flex h-full flex-col items-center justify-center gap-2 text-muted-foreground"
 									>
-										<Bot class="h-8 w-8" />
-										<p class="text-sm font-medium">{m.empty_agent_preview_title()}</p>
+										<img src={UnDeployedIcon} alt="Un deployed" class="h-40 w-40" />
+										<p class="text-lg font-medium">{m.empty_agent_preview_title()}</p>
+										<button
+											class="mt-2 flex items-center gap-1.5 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:pointer-events-none disabled:opacity-50"
+											onclick={handleDeploySandbox}
+											disabled={deployment.isDeploying || chatState.isStreaming}
+										>
+											{#if deployment.isDeploying}
+												<Loader2 class="h-4 w-4 animate-spin" />
+												{m.text_deploying()}
+											{:else}
+												{m.button_click_to_deploy()}
+											{/if}
+										</button>
 									</div>
 								{/if}
 							{:else if fileViewer.selectedFile}

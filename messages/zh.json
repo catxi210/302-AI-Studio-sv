@@ -691,6 +691,7 @@
 	"empty_html_preview_title": "没有可预览的内容",
 	"empty_html_preview_description": "请检查控制台获取详细调试信息",
 	"empty_agent_preview_title": "项目尚未部署",
+	"button_click_to_deploy": "点击部署",
 	"button_deploy_sandbox": "部署",
 	"toast_deploy_sandbox_success": "项目部署成功",
 	"toast_deploy_sandbox_failed": "项目部署失败",
@@ -933,7 +934,7 @@
 	"no_remark": "未备注",
 	"text_button_still_continue": "仍然继续",
 	"text_button_replace_sandbox": "更换沙盒",
-	"text_session_deleted": "此会话已被删除。",
+	"text_session_deleted": "此会话已被删除",
 	"button_start_new_session": "开始新会话",
 	"button_delete_current_conversation": "删除当前对话"
 }

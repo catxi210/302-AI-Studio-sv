@@ -693,6 +693,7 @@
 	"tooltip_close_agent_preview": "Close Agent Preview",
 	"title_html_preview": "HTML Preview",
 	"empty_agent_preview_title": "Project not deployed",
+	"button_click_to_deploy": "Click to Deploy",
 	"button_deploy_sandbox": "Deploy Project",
 	"toast_deploy_sandbox_success": "Project deployed successfully",
 	"toast_deploy_sandbox_failed": "Failed to deploy project",
