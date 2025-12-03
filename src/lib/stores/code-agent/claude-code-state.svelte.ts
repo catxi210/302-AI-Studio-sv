@@ -31,7 +31,6 @@ function getInitialData() {
 		workspacePaths: [],
 		variables: [],
 		currentSessionId: "",
-		// sessionIds: [],
 		sandboxId: "",
 		sandboxRemark: "",
 	};
@@ -46,7 +45,6 @@ export const persistedClaudeCodeAgentState = new PersistedState<CodeAgentMetadat
 class ClaudeCodeAgentState {
 	baseUrl = "https://api.302.ai/302/claude-code/v1";
 
-	customSessionId = $state("");
 	customSandboxName = $state("");
 
 	selectedSessionId = $state("new");
@@ -56,7 +54,6 @@ class ClaudeCodeAgentState {
 
 	model = $derived(persistedClaudeCodeAgentState.current?.model ?? "");
 	currentSessionId = $derived(persistedClaudeCodeAgentState.current?.currentSessionId ?? "");
-	// sessionIds = $derived(persistedClaudeCodeAgentState.current?.sessionIds ?? []);
 	sandboxId = $derived(persistedClaudeCodeAgentState.current?.sandboxId ?? "");
 	sandboxRemark = $derived(persistedClaudeCodeAgentState.current?.sandboxRemark ?? "");
 
@@ -70,10 +67,6 @@ class ClaudeCodeAgentState {
 			...partial,
 		};
 	}
-
-	// addSessionId(sessionId: string): void {
-	// 	this.updateState({ sessionIds: [...this.sessionIds, sessionId] });
-	// }
 
 	updateCurrentSessionId(sessionId: string): void {
 		this.updateState({ currentSessionId: sessionId });

@@ -113,39 +113,10 @@ class ClaudeCodeSandboxState {
 	}
 
 	async refreshSessions(sandboxId: string): Promise<boolean> {
-		console.log("[ClaudeCodeSandboxState] refreshSessions called with sandboxId:", sandboxId);
-
 		const { isOK } = await updateClaudeCodeSessions(sandboxId);
-
-		console.log("[ClaudeCodeSandboxState] refreshSessions result:", {
-			isOK,
-			sandboxId,
-		});
 
 		if (!isOK) {
 			toast.error(m.refresh_sessions_failed());
-		} else {
-			// Force refresh from storage to get the updated session data
-			// This is needed because the main process updated the storage
-			// and the sync to renderer might not have completed yet
-			// await persistedClaudeCodeSandboxState.refresh();
-
-			// Log the updated session data
-			const sandbox = persistedClaudeCodeSandboxState.current.find(
-				(s) => s.sandboxId === sandboxId,
-			);
-			console.log("[ClaudeCodeSandboxState] After refresh, sandbox sessionInfos:", {
-				sandboxId,
-				sessionInfos: sandbox?.sessionInfos,
-			});
-
-			const stillExisting = this.sessions.some(
-				(session) => session.value === claudeCodeAgentState.customSessionId,
-			);
-			if (!stillExisting) {
-				claudeCodeAgentState.customSessionId =
-					this.sessions.length > 0 ? this.sessions[0].value : "";
-			}
 		}
 
 		return isOK;
@@ -156,10 +127,8 @@ class ClaudeCodeSandboxState {
 		if (isOK) {
 			toast.success(m.delete_sandbox_success());
 		} else {
-			const errorMessage = error
-				? `${m.delete_sandbox_failed()}: ${error}`
-				: m.delete_sandbox_failed();
-			toast.error(errorMessage);
+			toast.error(m.delete_sandbox_failed());
+			console.error(error);
 		}
 		return isOK;
 	}
