@@ -1,8 +1,12 @@
 <script lang="ts">
+	import { updateSessionNote } from "$lib/api/sandbox-session";
+	import { validate302Provider } from "$lib/api/webserve-deploy";
 	import * as Collapsible from "$lib/components/ui/collapsible";
 	import { Input } from "$lib/components/ui/input";
 	import * as Sidebar from "$lib/components/ui/sidebar";
 	import { m } from "$lib/paraglide/messages";
+	import { persistedClaudeCodeSandboxState } from "$lib/stores/code-agent/claude-code-sandbox-state.svelte";
+	import { persistedProviderState } from "$lib/stores/provider-state.svelte";
 	import { sidebarSearchState } from "$lib/stores/sidebar-search-state.svelte";
 	import { tabBarState } from "$lib/stores/tab-bar-state.svelte";
 	import { threadsState } from "$lib/stores/threads-state.svelte";
@@ -168,13 +172,6 @@
 			const configKey = `CodeAgentStorage:code-agent-config-state-${threadId}`;
 			const config = await window.electronAPI.storageService.getItem(configKey);
 
-			console.log(`[isCodeAgentThread] Checking thread ${threadId}:`, {
-				configKey,
-				config,
-				enabled: (config as CodeAgentConfigMetadata)?.enabled,
-				currentAgentId: (config as CodeAgentConfigMetadata)?.currentAgentId,
-			});
-
 			if (
 				(config as CodeAgentConfigMetadata)?.enabled &&
 				(config as CodeAgentConfigMetadata)?.currentAgentId === "claude-code"
@@ -183,22 +180,32 @@
 				const claudeStateKey = `CodeAgentStorage:claude-code-agent-state-${threadId}`;
 				const claudeState = await window.electronAPI.storageService.getItem(claudeStateKey);
 
-				console.log(`[isCodeAgentThread] Claude state for thread ${threadId}:`, {
-					claudeStateKey,
-					claudeState,
-					sandboxId: (claudeState as CodeAgentMetadata)?.sandboxId,
-					currentSessionId: (claudeState as CodeAgentMetadata)?.currentSessionId,
-				});
+				const sandboxId = (claudeState as CodeAgentMetadata)?.sandboxId;
+				const currentSessionId = (claudeState as CodeAgentMetadata)?.currentSessionId;
 
-				if (
-					(claudeState as CodeAgentMetadata)?.sandboxId &&
-					(claudeState as CodeAgentMetadata)?.currentSessionId
-				) {
-					return {
-						isCodeAgent: true,
-						sandboxId: (claudeState as CodeAgentMetadata).sandboxId,
-						sessionId: (claudeState as CodeAgentMetadata).currentSessionId,
-					};
+				if (sandboxId && currentSessionId) {
+					// Find the real session id from sessionInfos
+					const sandbox = persistedClaudeCodeSandboxState.current.find(
+						(s) => s.sandboxId === sandboxId,
+					);
+					if (sandbox) {
+						const session = sandbox.sessionInfos.find((s) => s.sessionId === currentSessionId);
+						if (session) {
+							return {
+								isCodeAgent: true,
+								sandboxId: sandboxId,
+								sessionId: session.sessionId,
+							};
+						}
+						// Session not found in sessionInfos
+						console.error(
+							`Session ${currentSessionId} not found in sandbox ${sandboxId} sessionInfos`,
+						);
+						return { isCodeAgent: false };
+					}
+					// Sandbox not found in local state
+					console.error(`Sandbox ${sandboxId} not found in local state`);
+					return { isCodeAgent: false };
 				}
 			}
 		} catch (error) {
@@ -291,6 +298,9 @@
 		const trimmedName = newName.trim();
 		if (!trimmedName) return;
 
+		// Get agent info BEFORE updating currentSessionId (which will change to the new name)
+		const agentInfo = await isCodeAgentThread(renameTargetThreadId);
+
 		await threadsState.renameThread(renameTargetThreadId, trimmedName);
 		tabBarState.updateTabTitle(renameTargetThreadId, trimmedName);
 
@@ -298,6 +308,18 @@
 			renameTargetThreadId,
 			trimmedName,
 		);
+
+		// Update session note for code agent threads
+		if (agentInfo.isCodeAgent && agentInfo.sandboxId && agentInfo.sessionId) {
+			const providerResult = validate302Provider(persistedProviderState.current);
+			if (providerResult.valid && providerResult.provider) {
+				updateSessionNote(providerResult.provider, {
+					note: trimmedName,
+					sandbox_id: agentInfo.sandboxId,
+					session_id: agentInfo.sessionId,
+				});
+			}
+		}
 
 		closeRenameDialog();
 	}
