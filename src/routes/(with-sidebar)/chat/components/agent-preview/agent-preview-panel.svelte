@@ -7,6 +7,7 @@
 	import PreviewHeader, { type PreviewTab } from "$lib/components/chat/preview-header.svelte";
 	import PreviewPanel from "$lib/components/html-preview/preview-panel.svelte";
 
+	import Button from "$lib/components/ui/button/button.svelte";
 	import * as m from "$lib/paraglide/messages";
 	import { agentPreviewState } from "$lib/stores/agent-preview-state.svelte";
 	import { chatState } from "$lib/stores/chat-state.svelte";
@@ -583,12 +584,12 @@
 									<SessionDeleted />
 								{:else}
 									<div
-										class="flex h-full flex-col items-center justify-center gap-2 text-muted-foreground"
+										class="flex h-full flex-col items-center justify-start pt-20 text-muted-foreground"
 									>
 										<img src={UnDeployedIcon} alt="Un deployed" class="h-40 w-40" />
-										<p class="text-lg font-medium">{m.empty_agent_preview_title()}</p>
-										<button
-											class="mt-2 flex items-center gap-1.5 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:pointer-events-none disabled:opacity-50"
+										<p class="text-sm font-medium">{m.empty_agent_preview_title()}</p>
+										<Button
+											class=" flex rounded-xs items-center gap-1.5 mt-3.5   bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:pointer-events-none disabled:opacity-50"
 											onclick={handleDeploySandbox}
 											disabled={deployment.isDeploying || chatState.isStreaming}
 										>
@@ -598,7 +599,7 @@
 											{:else}
 												{m.button_click_to_deploy()}
 											{/if}
-										</button>
+										</Button>
 									</div>
 								{/if}
 							{:else if fileViewer.selectedFile}

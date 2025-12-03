@@ -1,5 +1,6 @@
 <script lang="ts">
 	import SessionDeletedIcon from "$lib/assets/icons/code-agent/sessionDeleted.svg";
+	import Button from "$lib/components/ui/button/button.svelte";
 	import { m } from "$lib/paraglide/messages";
 	import { chatState } from "$lib/stores/chat-state.svelte";
 	import { tabBarState } from "$lib/stores/tab-bar-state.svelte";
@@ -23,22 +24,19 @@
 	}
 </script>
 
-<div class="flex h-full flex-col items-center justify-center gap-4 text-muted-foreground">
+<div class="flex h-full flex-col items-center justify-start gap-4 pt-20 text-muted-foreground">
 	<img src={SessionDeletedIcon} alt="Session deleted" class="h-40 w-40" />
 	<p class="text-sm font-medium">{m.text_session_deleted()}</p>
 
 	<div class="flex flex-col gap-3 mt-2">
-		<button
-			onclick={handleStartNewSession}
-			class="px-6 py-2 rounded-lg text-sm font-medium text-white bg-[#8E47F0] hover:bg-[#7C3DD6] transition-colors"
-		>
+		<Button onclick={handleStartNewSession} class=" rounded-sm text-sm font-medium text-white ">
 			{m.button_start_new_session()}
-		</button>
-		<button
+		</Button>
+		<Button
 			onclick={handleDeleteCurrentConversation}
-			class="px-6 py-2 rounded-lg text-sm font-medium text-[#FF4D4F] bg-[#FFF1F0] hover:bg-[#FFE4E4] transition-colors"
+			class="rounded-sm text-sm font-medium text-[#FF4D4F] bg-[#FFF1F0] hover:bg-[#FFE4E4] transition-colors"
 		>
 			{m.button_delete_current_conversation()}
-		</button>
+		</Button>
 	</div>
 </div>
