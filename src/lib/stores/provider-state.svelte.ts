@@ -312,6 +312,27 @@ class ProviderState {
 
 		return backupProvider;
 	}
+
+	/**
+	 * Clear the API key from the 302.AI provider if it matches the given key
+	 * Used when logging out to unlink the associated API key
+	 * @param associatedApiKey - The API key to compare against
+	 * @returns true if the key was cleared, false if it didn't match or provider not found
+	 */
+	clearAssociatedApiKey(associatedApiKey: string): boolean {
+		const provider = this.getProvider("302AI");
+		if (!provider) return false;
+
+		// Only clear if the current API key matches the associated key
+		if (provider.apiKey === associatedApiKey) {
+			this.updateProvider("302AI", { apiKey: "" });
+			console.log("[Provider] Cleared associated API key from 302.AI provider");
+			return true;
+		}
+
+		console.log("[Provider] API key mismatch, not clearing (user may have modified it)");
+		return false;
+	}
 }
 
 export const providerState = new ProviderState();

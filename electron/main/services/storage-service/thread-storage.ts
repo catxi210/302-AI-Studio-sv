@@ -168,6 +168,43 @@ export class ThreadStorage extends StorageService<ThreadMetadata> {
 			return null;
 		}
 	}
+
+	/**
+	 * Delete all threads that have a specific apiKeyHash
+	 * Used when logging out to clean up sessions associated with a specific account
+	 * @param apiKeyHash - The hash of the API key to match
+	 * @returns Object containing count of deleted threads and their IDs
+	 */
+	async deleteThreadsByApiKeyHash(
+		apiKeyHash: string,
+	): Promise<{ deletedCount: number; deletedThreadIds: string[] }> {
+		try {
+			const allThreads = await this.getThreadsData();
+			if (!allThreads) return { deletedCount: 0, deletedThreadIds: [] };
+
+			const deletedThreadIds: string[] = [];
+			for (const threadData of allThreads) {
+				if (threadData.thread.apiKeyHash === apiKeyHash) {
+					try {
+						await this.deleteThread(threadData.threadId);
+						// Also delete messages
+						await storageService.removeItemInternal("app-chat-messages:" + threadData.threadId);
+						deletedThreadIds.push(threadData.threadId);
+						console.log(
+							`[ThreadStorage] Deleted thread ${threadData.threadId} with matching apiKeyHash`,
+						);
+					} catch (error) {
+						console.error(`Failed to delete thread ${threadData.threadId}:`, error);
+					}
+				}
+			}
+
+			return { deletedCount: deletedThreadIds.length, deletedThreadIds };
+		} catch (error) {
+			console.error("Failed to delete threads by apiKeyHash:", error);
+			return { deletedCount: 0, deletedThreadIds: [] };
+		}
+	}
 }
 
 export const threadStorage = new ThreadStorage();

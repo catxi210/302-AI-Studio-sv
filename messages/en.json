@@ -946,5 +946,12 @@
 	"sso_apikey_dialog_override": "Override",
 	"sso_apikey_dialog_keep": "Keep Original API Key",
 	"sso_apikey_dialog_backup": "Override and Backup Original API Key",
-	"sso_apikey_provider_backup_suffix": "Old"
+	"sso_apikey_provider_backup_suffix": "Old",
+	"sso_logout_dialog_title": "Logout",
+	"sso_logout_dialog_description": "Are you sure you want to logout from this 302 account?",
+	"sso_logout_option_unlink_apikey": "Unlink 302.AI model API Key",
+	"sso_logout_option_clear_sessions": "Clear all sessions associated with this account",
+	"sso_logout_option_clear_mcp": "Clear all MCP Servers associated with this account",
+	"sso_logout_button_close": "Close",
+	"sso_logout_button_confirm": "Logout"
 }

@@ -356,6 +356,9 @@ export function registerIpcHandlers() {
 	ipcMain.handle("threadService:removeFavorite", (event, threadId) =>
 		threadService.removeFavorite(event, threadId),
 	);
+	ipcMain.handle("threadService:deleteThreadsByApiKeyHash", (event, apiKeyHash) =>
+		threadService.deleteThreadsByApiKeyHash(event, apiKeyHash),
+	);
 
 	// updaterService service registration
 	ipcMain.handle("updaterService:checkForUpdatesManually", (event) =>
@@ -489,6 +492,7 @@ export function removeIpcHandlers() {
 	ipcMain.removeHandler("threadService:renameThread");
 	ipcMain.removeHandler("threadService:addFavorite");
 	ipcMain.removeHandler("threadService:removeFavorite");
+	ipcMain.removeHandler("threadService:deleteThreadsByApiKeyHash");
 	ipcMain.removeHandler("updaterService:checkForUpdatesManually");
 	ipcMain.removeHandler("updaterService:quitAndInstall");
 	ipcMain.removeHandler("updaterService:isUpdateDownloaded");

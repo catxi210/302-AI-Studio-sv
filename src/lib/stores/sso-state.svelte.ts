@@ -52,6 +52,8 @@ class SsoStateManager {
 				} else if (provider) {
 					// Provider exists but has no API key - auto-fill it
 					await providerState.updateProvider("302AI", { apiKey: rawApiKey });
+					// Store the SSO API key for association tracking
+					userState.setSsoApiKey(rawApiKey);
 					await providerState.fetchModelsForProvider(provider);
 					await this.completeLoginFlow();
 				} else {
@@ -97,11 +99,14 @@ class SsoStateManager {
 				case "override":
 					// Override: Replace the existing API key with the new one
 					await providerState.updateProvider("302AI", { apiKey: newApiKey });
+					// Store the SSO API key for association tracking
+					userState.setSsoApiKey(newApiKey);
 					await providerState.fetchModelsForProvider(provider);
 					break;
 
 				case "keep":
 					// Keep: Keep the original API key, but refresh models with it
+					// Don't update ssoApiKey - the user chose to keep the old key
 					await providerState.fetchModelsForProvider(provider);
 					break;
 
@@ -115,6 +120,8 @@ class SsoStateManager {
 
 					// Now update the original provider with the new API key
 					await providerState.updateProvider("302AI", { apiKey: newApiKey });
+					// Store the SSO API key for association tracking
+					userState.setSsoApiKey(newApiKey);
 					await providerState.fetchModelsForProvider(provider);
 					break;
 				}
@@ -178,19 +185,27 @@ class SsoStateManager {
 			const now = new Date();
 			const maxOrder = mcpState.servers.reduce((max, s) => Math.max(max, s.order), 0);
 
-			const mcpServers: McpServer[] = servers302.map((server, index) => ({
-				id: nanoid(),
-				name: server.name,
-				description: server.displayTools.length > 0 ? server.displayTools.join(", ") : "",
-				type: "streamableHTTP" as const,
-				url: buildMcpServerUrl(server.proxyId),
-				command: null,
-				icon: "🔧",
-				enabled: true,
-				order: maxOrder + index + 1,
-				createdAt: now,
-				updatedAt: now,
-			}));
+			const mcpServers: McpServer[] = servers302.map((server, index) => {
+				const serverUrl = buildMcpServerUrl(server.proxyId);
+				return {
+					id: nanoid(),
+					name: server.name,
+					description: server.displayTools.length > 0 ? server.displayTools.join(", ") : "",
+					type: "streamableHTTP" as const,
+					url: serverUrl,
+					command: null,
+					icon: "🔧",
+					enabled: true,
+					order: maxOrder + index + 1,
+					createdAt: now,
+					updatedAt: now,
+					// Association tracking fields
+					associatedWithAccount: true,
+					originalUrl: serverUrl,
+					originalType: "streamableHTTP" as const,
+					originalCommand: null,
+				};
+			});
 
 			// Add servers that don't already exist (by name)
 			const result = mcpState.addServersIfNotExists(mcpServers);

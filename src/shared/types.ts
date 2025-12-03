@@ -139,6 +139,8 @@ export interface ThreadParmas {
 	isPrivateChatActive: boolean;
 	updatedAt: Date;
 	autoSendOnLoad?: boolean; // Flag to auto-send message when thread loads (for branch and send)
+	/** Hash of the API key used when creating this thread, used to track account association */
+	apiKeyHash?: string;
 }
 
 export interface ThreadData {

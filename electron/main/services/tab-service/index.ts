@@ -14,6 +14,7 @@ import { TempStorage } from "../../utils/temp-storage";
 import { codeAgentService } from "../code-agent-service";
 import { shortcutService } from "../shortcut-service";
 import { storageService } from "../storage-service";
+import { providerStorage } from "../storage-service/provider-storage";
 import { sessionStorage } from "../storage-service/session-storage";
 import { tabStorage } from "../storage-service/tab-storage";
 
@@ -651,9 +652,10 @@ export class TabService {
 		};
 
 		if (type === "chat") {
-			const [newSessionModel, latestUsedModel] = await Promise.all([
+			const [newSessionModel, latestUsedModel, apiKeyHash] = await Promise.all([
 				storageService.getItemInternal("PreferencesSettingsStorage:state"),
 				sessionStorage.getLatestUsedModel(),
+				providerStorage.get302AIApiKeyHash(),
 			]);
 			const preferencesSettings = newSessionModel as unknown as {
 				newSessionModel?: ThreadParmas["selectedModel"];
@@ -698,6 +700,7 @@ export class TabService {
 				selectedModel: preferencesSettings?.newSessionModel ?? latestUsedModel,
 				isPrivateChatActive: inheritedPrivacyState,
 				updatedAt: new Date(),
+				apiKeyHash, // Track which API key was used when creating this thread
 			};
 			// eslint-disable-next-line @typescript-eslint/no-explicit-any
 			const newMessages: any = [];

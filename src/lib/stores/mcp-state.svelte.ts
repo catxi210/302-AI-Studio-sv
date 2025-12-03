@@ -28,9 +28,32 @@ class McpState {
 	}
 
 	updateServer(id: string, updates: Partial<McpServer>) {
-		persistedMcpState.current = persistedMcpState.current.map((s) =>
-			s.id === id ? { ...s, ...updates, updatedAt: new Date() } : s,
-		);
+		persistedMcpState.current = persistedMcpState.current.map((s) => {
+			if (s.id !== id) return s;
+
+			// Check if critical fields are being modified for account-associated servers
+			let updatedServer = { ...s, ...updates, updatedAt: new Date() };
+
+			if (s.associatedWithAccount) {
+				const criticalFieldsChanged =
+					(updates.url !== undefined && updates.url !== s.originalUrl) ||
+					(updates.type !== undefined && updates.type !== s.originalType) ||
+					(updates.command !== undefined && updates.command !== s.originalCommand);
+
+				if (criticalFieldsChanged) {
+					// Unlink from account when critical fields are modified
+					updatedServer = {
+						...updatedServer,
+						associatedWithAccount: false,
+					};
+					console.log(
+						`[MCP] Server "${s.name}" unlinked from account due to critical field change`,
+					);
+				}
+			}
+
+			return updatedServer;
+		});
 	}
 
 	removeServer(id: string) {
@@ -81,6 +104,29 @@ class McpState {
 		}
 
 		return { added, skipped };
+	}
+
+	/**
+	 * Get all MCP servers that are associated with the logged-in account
+	 */
+	getAssociatedServers(): McpServer[] {
+		return this.servers.filter((s) => s.associatedWithAccount === true);
+	}
+
+	/**
+	 * Remove all MCP servers that are associated with the account
+	 * @returns Number of servers removed
+	 */
+	removeAssociatedServers(): number {
+		const before = persistedMcpState.current.length;
+		persistedMcpState.current = persistedMcpState.current.filter(
+			(s) => s.associatedWithAccount !== true,
+		);
+		const removed = before - persistedMcpState.current.length;
+		if (removed > 0) {
+			console.log(`[MCP] Removed ${removed} account-associated servers`);
+		}
+		return removed;
 	}
 }
 

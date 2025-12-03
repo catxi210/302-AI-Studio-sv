@@ -14,6 +14,7 @@ import { replaceCodeBlockAt } from "$lib/utils/markdown-code-block";
 import { Chat } from "@ai-sdk/svelte";
 import type { ModelProvider } from "@shared/storage/provider";
 import type { AttachmentFile, MCPServer, Model, ThreadParmas } from "@shared/types";
+import { hashApiKey } from "@shared/utils/hash";
 import { nanoid } from "nanoid";
 import { toast } from "svelte-sonner";
 
@@ -778,6 +779,14 @@ class ChatState {
 		}
 	}
 
+	/**
+	 * Get the current 302.AI provider's API key hash for session tracking
+	 */
+	private get302AIApiKeyHash(): string | undefined {
+		const provider = providerState.getProvider("302AI");
+		return hashApiKey(provider?.apiKey);
+	}
+
 	async createBranch(upToMessageId: string): Promise<string | null> {
 		try {
 			// 1. find the target message index
@@ -812,6 +821,7 @@ class ChatState {
 				frequencyPenalty: this.frequencyPenalty,
 				presencePenalty: this.presencePenalty,
 				updatedAt: new Date(),
+				apiKeyHash: this.get302AIApiKeyHash(),
 			});
 
 			// 5. save thread data
@@ -926,6 +936,7 @@ class ChatState {
 				presencePenalty: this.presencePenalty,
 				updatedAt: new Date(),
 				autoSendOnLoad: true, // Set flag to trigger AI reply on load
+				apiKeyHash: this.get302AIApiKeyHash(),
 			});
 
 			// 8. save thread data and messages

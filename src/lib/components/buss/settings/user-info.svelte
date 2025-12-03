@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { SsoLogoutDialog, type SsoLogoutOptions } from "$lib/components/buss/sso-logout-dialog";
 	import * as Avatar from "$lib/components/ui/avatar";
 	import { Badge } from "$lib/components/ui/badge";
 	import { Button } from "$lib/components/ui/button";
@@ -13,9 +14,19 @@
 	let isRefreshing = $state(false);
 	let copiedField = $state<string | null>(null);
 	let copyTimeoutId: NodeJS.Timeout | null = null;
+	let showLogoutDialog = $state(false);
 
-	function handleLogout() {
-		userState.logout();
+	function handleLogoutClick() {
+		showLogoutDialog = true;
+	}
+
+	async function handleLogoutConfirm(options: SsoLogoutOptions) {
+		showLogoutDialog = false;
+		await userState.logoutWithCleanup(options);
+	}
+
+	function handleLogoutClose() {
+		showLogoutDialog = false;
 	}
 
 	async function handleRefresh() {
@@ -108,7 +119,7 @@
 				>
 					<RefreshCw class="size-4" />
 				</Button>
-				<Button variant="outline" size="sm" onclick={handleLogout} class="dark:hover:bg-muted">
+				<Button variant="outline" size="sm" onclick={handleLogoutClick} class="dark:hover:bg-muted">
 					{m.settings_logout()}
 				</Button>
 			</div>
@@ -205,4 +216,12 @@
 			value="${formatCurrency(userState.userInfo.total_earning)}"
 		/>
 	</div>
+
+	<!-- Logout Dialog -->
+	<SsoLogoutDialog
+		bind:open={showLogoutDialog}
+		userEmail={userState.userInfo?.email || userState.userInfo?.user_name || "User"}
+		onConfirm={handleLogoutConfirm}
+		onClose={handleLogoutClose}
+	/>
 {/if}

@@ -1,12 +1,15 @@
+import type { SsoLogoutOptions } from "$lib/components/buss/sso-logout-dialog";
 import { API_BASE_URL } from "$lib/constants/api";
 import { PersistedState } from "$lib/hooks/persisted-state.svelte";
 import { m } from "$lib/paraglide/messages.js";
 import type { UserInfo, UserState } from "@shared/storage/user";
+import { hashApiKey } from "@shared/utils/hash";
 
 const getDefaults = (): UserState => ({
 	token: null,
 	userInfo: null,
 	isLoggedIn: false,
+	ssoApiKey: null,
 });
 
 const persistedUserState = new PersistedState<UserState>("UserStorage:state", getDefaults());
@@ -29,6 +32,10 @@ class UserStateManager {
 		return !!(persistedUserState.current.token && persistedUserState.current.userInfo);
 	}
 
+	get ssoApiKey(): string | null {
+		return persistedUserState.current.ssoApiKey;
+	}
+
 	setToken(token: string): void {
 		persistedUserState.current = {
 			...persistedUserState.current,
@@ -40,6 +47,16 @@ class UserStateManager {
 		persistedUserState.current = {
 			...persistedUserState.current,
 			userInfo,
+		};
+	}
+
+	/**
+	 * Store the API key obtained from SSO login for tracking association
+	 */
+	setSsoApiKey(apiKey: string): void {
+		persistedUserState.current = {
+			...persistedUserState.current,
+			ssoApiKey: apiKey,
 		};
 	}
 
@@ -83,6 +100,47 @@ class UserStateManager {
 
 	logout(): void {
 		persistedUserState.current = getDefaults();
+	}
+
+	/**
+	 * Logout with cleanup options.
+	 * This method handles clearing associated resources based on user selection.
+	 * @param options - The cleanup options selected by the user
+	 */
+	async logoutWithCleanup(options: SsoLogoutOptions): Promise<void> {
+		// Import dependencies lazily to avoid circular imports
+		const { mcpState } = await import("./mcp-state.svelte");
+		const { providerState } = await import("./provider-state.svelte");
+		const { threadService, broadcastService } = window.electronAPI;
+
+		const ssoApiKey = this.ssoApiKey;
+
+		// 1. Clear associated API key if option is selected
+		if (options.unlinkApiKey && ssoApiKey) {
+			providerState.clearAssociatedApiKey(ssoApiKey);
+			console.log("[Logout] Cleared associated API key");
+		}
+
+		// 2. Clear associated sessions if option is selected
+		if (options.clearSessions && ssoApiKey) {
+			const apiKeyHash = hashApiKey(ssoApiKey);
+			if (apiKeyHash) {
+				const deletedCount = await threadService.deleteThreadsByApiKeyHash(apiKeyHash);
+				console.log(`[Logout] Deleted ${deletedCount} associated sessions`);
+
+				// Broadcast thread list update
+				await broadcastService.broadcastToAll("thread-list-updated", {});
+			}
+		}
+
+		// 3. Clear associated MCP servers if option is selected
+		if (options.clearMcpServers) {
+			const removedCount = mcpState.removeAssociatedServers();
+			console.log(`[Logout] Removed ${removedCount} associated MCP servers`);
+		}
+
+		// Finally, logout (clear user state)
+		this.logout();
 	}
 
 	update(partial: Partial<UserState>): void {
