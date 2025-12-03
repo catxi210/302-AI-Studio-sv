@@ -25,6 +25,8 @@
 	import { cn } from "$lib/utils";
 	import { ChevronsUpDownIcon, RefreshCcw } from "@lucide/svelte";
 
+	const { windowService } = window.electronAPI;
+
 	let { onClose }: Props = $props();
 
 	let disabled = $derived(!codeAgentState.isFreshTab);
@@ -154,7 +156,19 @@
 		<Collapsible.Content class="pb-2">
 			<div class="flex flex-col gap-2">
 				{@render selectSandbox()}
-				<Field.Description class="text-xs">{m.description_advanced_settings()}</Field.Description>
+
+				<Field.Description class="text-xs"
+					>{m.description_advanced_settings()}
+					{m.click_here_manage_sandbox()}
+					<button
+						type="button"
+						class="text-primary hover:underline hover:underline-offset-2"
+						onclick={() => {
+							windowService.handleOpenSettingsWindow("/settings/agent-settings");
+						}}
+						>{m.link_manage_sandbox()}
+					</button>
+				</Field.Description>
 			</div>
 		</Collapsible.Content>
 	</Collapsible.Root>
