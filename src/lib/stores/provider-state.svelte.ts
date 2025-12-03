@@ -276,6 +276,42 @@ class ProviderState {
 
 		return await this.fetchModelsForProvider(provider);
 	}
+
+	/**
+	 * Create a backup copy of an existing provider with a suffix added to its name.
+	 * @param providerId - The ID of the provider to backup
+	 * @param nameSuffix - The suffix to add to the provider name (e.g., "旧" or "Old")
+	 * @returns The newly created backup provider, or null if the original provider was not found
+	 */
+	createProviderBackup(providerId: string, nameSuffix: string): ModelProvider | null {
+		const originalProvider = this.getProvider(providerId);
+		if (!originalProvider) return null;
+
+		const timestamp = Date.now();
+		const backupProvider: ModelProvider = {
+			...originalProvider,
+			id: `${providerId}-backup-${timestamp}`,
+			name: `${originalProvider.name} - ${nameSuffix}`,
+			custom: true, // Mark as custom so it can be removed
+		};
+
+		this.addProvider(backupProvider);
+
+		// Copy models from original provider to backup provider
+		const originalModels = persistedModelState.current.filter(
+			(model) => model.providerId === providerId,
+		);
+		if (originalModels.length > 0) {
+			const backupModels: Model[] = originalModels.map((model) => ({
+				...model,
+				id: `${model.id}-backup-${timestamp}`,
+				providerId: backupProvider.id,
+			}));
+			persistedModelState.current = [...persistedModelState.current, ...backupModels];
+		}
+
+		return backupProvider;
+	}
 }
 
 export const providerState = new ProviderState();

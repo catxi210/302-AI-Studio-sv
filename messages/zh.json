@@ -936,5 +936,11 @@
 	"text_button_replace_sandbox": "更换沙盒",
 	"text_session_deleted": "此会话已被删除",
 	"button_start_new_session": "开始新会话",
-	"button_delete_current_conversation": "删除当前对话"
+	"button_delete_current_conversation": "删除当前对话",
+	"sso_apikey_dialog_title": "登录提示",
+	"sso_apikey_dialog_description": "当前302.AI模型供应商已配置有API Key，与当前登录账号不同，是否覆盖？",
+	"sso_apikey_dialog_override": "覆盖",
+	"sso_apikey_dialog_keep": "保留原有API Key",
+	"sso_apikey_dialog_backup": "覆盖并备份原API Key",
+	"sso_apikey_provider_backup_suffix": "旧"
 }

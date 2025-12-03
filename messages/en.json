@@ -940,5 +940,11 @@
 	"text_button_replace_sandbox": "Change Sandbox",
 	"text_session_deleted": "Session deleted",
 	"button_start_new_session": "Start New Session",
-	"button_delete_current_conversation": "Delete Current Conversation"
+	"button_delete_current_conversation": "Delete Current Conversation",
+	"sso_apikey_dialog_title": "Login Notice",
+	"sso_apikey_dialog_description": "The 302.AI provider already has an API Key configured, which differs from your logged-in account. Would you like to override it?",
+	"sso_apikey_dialog_override": "Override",
+	"sso_apikey_dialog_keep": "Keep Original API Key",
+	"sso_apikey_dialog_backup": "Override and Backup Original API Key",
+	"sso_apikey_provider_backup_suffix": "Old"
 }

@@ -1,9 +1,15 @@
 <script lang="ts">
+	import type { SsoApikeyDialogAction } from "$lib/components/buss/sso-apikey-dialog";
+	import { SsoApikeyDialog } from "$lib/components/buss/sso-apikey-dialog";
 	import { Label } from "$lib/components/ui/label/index.js";
 	import { m } from "$lib/paraglide/messages.js";
 	import { ssoState } from "$lib/stores/sso-state.svelte";
 	import { userState } from "$lib/stores/user-state.svelte";
 	import { AlertCircle, ArrowRight, Check, Loader, Zap } from "@lucide/svelte";
+
+	function handleApiKeyDialogSelect(action: SsoApikeyDialogAction) {
+		ssoState.handleApiKeyConflict(action);
+	}
 </script>
 
 {#if !userState.isLoggedIn}
@@ -55,3 +61,9 @@
 		</button>
 	</div>
 {/if}
+
+<!-- SSO API Key Conflict Dialog -->
+<SsoApikeyDialog
+	bind:open={ssoState.showApiKeyConflictDialog}
+	onSelect={handleApiKeyDialogSelect}
+/>

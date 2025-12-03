@@ -52,6 +52,36 @@ class McpState {
 	getSortedServers(): McpServer[] {
 		return [...this.servers].sort((a, b) => a.order - b.order);
 	}
+
+	/**
+	 * Add multiple MCP servers, skipping those with names that already exist.
+	 * @param servers - Array of MCP servers to add
+	 * @returns Object with count of added and skipped servers
+	 */
+	addServersIfNotExists(servers: McpServer[]): { added: number; skipped: number } {
+		let added = 0;
+		let skipped = 0;
+
+		const serversToAdd: McpServer[] = [];
+
+		for (const server of servers) {
+			const existingServer = this.getServerByName(server.name);
+			if (existingServer) {
+				skipped++;
+				console.log(`[MCP] Skipped server "${server.name}" - already exists`);
+			} else {
+				serversToAdd.push(server);
+				added++;
+			}
+		}
+
+		if (serversToAdd.length > 0) {
+			persistedMcpState.current = [...persistedMcpState.current, ...serversToAdd];
+			console.log(`[MCP] Added ${added} new servers`);
+		}
+
+		return { added, skipped };
+	}
 }
 
 export const mcpState = new McpState();
