@@ -5,7 +5,6 @@ import { m } from "$lib/paraglide/messages";
 import { persistedProviderState } from "$lib/stores/provider-state.svelte";
 import type { ClaudeCodeSandboxInfo } from "@shared/storage/code-agent";
 import { toast } from "svelte-sonner";
-import { match } from "ts-pattern";
 import { claudeCodeAgentState } from "./claude-code-state.svelte";
 
 export const persistedClaudeCodeSandboxState = new PersistedState<ClaudeCodeSandboxInfo[]>(
@@ -50,39 +49,18 @@ class ClaudeCodeSandboxState {
 
 	sessions = $derived.by(() => {
 		const sanboxes = persistedClaudeCodeSandboxState.current;
-
-		return match(claudeCodeAgentState.selectedSandboxId)
-			.with("auto", () => {
-				const allSessionInfos = sanboxes.flatMap((sandbox) => sandbox.sessionInfos);
-				return [
-					newSessionItem,
-					...allSessionInfos.map((session) => {
-						return {
-							key: session.workspacePath,
-							label: session.note && session.note !== "" ? session.note : session.sessionId,
-							value: session.sessionId,
-						};
-					}),
-				];
-			})
-			.otherwise(() => {
-				const targetSandbox = sanboxes.find(
-					(sandbox) => sandbox.sandboxId === claudeCodeAgentState.selectedSandboxId,
-				);
-				if (!targetSandbox) {
-					return [newSessionItem];
-				}
-				return [
-					newSessionItem,
-					...targetSandbox.sessionInfos.map((session) => {
-						return {
-							key: session.workspacePath,
-							label: session.note && session.note !== "" ? session.note : session.sessionId,
-							value: session.sessionId,
-						};
-					}),
-				];
-			});
+		return [
+			newSessionItem,
+			...sanboxes
+				.flatMap((sandbox) => sandbox.sessionInfos)
+				.map((session) => {
+					return {
+						key: session.workspacePath,
+						label: session.note && session.note !== "" ? session.note : session.sessionId,
+						value: session.sessionId,
+					};
+				}),
+		];
 	});
 
 	/**

@@ -182,7 +182,7 @@
 			options={claudeCodeSandboxState.sandboxes}
 			placeholder={m.select_sandbox_placeholder()}
 			onValueChange={(v) => claudeCodeSandboxState.handleSelectSandbox(v)}
-			disabled={claudeCodeAgentState.agentMode === "existing" || disabled}
+			disabled={disabled || isRefreshing}
 			class="!bg-background dark:!bg-background"
 		/>
 	</div>
