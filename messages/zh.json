@@ -951,5 +951,7 @@
 	"sso_logout_option_clear_sessions": "清除此账号关联的所有会话",
 	"sso_logout_option_clear_mcp": "清除此账号关联的MCP Server",
 	"sso_logout_button_close": "关闭",
-	"sso_logout_button_confirm": "退出"
+	"sso_logout_button_confirm": "退出",
+	"login_banner_text": "登录302.AI账号快速开始",
+	"login_banner_button": "授权登录"
 }

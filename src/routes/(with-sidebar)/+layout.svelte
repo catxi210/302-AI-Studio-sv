@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { LoginBanner } from "$lib/components/buss/login-banner";
 	import * as Sidebar from "$lib/components/ui/sidebar";
 	import { fly } from "svelte/transition";
 	import AppSidebar from "./components/app-sidebar.svelte";
@@ -14,6 +15,8 @@
 	<AppSidebar />
 
 	<Sidebar.Inset class="flex flex-col flex-1">
+		<!-- Login banner - static element at top of chat area -->
+		<LoginBanner />
 		<div class="flex-1 overflow-auto" transition:fly={{ y: 20, duration: 800 }}>
 			{@render children?.()}
 		</div>

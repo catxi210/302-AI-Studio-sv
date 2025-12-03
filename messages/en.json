@@ -955,5 +955,7 @@
 	"sso_logout_option_clear_sessions": "Clear all sessions associated with this account",
 	"sso_logout_option_clear_mcp": "Clear all MCP Servers associated with this account",
 	"sso_logout_button_close": "Close",
-	"sso_logout_button_confirm": "Logout"
+	"sso_logout_button_confirm": "Logout",
+	"login_banner_text": "Login to 302.AI to get started quickly",
+	"login_banner_button": "Login"
 }
