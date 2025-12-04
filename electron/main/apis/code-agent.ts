@@ -18,7 +18,10 @@ export async function createClaudeCodeSandbox(
 		console.debug("request", request);
 		const response = await _302AIKy
 			.post("302/claude-code/sandbox/create", {
-				json: request,
+				json: {
+					...request,
+					auto_pause_seconds: 15,
+				},
 			})
 			.json();
 
@@ -59,7 +62,7 @@ export async function updateClaudeCodeSandbox(
 	try {
 		const response = await _302AIKy
 			.post("302/claude-code/sandbox/reset", {
-				json: { sandbox_id, llm_model, sandbox_name },
+				json: { sandbox_id, llm_model, sandbox_name, auto_pause_seconds: 15 },
 			})
 			.json();
 
