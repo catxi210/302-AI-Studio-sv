@@ -293,7 +293,7 @@
 								}
 								openModelSelect?.();
 							}}
-							disabled={isCodeAgentModelChanging}
+							disabled={isCodeAgentModelChanging || codeAgentState.isDeleted}
 						>
 							{#if !hasConfiguredProviders()}
 								<span

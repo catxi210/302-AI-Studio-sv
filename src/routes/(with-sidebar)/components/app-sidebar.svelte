@@ -303,18 +303,13 @@
 		const trimmedName = newName.trim();
 		if (!trimmedName) return;
 
-		// Get agent info BEFORE updating currentSessionId (which will change to the new name)
+		// Get agent info for updating session note
 		const agentInfo = await isCodeAgentThread(renameTargetThreadId);
 
 		await threadsState.renameThread(renameTargetThreadId, trimmedName);
 		tabBarState.updateTabTitle(renameTargetThreadId, trimmedName);
 
-		window.electronAPI.codeAgentService.updateClaudeCodeCurrentSessionIdByThreadId(
-			renameTargetThreadId,
-			trimmedName,
-		);
-
-		// Update session note for code agent threads
+		// Update session note for code agent threads (preserves original sessionId)
 		if (agentInfo.isCodeAgent && agentInfo.sandboxId && agentInfo.sessionId) {
 			const providerResult = validate302Provider(persistedProviderState.current);
 			if (providerResult.valid && providerResult.provider) {

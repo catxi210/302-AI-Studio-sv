@@ -1,5 +1,6 @@
 import { m } from "$lib/paraglide/messages";
 import { chatState } from "$lib/stores/chat-state.svelte";
+import { codeAgentState } from "$lib/stores/code-agent";
 import { modelPanelState } from "$lib/stores/model-panel-state.svelte";
 import { persistedProviderState } from "$lib/stores/provider-state.svelte";
 import { sidebarSearchState } from "$lib/stores/sidebar-search-state.svelte";
@@ -156,6 +157,11 @@ export class ShortcutActionsHandler {
 	}
 
 	private handleToggleModelPanel(): void {
+		// Don't allow model selection when code agent is deleted
+		if (codeAgentState.isDeleted) {
+			return;
+		}
+
 		const hasConfiguredProviders = persistedProviderState.current.some(
 			(provider) => provider.enabled && provider.apiKey && provider.apiKey.trim() !== "",
 		);
