@@ -837,7 +837,10 @@ app.post("/chat/302ai-code-agent", async (c) => {
 		providerId: "302.AI",
 	});
 
-	const provider302Options: Record<string, boolean | string> = { session_id: sessionId ?? "" };
+	const provider302Options: Record<string, boolean | string> = {
+		session_id: sessionId ?? "",
+		// structured_output: true,
+	};
 	const streamTextOptions = {
 		model: wrapModel,
 		messages: convertToModelMessages(enhanceMessagesWithFeedback(messages)),

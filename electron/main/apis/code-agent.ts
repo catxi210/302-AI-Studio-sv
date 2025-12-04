@@ -6,6 +6,15 @@ import {
 import { type } from "arktype";
 import { _302AIKy } from "./core/_302ai-ky";
 
+export const sessionInfoSchema = type({
+	session_id: "string",
+	workspace_path: "string",
+	note: "string",
+	used_at: "string",
+	updated_at: "string",
+});
+export type SessionInfo = typeof sessionInfoSchema.infer;
+
 /**
  * Create a claude code sandbox
  * @param llm_model - The llm model to use
@@ -126,6 +135,7 @@ const sandboxInfoSchema = type({
 	disk_used: "number",
 	disk_total: "number",
 	session_num: "number",
+	session_list: sessionInfoSchema.array(),
 });
 export type SandboxInfo = typeof sandboxInfoSchema.infer;
 export const listClaudeCodeSandboxesResponse = type({
@@ -160,13 +170,6 @@ export async function listClaudeCodeSandboxes(): Promise<ListClaudeCodeSandboxes
 	}
 }
 
-export const sessionInfoSchema = type({
-	session_id: "string",
-	workspace_path: "string",
-	note: "string?",
-	used_at: "string?",
-});
-export type SessionInfo = typeof sessionInfoSchema.infer;
 export const listClaudeCodeSessionsResponse = type({
 	success: "boolean",
 	sandbox_id: "string",

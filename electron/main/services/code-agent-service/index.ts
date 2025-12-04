@@ -78,22 +78,8 @@ export class CodeAgentService {
 			const response = await listClaudeCodeSandboxes();
 			if (response.success) {
 				const validList = response.list.filter((sandbox) => sandbox.status !== "killed");
-				const allSessionInfos = await Promise.allSettled(
-					validList.map((sandbox) => listClaudeCodeSessions(sandbox.sandbox_id)),
-				);
 
-				const list = validList.map((sandbox, index) => {
-					const result = allSessionInfos[index];
-					const sessionInfos =
-						result.status === "fulfilled" && result.value.success
-							? result.value.session_list.map((session) => ({
-									sessionId: session.session_id,
-									workspacePath: session.workspace_path,
-									note: session.note ?? "",
-									usedAt: session.used_at ?? "",
-								}))
-							: [];
-
+				const list = validList.map((sandbox) => {
 					const diskUsage = this.calculateDiskUsage(sandbox.disk_total, sandbox.disk_used);
 
 					return {
@@ -107,7 +93,13 @@ export class CodeAgentService {
 						createdAt: sandbox.created_at,
 						updatedAt: sandbox.updated_at,
 						deletedAt: sandbox.deleted_at,
-						sessionInfos,
+						sessionInfos: sandbox.session_list.map((session) => ({
+							sessionId: session.session_id,
+							workspacePath: session.workspace_path,
+							note: session.note,
+							usedAt: session.used_at,
+							updatedAt: session.updated_at,
+						})),
 					};
 				});
 
