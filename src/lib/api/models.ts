@@ -73,31 +73,46 @@ function getRequestHeaders(provider: ModelProvider): Record<string, string> {
 }
 
 /**
+ * API model response item interface
+ */
+interface ApiModelItem {
+	id: string;
+	name?: string;
+	is_featured?: boolean;
+	[key: string]: unknown;
+}
+
+/**
  * Parse models response based on provider type
  */
 function parseModelsResponse(
 	provider: ModelProvider,
-	data: { data?: { id: string }[]; models?: { name: string }[]; [key: string]: unknown },
+	data: { data?: ApiModelItem[]; models?: ApiModelItem[]; [key: string]: unknown },
 ): Model[] {
-	let modelNames: string[] = [];
+	let modelItems: ApiModelItem[] = [];
 
 	switch (provider.apiType.toLowerCase()) {
 		case "openai":
 		case "302ai":
 		default:
-			modelNames = (data.data || []).map((model) => model.id);
+			modelItems = data.data || [];
 			break;
 
 		case "anthropic":
-			modelNames = (data.data || []).map((model) => model.id);
+			modelItems = data.data || [];
 			break;
 
 		case "gemini":
 		case "google":
-			modelNames = (data.models || []).map((model) => model.name.replace("models/", ""));
+			modelItems = (data.models || []).map((model) => ({
+				...model,
+				id: (model.name || "").replace("models/", ""),
+			}));
 			break;
 	}
-	return modelNames.map((modelName) => {
+
+	return modelItems.map((modelItem) => {
+		const modelName = modelItem.id;
 		const capabilities = parseModelCapabilities(modelName);
 		return {
 			id: modelName,
@@ -105,10 +120,11 @@ function parseModelsResponse(
 			remark: "",
 			providerId: provider.id,
 			capabilities,
-			type: "language",
+			type: "language" as const,
 			custom: false,
 			enabled: true,
 			collected: false,
+			isFeatured: modelItem.is_featured ?? false,
 		};
 	});
 }

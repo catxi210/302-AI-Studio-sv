@@ -130,6 +130,7 @@ class ProviderState {
 			custom: input.custom || false,
 			enabled: input.enabled ?? true,
 			collected: input.collected || false,
+			isFeatured: input.isFeatured || false,
 		};
 		persistedModelState.current = [...persistedModelState.current, model];
 
@@ -179,6 +180,7 @@ class ProviderState {
 			custom: input.custom || false,
 			enabled: input.enabled ?? true,
 			collected: input.collected || false,
+			isFeatured: input.isFeatured || false,
 		}));
 		persistedModelState.current = [...persistedModelState.current, ...newModels];
 

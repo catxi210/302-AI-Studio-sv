@@ -34,6 +34,7 @@ export interface Model {
 	custom: boolean;
 	enabled: boolean;
 	collected: boolean;
+	isFeatured: boolean;
 }
 
 /* ============================================================================

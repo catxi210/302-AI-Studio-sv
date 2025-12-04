@@ -91,6 +91,7 @@ export interface ModelCreateInput {
 	custom?: boolean;
 	enabled?: boolean;
 	collected?: boolean;
+	isFeatured?: boolean;
 }
 
 export interface ModelUpdateInput {
@@ -103,6 +104,7 @@ export interface ModelUpdateInput {
 	custom?: boolean;
 	enabled?: boolean;
 	collected?: boolean;
+	isFeatured?: boolean;
 }
 
 export interface MCPServer {
