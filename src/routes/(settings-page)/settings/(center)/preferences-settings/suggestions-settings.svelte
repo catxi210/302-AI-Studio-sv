@@ -1,18 +1,9 @@
 <script lang="ts">
 	import { SettingSwitchItem } from "$lib/components/buss/settings";
-	import SettingSelect from "$lib/components/buss/settings/setting-select.svelte";
 	import { Input } from "$lib/components/ui/input";
 	import { Label } from "$lib/components/ui/label/index.js";
 	import { m } from "$lib/paraglide/messages.js";
-	import {
-		preferencesSettings,
-		type SuggestionsTiming,
-	} from "$lib/stores/preferences-settings.state.svelte";
-
-	const timingOptions = [
-		{ label: m.settings_suggestionsAuto(), value: "auto" },
-		{ label: m.settings_suggestionsOff(), value: "off" },
-	];
+	import { preferencesSettings } from "$lib/stores/preferences-settings.state.svelte";
 
 	let suggestionsCount = $state(preferencesSettings.suggestionsCount);
 
@@ -59,12 +50,6 @@
 				class="!bg-settings-bg dark:!bg-settings-bg h-9 w-20 text-center"
 			/>
 		</div>
-		<SettingSelect
-			name="suggestionsTiming"
-			value={preferencesSettings.suggestionsTiming}
-			options={timingOptions}
-			onValueChange={(v) => preferencesSettings.setSuggestionsTiming(v as SuggestionsTiming)}
-		/>
 		<SettingSwitchItem
 			label={m.settings_showOnlyLastSuggestion()}
 			checked={preferencesSettings.showOnlyLastSuggestion}
