@@ -58,8 +58,9 @@ export class SsoService {
 		language: string = "zh",
 	): Promise<{ success: boolean; error?: string }> {
 		try {
-			// Use local server as redirect URL with language parameter
-			const redirectUrl = `http://localhost:${serverPort}/sso/callback?lang=${language}`;
+			// Use local server as redirect URL with language in path (not query params)
+			// 302.AI will append ?apikey=... so we can't have query params in the redirect URL
+			const redirectUrl = `http://localhost:${serverPort}/sso/callback/${language}`;
 			console.log("[SSO] Using redirect URL:", redirectUrl);
 
 			// Use 'redirecturl' (no underscore) as per 302.AI SSO API

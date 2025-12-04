@@ -131,17 +131,18 @@
 		<Label class="text-label-fg">{m.settings_account_details()}</Label>
 
 		{#snippet apiKeyAction()}
-			{#if userState.userInfo}
+			{@const displayApiKey = userState.ssoApiKey || userState.userInfo?.api_key}
+			{#if displayApiKey}
 				<div class="flex items-center gap-2">
 					<code
 						class="bg-muted relative rounded px-[0.3rem] py-[0.2rem] font-mono text-sm font-semibold"
 					>
-						{userState.userInfo.api_key.slice(0, 8)}...
+						{displayApiKey.slice(0, 8)}...
 					</code>
 					<Button
 						variant="ghost"
 						size="icon-sm"
-						onclick={() => copyToClipboard(userState.userInfo!.api_key, "api_key")}
+						onclick={() => copyToClipboard(displayApiKey, "api_key")}
 						class="relative"
 					>
 						{#each [{ Icon: Check, visible: copiedField === "api_key", id: "check" }, { Icon: Copy, visible: copiedField !== "api_key", id: "copy" }] as { Icon, visible, id } (id)}

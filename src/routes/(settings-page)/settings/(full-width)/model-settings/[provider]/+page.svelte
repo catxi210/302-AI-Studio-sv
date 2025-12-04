@@ -139,8 +139,11 @@
 	}
 
 	function fillApiKeyFromAccount() {
-		if (userState.userInfo?.api_key) {
-			formData.apiKey = userState.userInfo.api_key;
+		// Prefer ssoApiKey (from SSO callback) over userInfo.api_key (from fetched account info)
+		// The SSO callback returns the actual API key that should be used
+		const apiKeyToUse = userState.ssoApiKey || userState.userInfo?.api_key;
+		if (apiKeyToUse) {
+			formData.apiKey = apiKeyToUse;
 			handleInputChange();
 			// @ts-expect-error - text_provider_update_success may not exist in all locales
 			toast.success(m.text_provider_update_success?.({ name: formData.name }) || "API Key updated");

@@ -20,7 +20,7 @@ import {
 	type UIMessage,
 } from "ai";
 import getPort from "get-port";
-import { Hono } from "hono";
+import { Hono, type Context } from "hono";
 import { codeAgentService, ssoService, tabService } from "../services";
 import { mcpService } from "../services/mcp-service";
 import { storageService } from "../services/storage-service";
@@ -880,20 +880,9 @@ app.post("/chat/302ai-code-agent", async (c) => {
 	return createUIMessageStreamResponse({ stream });
 });
 
-// SSO callback endpoint
-app.get("/sso/callback", async (c) => {
-	const apikey = c.req.query("apikey");
-	const uid = c.req.query("uid");
-	const username = c.req.query("username");
-	const lang = c.req.query("lang") || "zh"; // Get language from query param, default to zh
-
-	console.log("[SSO Callback] Received:", {
-		apikey: apikey ? "exists" : "missing",
-		uid,
-		username,
-		lang,
-	});
-
+// Helper function to render SSO callback page
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function renderSsoCallbackPage(c: Context<any>, apikey: string | undefined, lang: string) {
 	// Simple i18n for callback page
 	const i18n = {
 		zh: {
@@ -1015,6 +1004,53 @@ app.get("/sso/callback", async (c) => {
 		</body>
 		</html>
 	`);
+}
+
+// SSO callback endpoint - language is now in path to avoid query param conflicts
+// 302.AI appends ?apikey=... to redirect URL, so we use path for language
+app.get("/sso/callback/:lang", async (c) => {
+	const apikey = c.req.query("apikey");
+	const uid = c.req.query("uid");
+	const username = c.req.query("username");
+	const lang = c.req.param("lang") || "zh"; // Get language from path param
+
+	console.log("[SSO Callback] Received:", {
+		apikey: apikey ? "exists" : "missing",
+		uid,
+		username,
+		lang,
+	});
+
+	return renderSsoCallbackPage(c, apikey, lang);
+});
+
+// Backwards compatibility: handle old format with lang in query params
+// Also handles malformed URLs where apikey might be embedded in lang param
+app.get("/sso/callback", async (c) => {
+	let apikey = c.req.query("apikey");
+	const uid = c.req.query("uid");
+	const username = c.req.query("username");
+	let lang = c.req.query("lang") || "zh";
+
+	// Handle malformed URL: ?lang=zh?apikey=xxx becomes lang="zh?apikey=xxx"
+	// Extract apikey from lang if it contains ?apikey=
+	if (!apikey && lang.includes("?apikey=")) {
+		const match = lang.match(/\?apikey=([^&]+)/);
+		if (match) {
+			apikey = match[1];
+			// Extract actual language
+			lang = lang.split("?")[0] || "zh";
+		}
+	}
+
+	console.log("[SSO Callback Legacy] Received:", {
+		apikey: apikey ? "exists" : "missing",
+		uid,
+		username,
+		lang,
+	});
+
+	return renderSsoCallbackPage(c, apikey, lang);
 });
 
 export async function initServer(preferredPort = 8089): Promise<number> {
