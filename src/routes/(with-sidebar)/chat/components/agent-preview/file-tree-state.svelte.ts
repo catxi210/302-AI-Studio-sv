@@ -674,53 +674,8 @@ export class FileTreeState {
 			if (response.success) {
 				toast.success(m.toast_file_paste_success(), { id: toastId });
 
-				// Update file list
-				if (sourceFile.type === "file") {
-					// File paste: add new file entry
-					const newFile: SandboxFileInfo = {
-						...sourceFile,
-						path: destPath,
-						name: sourceName,
-					};
-					if (!this.files.some((f) => f.path === destPath)) {
-						this.files = [...this.files, newFile];
-					}
-				} else {
-					// Folder paste: load target path contents
-					try {
-						const listResponse = await withRetry(
-							() =>
-								listSandboxFiles(this.sandboxId, destPath, validation.apiKey || "", undefined, 1),
-							3,
-							1000,
-						);
-
-						if (listResponse.success && listResponse.filelist) {
-							const existingPaths = new SvelteSet(this.files.map((f) => f.path));
-							const newFiles = listResponse.filelist.filter((f) => !existingPaths.has(f.path));
-							this.files = [...this.files, ...newFiles];
-							this.loadedDirs = addToSet(this.loadedDirs, destPath);
-						}
-					} catch (e) {
-						console.error("[FileTree] Failed to load pasted folder contents:", e);
-						// Even if loading fails, add folder itself
-						const newFolder: SandboxFileInfo = {
-							...sourceFile,
-							path: destPath,
-							name: sourceName,
-						};
-						if (!this.files.some((f) => f.path === destPath)) {
-							this.files = [...this.files, newFolder];
-						}
-					}
-				}
-
-				// Expand target directory
-				if (!this.expandedDirs.has(targetDir.path)) {
-					this.expandedDirs = addToSet(this.expandedDirs, targetDir.path);
-				}
-
-				await this.updateFilesAndRebuild(this.files);
+				// Use the same refresh flow as the UI refresh button to keep tree state consistent
+				await this.refreshFileTree();
 				return true;
 			} else {
 				const errorMsg = response.error || m.toast_file_paste_failed();
