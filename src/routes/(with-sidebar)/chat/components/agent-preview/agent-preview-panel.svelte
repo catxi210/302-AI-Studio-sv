@@ -9,7 +9,10 @@
 
 	import Button from "$lib/components/ui/button/button.svelte";
 	import * as m from "$lib/paraglide/messages";
-	import { agentPreviewState } from "$lib/stores/agent-preview-state.svelte";
+	import {
+		agentPreviewState,
+		type AgentPreviewSyncEnvelope,
+	} from "$lib/stores/agent-preview-state.svelte";
 	import { chatState } from "$lib/stores/chat-state.svelte";
 	import {
 		claudeCodeAgentState,
@@ -78,6 +81,7 @@
 		isLoading: false,
 		language: "text",
 	});
+	let syncUnsubscribe: (() => void) | null = null;
 
 	let refreshTrigger = $state(0);
 	let iframeRefreshKey = $state(0);
@@ -131,6 +135,34 @@
 	// 1. State Restoration Logic
 	// Track the last restored session to prevent duplicate restores
 	let lastRestoredKey = "";
+
+	function setupContentSync(sandboxId: string, sessionId: string) {
+		if (syncUnsubscribe) {
+			syncUnsubscribe();
+		}
+
+		syncUnsubscribe = agentPreviewState.onSync((message: AgentPreviewSyncEnvelope) => {
+			if (
+				message.sandboxId !== sandboxId ||
+				message.sessionId !== sessionId ||
+				message.sourceInstanceId === agentPreviewState.syncIdentifier
+			) {
+				return;
+			}
+
+			if (
+				message.type === "fileContentUpdated" &&
+				fileViewer.selectedFile?.path === message.filePath &&
+				!isEditing
+			) {
+				fileViewer.content = message.content;
+				fileViewer.selectedFile = {
+					...fileViewer.selectedFile,
+					modified_time: message.modifiedTime ?? fileViewer.selectedFile.modified_time,
+				};
+			}
+		});
+	}
 
 	const restoreState = async (sandboxId: string, sessionId: string) => {
 		const key = `${sandboxId}:${sessionId}`;
@@ -190,6 +222,18 @@
 		}
 	});
 
+	$effect(() => {
+		const sandboxId = currentSandboxId;
+		const sessionId = currentSessionId;
+
+		if (sandboxId && sessionId) {
+			setupContentSync(sandboxId, sessionId);
+		} else if (syncUnsubscribe) {
+			syncUnsubscribe();
+			syncUnsubscribe = null;
+		}
+	});
+
 	// 2. File Tree Refresh Trigger (Detecting stream end)
 	$effect(() => {
 		const isStreaming = chatState.isStreaming;
@@ -210,6 +254,10 @@
 	// Cleanup on unmount
 	onDestroy(() => {
 		abortController?.abort();
+		if (syncUnsubscribe) {
+			syncUnsubscribe();
+			syncUnsubscribe = null;
+		}
 	});
 
 	// --- Handlers ---

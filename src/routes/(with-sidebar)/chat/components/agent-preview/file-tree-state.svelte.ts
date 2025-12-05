@@ -9,7 +9,10 @@ import {
 	type SandboxFileInfo,
 } from "$lib/api/sandbox-file";
 import { m } from "$lib/paraglide/messages";
-import { agentPreviewState } from "$lib/stores/agent-preview-state.svelte";
+import {
+	agentPreviewState,
+	type AgentPreviewSyncEnvelope,
+} from "$lib/stores/agent-preview-state.svelte";
 import { chatState } from "$lib/stores/chat-state.svelte";
 import { claudeCodeAgentState } from "$lib/stores/code-agent";
 import { persistedProviderState } from "$lib/stores/provider-state.svelte";
@@ -71,6 +74,7 @@ export class FileTreeState {
 	operatingPaths = $state(new SvelteSet<string>());
 	copiedFilePath = $state<string | null>(null);
 	treeNodesCache = $state<TreeCache | null>(null);
+	syncUnsubscribe: (() => void) | null = null;
 
 	// Derived state
 	isStreaming = $derived(chatState.isStreaming || chatState.isSubmitted);
@@ -100,15 +104,47 @@ export class FileTreeState {
 		}
 	}
 
+	setupSyncListener(sessionId: string | null | undefined) {
+		if (!this.sandboxId || !sessionId) {
+			return;
+		}
+
+		if (this.syncUnsubscribe) {
+			this.syncUnsubscribe();
+		}
+
+		this.syncUnsubscribe = agentPreviewState.onSync((message: AgentPreviewSyncEnvelope) => {
+			if (
+				message.sandboxId !== this.sandboxId ||
+				message.sessionId !== sessionId ||
+				message.sourceInstanceId === agentPreviewState.syncIdentifier
+			) {
+				return;
+			}
+
+			if (message.type === "fileListUpdated") {
+				this.files = message.fileList;
+				this.selectedFile = message.selectedFilePath ?? this.selectedFile;
+				this.loadedDirs = this.inferLoadedDirsFromFiles(this.files);
+				this.treeNodesCache = null;
+				this.rebuildTree();
+			}
+		});
+	}
+
+	disposeSyncListener() {
+		if (this.syncUnsubscribe) {
+			this.syncUnsubscribe();
+			this.syncUnsubscribe = null;
+		}
+	}
+
 	/**
 	 * Get 302.AI provider API key
 	 */
 	private get302ApiKey(): string {
 		const provider = persistedProviderState.current.find((p) => p.name === "302.AI" && p.enabled);
 		const key = provider?.apiKey || "";
-		if (key) {
-			console.log("[FileTree] API key found (length:", key.length, ")");
-		}
 		return key;
 	}
 
@@ -117,7 +153,6 @@ export class FileTreeState {
 	 */
 	buildTreeStructure(fileList: SandboxFileInfo[]): TreeNode[] {
 		if (!fileList || fileList.length === 0) {
-			console.log("[FileTree] buildTreeStructure: empty file list");
 			return [];
 		}
 
@@ -150,8 +185,6 @@ export class FileTreeState {
 		// Find minimum depth for relative depth calculation
 		const minDepth = Math.min(...sortedFiles.map((f) => f.path.split("/").filter(Boolean).length));
 
-		console.log("[FileTree] buildTreeStructure: processing", sortedFiles.length, "files");
-
 		for (const file of sortedFiles) {
 			const pathParts = file.path.split("/").filter(Boolean);
 			const absoluteDepth = pathParts.length;
@@ -177,8 +210,6 @@ export class FileTreeState {
 				rootNodes.push(node);
 			}
 		}
-
-		console.log("[FileTree] buildTreeStructure: created", rootNodes.length, "root nodes");
 
 		// Update cache
 		this.treeNodesCache = {
@@ -232,6 +263,7 @@ export class FileTreeState {
 	 */
 	private async saveToStorage(
 		updates?: Partial<{ selectedFilePath: string | null }>,
+		shouldBroadcast: boolean = false,
 	): Promise<void> {
 		const sessionId = claudeCodeAgentState.currentSessionId;
 		if (!sessionId) {
@@ -252,6 +284,15 @@ export class FileTreeState {
 			type: existingStorage?.type,
 			lastUpdated: new SvelteDate().toISOString(),
 		});
+
+		if (shouldBroadcast) {
+			agentPreviewState.broadcastFileListSync({
+				sandboxId: this.sandboxId,
+				sessionId,
+				fileList: this.files,
+				selectedFilePath: updates?.selectedFilePath ?? this.selectedFile,
+			});
+		}
 	}
 
 	/**
@@ -264,7 +305,6 @@ export class FileTreeState {
 
 		const sessionId = claudeCodeAgentState.currentSessionId;
 		if (!sessionId) {
-			console.log("[FileTree] No sessionId available");
 			return;
 		}
 
@@ -274,16 +314,7 @@ export class FileTreeState {
 				this.files = storage.fileList;
 				this.treeNodes = this.buildTreeStructure(this.files);
 				this.loadedDirs = this.inferLoadedDirsFromFiles(this.files);
-				console.log(
-					"[FileTree] Loaded from storage:",
-					this.files.length,
-					"files,",
-					this.loadedDirs.size,
-					"directories inferred as loaded, last updated:",
-					storage.lastUpdated,
-				);
 			} else if (clearIfNotFound) {
-				console.log("[FileTree] No data in storage for this sandbox/session, clearing files");
 				this.files = [];
 				this.treeNodes = [];
 				this.loadedDirs = new SvelteSet();
@@ -309,7 +340,6 @@ export class FileTreeState {
 		force: boolean = false,
 	): Promise<void> {
 		if (!this.sandboxId) {
-			console.log("[FileTree] No sandboxId provided");
 			return;
 		}
 
@@ -325,19 +355,16 @@ export class FileTreeState {
 
 		// Do not load files while agent is streaming
 		if (this.isStreaming) {
-			console.log("[FileTree] Skipping file load - agent is streaming");
 			return;
 		}
 
 		// Skip if already loaded (for lazy loading), unless forced
 		if (!force && merge && this.loadedDirs.has(path)) {
-			console.log("[FileTree] Directory already loaded:", path);
 			return;
 		}
 
 		// Skip if currently loading
 		if (this.loadingDirs.has(path)) {
-			console.log("[FileTree] Directory already loading:", path);
 			return;
 		}
 
@@ -348,14 +375,6 @@ export class FileTreeState {
 			this.loading = true;
 		}
 		this.error = null;
-		console.log(
-			"[FileTree] Loading files for sandbox:",
-			this.sandboxId,
-			"path:",
-			path,
-			"merge:",
-			merge,
-		);
 
 		try {
 			const apiKey = this.get302ApiKey();
@@ -370,7 +389,6 @@ export class FileTreeState {
 				3,
 				1000,
 			);
-			console.log("[FileTree] Response:", response);
 
 			if (response.success && response.filelist) {
 				if (merge) {
@@ -391,18 +409,9 @@ export class FileTreeState {
 					// Add new files
 					const newFiles = response.filelist.filter((f) => !existingPaths.has(f.path));
 					this.files = [...updatedFiles, ...newFiles];
-
-					console.log(
-						"[FileTree] Merged files: updated",
-						this.files.length - newFiles.length,
-						"existing, added",
-						newFiles.length,
-						"new",
-					);
 				} else {
 					// Replace all files (initial load or refresh)
 					this.files = response.filelist;
-					console.log("[FileTree] Loaded files:", this.files.length);
 				}
 
 				// Mark directory as loaded
@@ -410,13 +419,10 @@ export class FileTreeState {
 
 				// Rebuild tree
 				this.rebuildTree();
-				console.log("[FileTree] Built tree nodes:", this.treeNodes.length);
 
 				// Save to storage
-				await this.saveToStorage();
-				console.log("[FileTree] Saved file list, preserved file contents cache");
+				await this.saveToStorage(undefined, true);
 			} else {
-				console.log("[FileTree] No files in response");
 				if (!merge) {
 					this.files = [];
 					this.treeNodes = [];
@@ -457,11 +463,9 @@ export class FileTreeState {
 		if (isExpanding) {
 			// Expanding: fetch folder contents if not already loaded and no direct children exist
 			if (!this.loadedDirs.has(path) && !this.hasDirectChildren(path)) {
-				console.log("[FileTree] Expanding and loading directory:", path);
 				await this.loadFiles(path, true); // Merge mode
 			} else if (!this.loadedDirs.has(path) && this.hasDirectChildren(path)) {
 				// We have children from storage, mark as loaded without fetching
-				console.log("[FileTree] Directory has children from storage, marking as loaded:", path);
 				this.loadedDirs = addToSet(this.loadedDirs, path);
 			}
 
@@ -513,7 +517,7 @@ export class FileTreeState {
 		if (selectedPathUpdate !== undefined) {
 			this.selectedFile = selectedPathUpdate;
 		}
-		await this.saveToStorage({ selectedFilePath: this.selectedFile });
+		await this.saveToStorage({ selectedFilePath: this.selectedFile }, true);
 		this.rebuildTree();
 	}
 
@@ -560,7 +564,6 @@ export class FileTreeState {
 		} catch (e) {
 			const errorMsg = e instanceof Error ? e.message : m.toast_file_rename_failed();
 			toast.error(errorMsg, { id: toastId });
-			console.error("[FileTree] Failed to rename:", oldPath, e);
 			return false;
 		} finally {
 			this.operatingPaths = removeFromSet(this.operatingPaths, oldPath);
@@ -612,7 +615,6 @@ export class FileTreeState {
 		} catch (e) {
 			const errorMsg = e instanceof Error ? e.message : m.toast_file_delete_failed();
 			toast.error(errorMsg, { id: toastId });
-			console.error("[FileTree] Failed to delete:", path, e);
 			return false;
 		} finally {
 			this.operatingPaths = removeFromSet(this.operatingPaths, path);
@@ -728,7 +730,6 @@ export class FileTreeState {
 		} catch (e) {
 			const errorMsg = e instanceof Error ? e.message : m.toast_file_paste_failed();
 			toast.error(errorMsg, { id: toastId });
-			console.error("[FileTree] Failed to paste:", sourcePath, e);
 			return false;
 		} finally {
 			this.operatingPaths = removeFromSet(this.operatingPaths, sourcePath);
@@ -807,7 +808,6 @@ export class FileTreeState {
 		} catch (e) {
 			const errorMsg = e instanceof Error ? e.message : m.toast_file_create_failed();
 			toast.error(errorMsg, { id: toastId });
-			console.error("[FileTree] Failed to create file:", fullPath, e);
 			return null;
 		} finally {
 			this.operatingPaths = removeFromSet(this.operatingPaths, parentPath);
@@ -866,7 +866,6 @@ export class FileTreeState {
 		} catch (e) {
 			const errorMsg = e instanceof Error ? e.message : m.toast_file_upload_failed();
 			toast.error(errorMsg, { id: toastId });
-			console.error("[FileTree] Failed to upload:", file.name, e);
 			return false;
 		} finally {
 			this.operatingPaths = removeFromSet(this.operatingPaths, targetPath);
@@ -943,7 +942,6 @@ export class FileTreeState {
 		} catch (e) {
 			const errorMsg = e instanceof Error ? e.message : m.toast_file_upload_folder_failed();
 			toast.error(errorMsg, { id: uploadToastId });
-			console.error("[FileTree] Failed to upload folder:", e);
 			return false;
 		} finally {
 			this.operatingPaths = removeFromSet(this.operatingPaths, targetPath);
@@ -999,7 +997,6 @@ export class FileTreeState {
 		} catch (e) {
 			const errorMsg = e instanceof Error ? e.message : m.toast_file_create_folder_failed();
 			toast.error(errorMsg, { id: toastId });
-			console.error("[FileTree] Failed to create folder:", folderName, e);
 			return false;
 		} finally {
 			this.operatingPaths = removeFromSet(this.operatingPaths, parentPath);
@@ -1034,8 +1031,6 @@ export class FileTreeState {
 		try {
 			const response = await downloadSandboxFile(this.sandboxId, file.path, apiKey);
 
-			console.log("[FileTree] Download API response:", JSON.stringify(response, null, 2));
-
 			if (!response.result || response.result.length === 0) {
 				toast.error(m.toast_download_no_info(), { id: downloadToastId });
 				return;
@@ -1047,9 +1042,7 @@ export class FileTreeState {
 
 			// Process each result (file or folder)
 			for (const result of response.result) {
-				console.log("[FileTree] Processing result:", result);
 				if (!result.file_list || result.file_list.length === 0) {
-					console.warn("[FileTree] No file_list in result:", result);
 					continue;
 				}
 
@@ -1064,7 +1057,6 @@ export class FileTreeState {
 		} catch (e) {
 			const errorMsg = e instanceof Error ? e.message : m.toast_download_failed();
 			toast.error(errorMsg, { id: downloadToastId });
-			console.error("[FileTree] Failed to download:", file.path, e);
 		} finally {
 			this.downloadingPaths = removeFromSet(this.downloadingPaths, file.path);
 		}
@@ -1087,9 +1079,7 @@ export class FileTreeState {
 
 		for (let i = 0; i < result.file_list.length; i++) {
 			const fileItem = result.file_list[i];
-			console.log("[FileTree] Processing file item:", fileItem);
 			if (!fileItem.upload_url || fileItem.upload_url.trim() === "") {
-				console.warn("[FileTree] Empty upload_url for:", fileItem.sandbox_path);
 				failCount++;
 				continue;
 			}
@@ -1112,7 +1102,7 @@ export class FileTreeState {
 					id: toastId,
 				});
 			} catch (e) {
-				console.error("[FileTree] Failed to download file:", fileItem.sandbox_path, e);
+				console.error("[FileTree] Failed to download folder:", e);
 				failCount++;
 
 				toast.loading(m.toast_downloading_folder(), {
@@ -1160,7 +1150,6 @@ export class FileTreeState {
 		toastId: string | number,
 	): Promise<void> {
 		const fileItem = result.file_list[0];
-		console.log("[FileTree] Processing single file:", fileItem);
 
 		try {
 			let blob: Blob;
@@ -1172,7 +1161,6 @@ export class FileTreeState {
 
 			// Check for direct content or upload_url
 			if (response._blobContent) {
-				console.log("[FileTree] Using blob content from API response");
 				blob = response._blobContent;
 
 				const isZip = response._contentType?.includes("application/zip");
@@ -1184,11 +1172,9 @@ export class FileTreeState {
 				(!fileItem.upload_url || fileItem.upload_url.trim() === "") &&
 				response._directContent
 			) {
-				console.log("[FileTree] Using direct content from API response");
 				const contentType = response._contentType || "text/plain";
 				blob = new Blob([response._directContent], { type: contentType });
 			} else if (fileItem.upload_url && fileItem.upload_url.trim() !== "") {
-				console.log("[FileTree] Downloading from upload_url:", fileItem.upload_url);
 				toast.loading(m.toast_downloading_file({ fileName: downloadFileName }), {
 					id: toastId,
 				});
@@ -1213,7 +1199,6 @@ export class FileTreeState {
 		} catch (e) {
 			const errorMsg = e instanceof Error ? e.message : m.toast_download_failed();
 			toast.error(errorMsg, { id: toastId });
-			console.error("[FileTree] Failed to download file:", file.path, e);
 		}
 	}
 
