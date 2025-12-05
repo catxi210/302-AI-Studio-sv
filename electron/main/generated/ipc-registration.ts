@@ -15,6 +15,7 @@ import {
 	dataService,
 	externalLinkService,
 	mcpService,
+	providerService,
 	ssoService,
 	threadService,
 	updaterService,
@@ -274,9 +275,6 @@ export function registerIpcHandlers() {
 	ipcMain.handle("aiApplicationService:getAiApplicationUrl", (event, applicationId) =>
 		aiApplicationService.getAiApplicationUrl(event, applicationId),
 	);
-	ipcMain.handle("aiApplicationService:handle302AIProviderChange", (event, updatedApiKey) =>
-		aiApplicationService.handle302AIProviderChange(event, updatedApiKey),
-	);
 	ipcMain.handle("aiApplicationService:handleAiApplicationReload", (event, tabId) =>
 		aiApplicationService.handleAiApplicationReload(event, tabId),
 	);
@@ -320,6 +318,11 @@ export function registerIpcHandlers() {
 	);
 	ipcMain.handle("mcpService:closeServer", (event, serverId) =>
 		mcpService.closeServer(event, serverId),
+	);
+
+	// providerService service registration
+	ipcMain.handle("providerService:handle302AIProviderChange", (event, apiKey) =>
+		providerService.handle302AIProviderChange(event, apiKey),
 	);
 
 	// ssoService service registration
@@ -457,7 +460,6 @@ export function removeIpcHandlers() {
 	ipcMain.removeHandler("tabService:handleClearTabMessages");
 	ipcMain.removeHandler("tabService:handleGenerateTabTitle");
 	ipcMain.removeHandler("aiApplicationService:getAiApplicationUrl");
-	ipcMain.removeHandler("aiApplicationService:handle302AIProviderChange");
 	ipcMain.removeHandler("aiApplicationService:handleAiApplicationReload");
 	ipcMain.removeHandler("appService:getTheme");
 	ipcMain.removeHandler("appService:setTheme");
@@ -476,6 +478,7 @@ export function removeIpcHandlers() {
 	ipcMain.removeHandler("externalLinkService:openExternalLink");
 	ipcMain.removeHandler("mcpService:getToolsFromServer");
 	ipcMain.removeHandler("mcpService:closeServer");
+	ipcMain.removeHandler("providerService:handle302AIProviderChange");
 	ipcMain.removeHandler("ssoService:openSsoLogin");
 	ipcMain.removeHandler("ssoService:waitForSsoCallback");
 	ipcMain.removeHandler("ssoService:cancelSsoLogin");

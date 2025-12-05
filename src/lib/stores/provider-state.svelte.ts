@@ -14,7 +14,7 @@ export const persistedProviderState = new PersistedState<ModelProvider[]>(
 );
 export const persistedModelState = new PersistedState<Model[]>("app-models", [], true, 500);
 
-const { aiApplicationService } = window.electronAPI;
+const { providerService } = window.electronAPI;
 
 $effect.root(() => {
 	$effect(() => {
@@ -68,7 +68,7 @@ class ProviderState {
 		);
 
 		if (updates.apiKey && updates.apiType === "302ai") {
-			await aiApplicationService.handle302AIProviderChange(updates.apiKey);
+			await providerService.handle302AIProviderChange(updates.apiKey);
 		}
 	}
 	removeProvider(id: string) {

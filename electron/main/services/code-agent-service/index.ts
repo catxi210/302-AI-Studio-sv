@@ -11,6 +11,7 @@ import type {
 } from "@shared/storage/code-agent";
 import type { ThreadParmas } from "@shared/types";
 import type { IpcMainInvokeEvent } from "electron";
+import { emitter } from "../broadcast-service";
 import { storageService } from "../storage-service";
 import {
 	claudeCodeSandboxStorage,
@@ -20,7 +21,11 @@ import {
 
 export class CodeAgentService {
 	constructor() {
-		this.updateClaudeCodeSandboxes();
+		this._updateClaudeCodeSandboxes();
+
+		emitter.on("provider:302ai-provider-changed", ({ apiKey }) => {
+			this._updateClaudeCodeSandboxes(apiKey);
+		});
 	}
 
 	private calculateDiskUsage(diskTotal: number, diskUsed: number): "normal" | "insufficient" {
@@ -73,9 +78,9 @@ export class CodeAgentService {
 		}
 	}
 
-	private async _updateClaudeCodeSandboxes(): Promise<void> {
+	private async _updateClaudeCodeSandboxes(apiKey?: string): Promise<void> {
 		try {
-			const response = await listClaudeCodeSandboxes();
+			const response = await listClaudeCodeSandboxes(apiKey);
 			if (response.success) {
 				const validList = response.list.filter((sandbox) => sandbox.status !== "killed");
 
@@ -109,6 +114,7 @@ export class CodeAgentService {
 			}
 		} catch (error) {
 			console.error("Error listing Claude code sandboxes:", error);
+			await claudeCodeSandboxStorage.setClaudeCodeSandboxes([]);
 		}
 	}
 
