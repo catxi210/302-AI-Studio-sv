@@ -113,17 +113,21 @@ class UserStateManager {
 		const { providerState } = await import("./provider-state.svelte");
 		const { threadService, broadcastService } = window.electronAPI;
 
-		const ssoApiKey = this.ssoApiKey;
+		// Use 302AI provider's apiKey instead of ssoApiKey for session matching
+		// Because sessions are created with the provider's apiKey hash, not ssoApiKey
+		// This ensures consistency: create and delete use the same apiKey source
+		const provider = providerState.getProvider("302AI");
+		const apiKeyForHash = provider?.apiKey;
 
 		// 1. Clear associated API key if option is selected
-		if (options.unlinkApiKey && ssoApiKey) {
-			providerState.clearAssociatedApiKey(ssoApiKey);
+		if (options.unlinkApiKey && apiKeyForHash) {
+			providerState.clearAssociatedApiKey(apiKeyForHash);
 			console.log("[Logout] Cleared associated API key");
 		}
 
 		// 2. Clear associated sessions if option is selected
-		if (options.clearSessions && ssoApiKey) {
-			const apiKeyHash = hashApiKey(ssoApiKey);
+		if (options.clearSessions && apiKeyForHash) {
+			const apiKeyHash = hashApiKey(apiKeyForHash);
 			if (apiKeyHash) {
 				const deletedCount = await threadService.deleteThreadsByApiKeyHash(apiKeyHash);
 				console.log(`[Logout] Deleted ${deletedCount} associated sessions`);
