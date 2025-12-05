@@ -12,10 +12,9 @@ export const persistedTabState = new PersistedState<TabState>(
 $effect.root(() => {
 	$effect(() => {
 		// eslint-disable-next-line @typescript-eslint/no-unused-expressions
-		persistedTabState.current[window.windowId];
+		persistedTabState.current;
 	});
 });
-
 const { tabService, windowService, threadService } = window.electronAPI;
 
 class TabBarState {
