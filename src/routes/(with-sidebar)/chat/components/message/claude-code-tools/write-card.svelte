@@ -10,7 +10,6 @@
 
 <script lang="ts">
 	import StaticCodeBlock from "$lib/components/buss/markdown/static-code-block.svelte";
-	import { Button } from "$lib/components/ui/button/index.js";
 	import {
 		Dialog,
 		DialogContent,
@@ -18,7 +17,7 @@
 		DialogTitle,
 	} from "$lib/components/ui/dialog/index.js";
 	import { m } from "$lib/paraglide/messages.js";
-	import { FileText, Edit3, CheckCircle2, XCircle, Loader2, Circle } from "@lucide/svelte";
+	import { Ban, Circle, CircleCheck, FilePenLine, FileText, LoaderCircle } from "@lucide/svelte";
 
 	let {
 		part,
@@ -30,7 +29,7 @@
 
 	// Determine if this is Write or Edit
 	const isEdit = $derived(part.toolName === "Edit");
-	const ToolIcon = $derived(isEdit ? Edit3 : FileText);
+	const ToolIcon = $derived(isEdit ? FilePenLine : FileText);
 	const toolLabel = $derived(isEdit ? "Edit File" : "Write File");
 
 	// Extract file path and content from input
@@ -90,7 +89,7 @@
 		switch (part.state) {
 			case "output-available":
 				return {
-					icon: CheckCircle2,
+					icon: CircleCheck,
 					color: "text-[#38B865]",
 					bgColor: "bg-[#38B865]",
 					label: m.tool_call_status_success(),
@@ -98,7 +97,7 @@
 				};
 			case "output-error":
 				return {
-					icon: XCircle,
+					icon: Ban,
 					color: "text-[#D82525]",
 					bgColor: "bg-[#D82525]",
 					label: m.tool_call_status_error(),
@@ -106,7 +105,7 @@
 				};
 			case "input-available":
 				return {
-					icon: Loader2,
+					icon: LoaderCircle,
 					color: "text-[#0056FE]",
 					bgColor: "bg-[#0056FE]",
 					label: m.tool_call_status_executing(),
@@ -189,8 +188,15 @@
 				<span class="text-sm {statusConfig().color}">{statusConfig().label}</span>
 			</div>
 
-			<!-- Code content -->
-			{#if content()}
+			{#if part.state === "output-error" && part.errorText}
+				<div
+					class="mt-4 rounded-lg border border-red-200 bg-red-50 p-4 dark:border-red-900 dark:bg-red-950"
+				>
+					<p class="text-xs text-red-900 dark:text-red-100 whitespace-pre-wrap">
+						{part.errorText}
+					</p>
+				</div>
+			{:else if content()}
 				<div class="[&_.shiki]:max-h-[50vh] [&_.shiki]:overflow-auto [&_.shiki]:text-xs">
 					<StaticCodeBlock
 						code={content()}
@@ -204,25 +210,6 @@
 					No content available
 				</div>
 			{/if}
-
-			<!-- Error message -->
-			{#if part.state === "output-error" && part.errorText}
-				<div
-					class="mt-4 rounded-lg border border-red-200 bg-red-50 p-4 dark:border-red-900 dark:bg-red-950"
-				>
-					<p class="text-sm font-medium text-[#D82525] mb-2">{m.tool_call_error_message()}</p>
-					<p class="text-xs text-red-900 dark:text-red-100 whitespace-pre-wrap">
-						{part.errorText}
-					</p>
-				</div>
-			{/if}
-		</div>
-
-		<!-- Footer -->
-		<div class="flex justify-center pt-4 shrink-0">
-			<Button variant="default" class="h-[42px] w-[148px]" onclick={() => (isModalOpen = false)}>
-				{m.tool_call_close()}
-			</Button>
 		</div>
 	</DialogContent>
 </Dialog>

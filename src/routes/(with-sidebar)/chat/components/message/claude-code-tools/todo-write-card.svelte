@@ -15,7 +15,7 @@
 
 <script lang="ts">
 	import { m } from "$lib/paraglide/messages.js";
-	import { ListTodo, Check, Circle, Loader2, CheckCircle2, XCircle } from "@lucide/svelte";
+	import { Ban, Check, Circle, CircleCheck, ListTodo, LoaderCircle } from "@lucide/svelte";
 
 	let { part, messageId: _messageId }: TodoWriteCardProps = $props();
 
@@ -32,7 +32,7 @@
 		switch (part.state) {
 			case "output-available":
 				return {
-					icon: CheckCircle2,
+					icon: CircleCheck,
 					color: "text-[#38B865]",
 					bgColor: "bg-[#38B865]",
 					label: m.tool_call_status_success(),
@@ -40,7 +40,7 @@
 				};
 			case "output-error":
 				return {
-					icon: XCircle,
+					icon: Ban,
 					color: "text-[#D82525]",
 					bgColor: "bg-[#D82525]",
 					label: m.tool_call_status_error(),
@@ -48,7 +48,7 @@
 				};
 			case "input-available":
 				return {
-					icon: Loader2,
+					icon: LoaderCircle,
 					color: "text-[#0056FE]",
 					bgColor: "bg-[#0056FE]",
 					label: m.tool_call_status_executing(),
@@ -119,7 +119,7 @@
 						</div>
 					{:else if todo.status === "in_progress"}
 						<div class="flex h-5 w-5 items-center justify-center rounded-full bg-[#0056FE]/10">
-							<Loader2 class="h-3.5 w-3.5 text-[#0056FE] animate-spin" />
+							<LoaderCircle class="h-3.5 w-3.5 text-[#0056FE] animate-spin" />
 						</div>
 					{:else}
 						<div class="flex h-5 w-5 items-center justify-center rounded-full bg-muted">

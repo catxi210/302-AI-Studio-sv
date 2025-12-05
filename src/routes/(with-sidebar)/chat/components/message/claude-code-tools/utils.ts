@@ -1,21 +1,21 @@
 import {
-	ListTodo,
-	FileText,
-	Terminal,
-	Search,
-	FileSearch,
-	Edit3,
-	Globe,
-	FolderSearch,
-	Notebook,
-	Skull,
-	Zap,
-	Slash,
-	HelpCircle,
-	Server,
 	BookOpen,
-	LogOut,
+	FilePenLine,
+	FileSearch,
+	FileText,
+	FolderSearch,
+	Globe,
+	ListTodo,
 	LogIn,
+	LogOut,
+	MessageCircleQuestionMark,
+	Notebook,
+	Search,
+	Server,
+	Skull,
+	Slash,
+	Terminal,
+	Zap,
 	type Icon,
 } from "@lucide/svelte";
 
@@ -77,7 +77,7 @@ export function getClaudeCodeToolIcon(toolName: string): typeof Icon {
 		case "Write":
 			return FileText;
 		case "Edit":
-			return Edit3;
+			return FilePenLine;
 		case "Read":
 			return BookOpen;
 		case "Bash":
@@ -101,7 +101,7 @@ export function getClaudeCodeToolIcon(toolName: string): typeof Icon {
 		case "SlashCommand":
 			return Slash;
 		case "AskUserQuestion":
-			return HelpCircle;
+			return MessageCircleQuestionMark;
 		case "ListMcpResourcesTool":
 		case "ReadMcpResourceTool":
 			return Server;

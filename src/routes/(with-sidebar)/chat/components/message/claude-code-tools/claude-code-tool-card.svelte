@@ -17,8 +17,8 @@
 		DialogTitle,
 	} from "$lib/components/ui/dialog/index.js";
 	import { m } from "$lib/paraglide/messages.js";
+	import { Ban, Circle, CircleCheck, LoaderCircle } from "@lucide/svelte";
 	import { getClaudeCodeToolIcon, getClaudeCodeToolLabel } from "./utils";
-	import { CheckCircle2, XCircle, Loader2, Circle } from "@lucide/svelte";
 
 	let { part, messageId: _messageId }: ClaudeCodeToolCardProps = $props();
 
@@ -36,7 +36,7 @@
 		switch (part.state) {
 			case "output-available":
 				return {
-					icon: CheckCircle2,
+					icon: CircleCheck,
 					color: "text-[#38B865]",
 					bgColor: "bg-[#38B865]",
 					label: m.tool_call_status_success(),
@@ -44,7 +44,7 @@
 				};
 			case "output-error":
 				return {
-					icon: XCircle,
+					icon: Ban,
 					color: "text-[#D82525]",
 					bgColor: "bg-[#D82525]",
 					label: m.tool_call_status_error(),
@@ -52,7 +52,7 @@
 				};
 			case "input-available":
 				return {
-					icon: Loader2,
+					icon: LoaderCircle,
 					color: "text-[#0056FE]",
 					bgColor: "bg-[#0056FE]",
 					label: m.tool_call_status_executing(),
