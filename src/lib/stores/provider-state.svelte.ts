@@ -206,16 +206,35 @@ class ProviderState {
 
 		return true;
 	}
-	removeModelsByProvider(providerId: string): number {
+	async removeModelsByProvider(providerId: string): Promise<number> {
 		const originalLength = persistedModelState.current.length;
+		const modelsToRemove = persistedModelState.current.filter((m) => m.providerId === providerId);
+		const deletedModelIds = modelsToRemove.map((m) => m.id);
+
 		persistedModelState.current = persistedModelState.current.filter(
 			(m) => m.providerId !== providerId,
 		);
 		const removedCount = originalLength - persistedModelState.current.length;
+
+		// Clear selectedModel references from all threads for deleted models
+		if (removedCount > 0 && deletedModelIds.length > 0) {
+			try {
+				const { threadService } = window.electronAPI;
+				const clearedCount = await threadService.clearDeletedModelReferences(deletedModelIds);
+				if (clearedCount > 0) {
+					console.log(
+						`[Provider] Cleared selectedModel references in ${clearedCount} thread(s) for deleted models`,
+					);
+				}
+			} catch (error) {
+				console.error("[Provider] Failed to clear deleted model references:", error);
+			}
+		}
+
 		return removedCount;
 	}
-	clearModelsByProvider(providerId: string): number {
-		return this.removeModelsByProvider(providerId);
+	async clearModelsByProvider(providerId: string): Promise<number> {
+		return await this.removeModelsByProvider(providerId);
 	}
 	async fetchModelsForProvider(provider: ModelProvider): Promise<boolean> {
 		try {
@@ -322,7 +341,7 @@ class ProviderState {
 	 * @param associatedApiKey - The API key to compare against
 	 * @returns true if the key was cleared, false if it didn't match or provider not found
 	 */
-	clearAssociatedApiKey(associatedApiKey: string): boolean {
+	async clearAssociatedApiKey(associatedApiKey: string): Promise<boolean> {
 		const provider = this.getProvider("302AI");
 		if (!provider) return false;
 
@@ -330,7 +349,7 @@ class ProviderState {
 		if (provider.apiKey === associatedApiKey) {
 			this.updateProvider("302AI", { apiKey: "" });
 			// Also clear all models for this provider
-			const removedCount = this.removeModelsByProvider("302AI");
+			const removedCount = await this.removeModelsByProvider("302AI");
 			console.log(
 				`[Provider] Cleared associated API key and ${removedCount} models from 302.AI provider`,
 			);

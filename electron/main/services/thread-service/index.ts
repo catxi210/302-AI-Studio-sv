@@ -109,6 +109,35 @@ export class ThreadService {
 	}
 
 	/**
+	 * Clear selectedModel references from all threads for deleted models
+	 * Used when models are deleted to prevent stale references
+	 * @param deletedModelIds - Array of model IDs that were deleted
+	 * @returns Number of threads that had their selectedModel cleared
+	 */
+	async clearDeletedModelReferences(
+		_event: IpcMainInvokeEvent,
+		deletedModelIds: string[],
+	): Promise<number> {
+		try {
+			const deletedModelIdsSet = new Set(deletedModelIds);
+			const clearedCount = await threadStorage.clearDeletedModelReferences(deletedModelIdsSet);
+
+			if (clearedCount > 0) {
+				// Broadcast thread list update to refresh UI
+				broadcastService.broadcastChannelToAll("broadcast-event", {
+					broadcastEvent: "thread-list-updated",
+					data: {},
+				});
+			}
+
+			return clearedCount;
+		} catch (error) {
+			console.error("ThreadService: Failed to clear deleted model references:", error);
+			return 0;
+		}
+	}
+
+	/**
 	 * Close tabs that reference specific thread IDs from all windows
 	 */
 	private async closeTabsForThreads(threadIds: string[]): Promise<void> {

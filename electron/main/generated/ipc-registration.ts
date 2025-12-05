@@ -357,6 +357,9 @@ export function registerIpcHandlers() {
 	ipcMain.handle("threadService:deleteThreadsByApiKeyHash", (event, apiKeyHash) =>
 		threadService.deleteThreadsByApiKeyHash(event, apiKeyHash),
 	);
+	ipcMain.handle("threadService:clearDeletedModelReferences", (event, deletedModelIds) =>
+		threadService.clearDeletedModelReferences(event, deletedModelIds),
+	);
 
 	// updaterService service registration
 	ipcMain.handle("updaterService:checkForUpdatesManually", (event) =>
@@ -490,6 +493,7 @@ export function removeIpcHandlers() {
 	ipcMain.removeHandler("threadService:addFavorite");
 	ipcMain.removeHandler("threadService:removeFavorite");
 	ipcMain.removeHandler("threadService:deleteThreadsByApiKeyHash");
+	ipcMain.removeHandler("threadService:clearDeletedModelReferences");
 	ipcMain.removeHandler("updaterService:checkForUpdatesManually");
 	ipcMain.removeHandler("updaterService:quitAndInstall");
 	ipcMain.removeHandler("updaterService:isUpdateDownloaded");
