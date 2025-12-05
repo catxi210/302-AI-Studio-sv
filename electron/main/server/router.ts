@@ -21,10 +21,12 @@ import {
 } from "ai";
 import getPort from "get-port";
 import { Hono, type Context } from "hono";
-import { codeAgentService, ssoService, tabService } from "../services";
+import { codeAgentService, ssoService } from "../services";
 import { mcpService } from "../services/mcp-service";
 import { storageService } from "../services/storage-service";
 import { createCitationsFetch } from "./citations-processor";
+import { createClaudeCodeFetch } from "./claude-code-processor";
+import { createClaudeCodeTools } from "./claude-code-tools";
 
 export type RouterRequestBody = {
 	baseUrl?: string;
@@ -795,9 +797,9 @@ app.post("/chat/302ai-code-agent", async (c) => {
 
 	const openai = createOpenAICompatible({
 		name: "302.AI",
-		baseURL: baseUrl || "https://api.openai.com/v1",
-		apiKey: apiKey || "[REDACTED:sk-secret]",
-		fetch: createCitationsFetch(),
+		baseURL: baseUrl ?? "https://api.302.ai/v1",
+		apiKey: apiKey,
+		fetch: createClaudeCodeFetch(),
 	});
 
 	const cfg = {
@@ -823,13 +825,8 @@ app.post("/chat/302ai-code-agent", async (c) => {
 		createdResult,
 	);
 
-	// Notify the frontend that sandbox was created (for new sandboxes or existing ones)
-	if (sandboxId && (createdResult === "success" || createdResult === "already-exist")) {
-		tabService.notifySandboxCreated(threadId, sandboxId);
-	}
-
 	const wrapModel = wrapLanguageModel({
-		model: openai.chatModel(sandboxId ?? model),
+		model: openai.chatModel(sandboxId),
 		middleware: [
 			extractReasoningMiddleware({ tagName: "think" }),
 			extractReasoningMiddleware({ tagName: "thinking" }),
@@ -839,14 +836,20 @@ app.post("/chat/302ai-code-agent", async (c) => {
 
 	const provider302Options: Record<string, boolean | string> = {
 		session_id: sessionId ?? "",
-		// structured_output: true,
+		structured_output: true,
 	};
+
+	// Create Claude Code virtual tools for SDK recognition
+	const claudeCodeTools = createClaudeCodeTools();
+
 	const streamTextOptions = {
 		model: wrapModel,
 		messages: convertToModelMessages(enhanceMessagesWithFeedback(messages)),
 		providerOptions: {
 			"302": provider302Options,
 		},
+		tools: claudeCodeTools,
+		maxSteps: 50, // Allow multiple tool call steps
 	};
 
 	const streamTextOptionsWithTransform = {
@@ -861,22 +864,31 @@ app.post("/chat/302ai-code-agent", async (c) => {
 
 	const stream = createUIMessageStream({
 		execute: async ({ writer }) => {
-			const result = new Agent({
-				...streamTextOptionsWithTransform,
-				stopWhen: stepCountIs(20),
-			}).stream(streamTextOptionsWithTransform);
+			try {
+				console.log("[302ai-code-agent] Starting Agent stream...");
+				const result = new Agent({
+					...streamTextOptionsWithTransform,
+					stopWhen: stepCountIs(20),
+				}).stream(streamTextOptionsWithTransform);
 
-			writer.merge(
-				result.toUIMessageStream({
-					messageMetadata: () => ({
-						model,
-						provider: "ai302",
-						createdAt: new Date().toISOString(),
+				console.log("[302ai-code-agent] Merging to UI stream...");
+				writer.merge(
+					result.toUIMessageStream({
+						messageMetadata: () => ({
+							model,
+							provider: "ai302",
+							createdAt: new Date().toISOString(),
+						}),
 					}),
-				}),
-			);
+				);
 
-			await result.consumeStream();
+				console.log("[302ai-code-agent] Consuming stream...");
+				await result.consumeStream();
+				console.log("[302ai-code-agent] Stream consumed successfully");
+			} catch (error) {
+				console.error("[302ai-code-agent] Error in stream:", error);
+				throw error;
+			}
 		},
 	});
 

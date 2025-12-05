@@ -38,6 +38,14 @@
 	import type { DynamicToolUIPart } from "ai";
 	import { onDestroy } from "svelte";
 	import { toast } from "svelte-sonner";
+	import {
+		ClaudeCodeToolCard,
+		TodoWriteCard,
+		WriteCard,
+		extractToolNameFromType,
+		isClaudeCodeTool,
+		isClaudeCodeToolType,
+	} from "./claude-code-tools";
 	import MessageActions from "./message-actions.svelte";
 	import MessageContextMenu from "./message-context-menu.svelte";
 	import ToolCallModal from "./tool-call-modal.svelte";
@@ -437,52 +445,79 @@
 					</Collapsible>
 				{/if}
 			{:else if part.type === "dynamic-tool"}
-				<button
-					type="button"
-					class="my-2 block w-full cursor-pointer rounded-[10px] border-0 bg-white px-3.5 py-3 text-left hover:bg-[#F9F9F9] dark:bg-[#1A1A1A] dark:hover:bg-[#2D2D2D]"
-					onclick={() => {
-						selectedToolPart = part;
-						isToolModalOpen = true;
-					}}
-				>
-					<div class="flex w-full items-center justify-between gap-x-4">
-						<!-- Left: Tool Icon and Name -->
-						<div class="flex items-center gap-3">
-							<div class="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
-								{#if getServerIcon(part.toolName)}
-									<span class="text-xl">{getServerIcon(part.toolName)}</span>
-								{:else}
-									<Server class="h-5 w-5 text-muted-foreground" />
+				{#if isClaudeCodeTool(part.toolName)}
+					<!-- Claude Code Tools - Render specialized cards -->
+					{#if part.toolName === "TodoWrite"}
+						<TodoWriteCard {part} messageId={message.id} />
+					{:else if part.toolName === "Write" || part.toolName === "Edit"}
+						<WriteCard {part} messageId={message.id} messagePartIndex={partIndex} />
+					{:else}
+						<ClaudeCodeToolCard {part} messageId={message.id} />
+					{/if}
+				{:else}
+					<!-- MCP Tools - Keep original behavior with modal -->
+					<button
+						type="button"
+						class="my-2 block w-full cursor-pointer rounded-[10px] border-0 bg-white px-3.5 py-3 text-left hover:bg-[#F9F9F9] dark:bg-[#1A1A1A] dark:hover:bg-[#2D2D2D]"
+						onclick={() => {
+							selectedToolPart = part;
+							isToolModalOpen = true;
+						}}
+					>
+						<div class="flex w-full items-center justify-between gap-x-4">
+							<!-- Left: Tool Icon and Name -->
+							<div class="flex items-center gap-3">
+								<div class="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
+									{#if getServerIcon(part.toolName)}
+										<span class="text-xl">{getServerIcon(part.toolName)}</span>
+									{:else}
+										<Server class="h-5 w-5 text-muted-foreground" />
+									{/if}
+								</div>
+
+								<!-- Tool Name -->
+								<div class="flex flex-col items-start gap-1">
+									<h3 class="text-sm font-medium text-foreground">
+										{getDisplayToolName(part.toolName)}
+									</h3>
+									<p class="text-xs text-muted-foreground">{getServerName(part.toolName)}</p>
+								</div>
+							</div>
+
+							<!-- Right: Status -->
+							<div class="flex items-center gap-2">
+								{#if part.state === "input-streaming"}
+									<div class="h-2 w-2 animate-pulse rounded-full bg-[#0056FE]"></div>
+									<span class="text-sm text-[#0056FE]">{m.tool_call_status_preparing()}</span>
+								{:else if part.state === "input-available"}
+									<div class="h-2 w-2 animate-pulse rounded-full bg-[#0056FE]"></div>
+									<span class="text-sm text-[#0056FE]">{m.tool_call_status_executing()}</span>
+								{:else if part.state === "output-available"}
+									<div class="h-2 w-2 rounded-full bg-[#38B865]"></div>
+									<span class="text-sm text-[#38B865]">{m.tool_call_status_success()}</span>
+								{:else if part.state === "output-error"}
+									<div class="h-2 w-2 rounded-full bg-[#D82525]"></div>
+									<span class="text-sm text-[#D82525]">{m.tool_call_status_error()}</span>
 								{/if}
 							</div>
-
-							<!-- Tool Name -->
-							<div class="flex flex-col items-start gap-1">
-								<h3 class="text-sm font-medium text-foreground">
-									{getDisplayToolName(part.toolName)}
-								</h3>
-								<p class="text-xs text-muted-foreground">{getServerName(part.toolName)}</p>
-							</div>
 						</div>
-
-						<!-- Right: Status -->
-						<div class="flex items-center gap-2">
-							{#if part.state === "input-streaming"}
-								<div class="h-2 w-2 animate-pulse rounded-full bg-[#0056FE]"></div>
-								<span class="text-sm text-[#0056FE]">{m.tool_call_status_preparing()}</span>
-							{:else if part.state === "input-available"}
-								<div class="h-2 w-2 animate-pulse rounded-full bg-[#0056FE]"></div>
-								<span class="text-sm text-[#0056FE]">{m.tool_call_status_executing()}</span>
-							{:else if part.state === "output-available"}
-								<div class="h-2 w-2 rounded-full bg-[#38B865]"></div>
-								<span class="text-sm text-[#38B865]">{m.tool_call_status_success()}</span>
-							{:else if part.state === "output-error"}
-								<div class="h-2 w-2 rounded-full bg-[#D82525]"></div>
-								<span class="text-sm text-[#D82525]">{m.tool_call_status_error()}</span>
-							{/if}
-						</div>
-					</div>
-				</button>
+					</button>
+				{/if}
+			{:else if isClaudeCodeToolType(part.type)}
+				<!-- 302.AI Claude Code format: tool-{ToolName} -->
+				{@const toolName = extractToolNameFromType(part.type)}
+				{@const toolPart = {
+					...part,
+					toolName,
+					type: "dynamic-tool",
+				} as unknown as DynamicToolUIPart}
+				{#if toolName === "TodoWrite"}
+					<TodoWriteCard part={toolPart} messageId={message.id} />
+				{:else if toolName === "Write" || toolName === "Edit"}
+					<WriteCard part={toolPart} messageId={message.id} messagePartIndex={partIndex} />
+				{:else}
+					<ClaudeCodeToolCard part={toolPart} messageId={message.id} />
+				{/if}
 			{/if}
 		{/each}
 
