@@ -67,7 +67,7 @@ class ProviderState {
 			p.id === id ? { ...p, ...updates } : p,
 		);
 
-		if (updates.apiKey && updates.apiType === "302ai") {
+		if (updates.apiKey && id === "302AI") {
 			await providerService.handle302AIProviderChange(updates.apiKey);
 		}
 	}
