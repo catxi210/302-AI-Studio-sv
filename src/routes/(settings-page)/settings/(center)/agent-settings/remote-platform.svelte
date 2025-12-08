@@ -8,6 +8,7 @@
 		claudeCodeSandboxState,
 		persistedClaudeCodeSandboxState,
 	} from "$lib/stores/code-agent/claude-code-sandbox-state.svelte";
+	import { formatDateTimeFull } from "$lib/utils/date-format";
 	import { RotateCw, Search } from "@lucide/svelte";
 	import type { ClaudeCodeSandboxInfo } from "@shared/storage/code-agent";
 	import { onMount } from "svelte";
@@ -38,19 +39,7 @@
 
 	// Format time from ISO string
 	function formatTime(isoString: string): string {
-		if (!isoString) return "";
-		try {
-			const date = new Date(isoString);
-			return date.toLocaleString([], {
-				year: "numeric",
-				month: "2-digit",
-				day: "2-digit",
-				hour: "2-digit",
-				minute: "2-digit",
-			});
-		} catch {
-			return "";
-		}
+		return formatDateTimeFull(isoString);
 	}
 
 	// Refresh sandbox list

@@ -3,6 +3,7 @@
 		label: string;
 		value: string;
 		key?: string;
+		extra?: string;
 	}
 
 	interface Props {
@@ -22,6 +23,7 @@
 	import * as Select from "$lib/components/ui/select/index.js";
 	import { m } from "$lib/paraglide/messages";
 	import { cn } from "$lib/utils";
+	import { formatDateTimeShort } from "$lib/utils/date-format";
 
 	let {
 		name,
@@ -35,6 +37,11 @@
 
 	function getLabel(val: string) {
 		return options.find((option) => option.value === val)?.label || val;
+	}
+
+	function formatExtra(extra?: string): string {
+		if (!extra) return "";
+		return formatDateTimeShort(extra) || extra;
 	}
 </script>
 
@@ -59,7 +66,18 @@
 			</Empty.Root>
 		{:else}
 			{#each options as option (option.key || option.value)}
-				<Select.Item value={option.value} label={option.label} />
+				{#if option.extra}
+					<Select.Item value={option.value} label={option.label}>
+						<span class="flex w-full items-center justify-between">
+							<span class="truncate">{option.label}</span>
+							<span class="ml-2 text-xs text-muted-foreground shrink-0"
+								>{formatExtra(option.extra)}</span
+							>
+						</span>
+					</Select.Item>
+				{:else}
+					<Select.Item value={option.value} label={option.label} />
+				{/if}
 			{/each}
 		{/if}
 	</Select.Content>

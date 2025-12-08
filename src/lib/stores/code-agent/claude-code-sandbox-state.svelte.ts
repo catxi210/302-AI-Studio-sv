@@ -60,10 +60,12 @@ class ClaudeCodeSandboxState {
 			...sanboxes
 				.flatMap((sandbox) => sandbox.sessionInfos)
 				.map((session) => {
+					const name = session.note && session.note !== "" ? session.note : session.sessionId;
 					return {
 						key: session.workspacePath,
-						label: session.note && session.note !== "" ? session.note : session.sessionId,
+						label: name,
 						value: session.sessionId,
+						extra: session.usedAt,
 					};
 				}),
 		];

@@ -6,6 +6,7 @@
 		claudeCodeSandboxState,
 		persistedClaudeCodeSandboxState,
 	} from "$lib/stores/code-agent/claude-code-sandbox-state.svelte";
+	import { formatDateTimeShort } from "$lib/utils/date-format";
 	import { Loader2 } from "@lucide/svelte";
 	import type { ClaudeCodeSandboxInfo } from "@shared/storage/code-agent";
 
@@ -49,23 +50,8 @@
 		}
 	});
 
-	function formatTime(session: {
-		sessionId: string;
-		workspacePath: string;
-		note: string;
-		createdAt?: string | number;
-	}) {
-		// 如果有时间戳，格式化显示
-		if (session.createdAt) {
-			const date = new Date(session.createdAt);
-			return date.toLocaleString("zh-CN", {
-				month: "numeric",
-				day: "numeric",
-				hour: "2-digit",
-				minute: "2-digit",
-			});
-		}
-		return "";
+	function formatTime(session: { usedAt?: string }) {
+		return formatDateTimeShort(session.usedAt);
 	}
 
 	async function handleDelete() {

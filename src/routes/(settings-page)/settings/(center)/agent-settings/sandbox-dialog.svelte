@@ -11,6 +11,7 @@
 		persistedClaudeCodeSandboxState,
 	} from "$lib/stores/code-agent/claude-code-sandbox-state.svelte";
 	import { persistedProviderState } from "$lib/stores/provider-state.svelte";
+	import { formatDateTimeFull } from "$lib/utils/date-format";
 	import { Loader2 } from "@lucide/svelte";
 	import type { ClaudeCodeSandboxInfo } from "@shared/storage/code-agent";
 	import { toast } from "svelte-sonner";
@@ -77,24 +78,8 @@
 		}
 	});
 
-	function formatTime(session: {
-		sessionId: string;
-		workspacePath: string;
-		note?: string;
-		usedAt?: string;
-	}) {
-		// 如果有时间戳，格式化显示
-		if (session.usedAt) {
-			const date = new Date(session.usedAt);
-			return date.toLocaleString("zh-CN", {
-				year: "numeric",
-				month: "numeric",
-				day: "numeric",
-				hour: "2-digit",
-				minute: "2-digit",
-			});
-		}
-		return "";
+	function formatTime(session: { usedAt?: string }) {
+		return formatDateTimeFull(session.usedAt);
 	}
 
 	function handleModifySessionRemark(session: SessionType) {
