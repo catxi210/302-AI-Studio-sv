@@ -17,18 +17,21 @@
 
 ## 🖼️ Interface Screenshots
 
-Home chat welcome screen, providing a message input box, toolbar, model selection, and quick access to commonly used AI tools           
+Home chat interface, providing input box, toolbar, model selection, and quick access to commonly used AI tools           
 <img src="./docs/imgs/302_AI_Studio_en_screenshot_01.png" >                   
  
-Multi-tab chat interface, with a conversation list on the left and the chat interface on the right
+Multi-tab chat interface with conversation list on the left and chat window on the right
 <img src="./docs/imgs/302_AI_Studio_en_screenshot_02.png" >              
 
-Quickly open AI applications within the client with one click, without having to visit the official website
+Quickly open AI applications within the client, no need to visit websites
 <img src="./docs/imgs/302_AI_Studio_en_screenshot_03.png" >          
 
-Independent window settings page with common, preferences, MCP, and other frequently used configurations
+Settings page in standalone window, including General, Account, Preferences, MCP, and other common configurations
 <img src="./docs/imgs/302_AI_Studio_en_screenshot_04.png" >
-<img src="./docs/imgs/302_AI_Studio_en_screenshot_05.png" >
+<img src="./docs/imgs/302_AI_Studio_en_screenshot_05.png" > 
+
+Agent sandbox management page, supports switching between remote and local platforms, viewing and managing Agent sandbox list
+<img src="./docs/imgs/302_AI_Studio_en_screenshot_06.png" >
 
 ## 🌟 Key Features
 
@@ -48,6 +51,7 @@ Independent window settings page with common, preferences, MCP, and other freque
 ### Excellent User Experience
 - 🖥️ Multi-platform support for Windows, Mac, and Linux
 - 🌙 Customizable light/dark theme system with real-time preview
+- 👤 Support account login, and allows checking balance and usage
 - 📝 Complete Markdown rendering
 - 📱 Responsive design, perfectly adapts to various screen sizes
 - 🎨 Modern component library based on Shadcn-Svelte
@@ -58,10 +62,17 @@ Independent window settings page with common, preferences, MCP, and other freque
 - ⌨️ Complete keyboard shortcut system
 - 🔄 Hot Module Replacement (HMR) support for smooth development experience
 
+### Agent Sandbox Management
+- 🌐 Supports both remote and local Agent execution platforms
+- 📦 Agent sandbox list management for quickly viewing all available sandboxes
+- 🔍 Sandbox search function for fast location of target sandbox
+- 📈 Sandbox session statistics, displaying session counts and timing information
+- 🔄 One-click refresh of the sandbox list to get the latest status
+
 ### Multi-Language Support
 - **中文**
 - **English**
-- **日本語**
+- **日本語**(coming soon)
 
 ## 🛠️ Technical Architecture
 

@@ -17,7 +17,7 @@
 
 ## 🖼️ 界面截图
 
-主页聊天欢迎界面，提供消息输入框、工具栏、模型选择与常用AI工具快捷入口           
+主页聊天界面，提供消息输入框、工具栏、模型选择与常用AI工具快捷入口           
 <img src="./docs/imgs/302_AI_Studio_screenshot_01.png" >                   
  
 多标签聊天界面，左侧会话列表，右侧聊天界面
@@ -26,9 +26,12 @@
 在客户端内可一键快速打开AI应用，无需跳转至官网
 <img src="./docs/imgs/302_AI_Studio_screenshot_03.png" >          
 
-独立窗口形式的设置页面，包含通用与、偏好、MCP等常用配置
+独立窗口形式的设置页面，包含通用、账户、偏好、MCP等常用配置
 <img src="./docs/imgs/302_AI_Studio_screenshot_04.png" >
-<img src="./docs/imgs/302_AI_Studio_screenshot_05.png" >
+<img src="./docs/imgs/302_AI_Studio_screenshot_05.png" > 
+
+Agent 沙盒管理页面，支持远程/本地平台切换，查看和管理 Agent 沙盒列表
+<img src="./docs/imgs/302_AI_Studio_screenshot_06.png" >
 
 ## 🌟 主要特点
 
@@ -48,6 +51,7 @@
 ### 优质使用体验
 - 🖥️ Windows、Mac、Linux 多平台支持
 - 🌙 可自定义的明暗主题系统，实时预览
+- 👤 支持账户登录，并可查询余额与使用情况
 - 📝 完整的 Markdown 渲染
 - 📱 响应式设计，完美适配各种屏幕尺寸
 - 🎨 基于 Shadcn-Svelte 的现代化组件库
@@ -58,10 +62,17 @@
 - ⌨️ 完整的快捷键系统
 - 🔄 热更新（HMR）支持，开发体验流畅
 
+### Agent 沙盒管理
+- 🌐 支持远程和本地两种 Agent 运行平台
+- 📦 Agent 沙盒列表管理，快速查看所有可用沙盒
+- 🔍 沙盒搜索功能，快速定位目标沙盒
+- 📈 沙盒会话统计，显示会话数量和时间信息
+- 🔄 一键刷新沙盒列表，获取最新状态
+
 ### 多语言支持
 - **中文**
 - **English**
-- **日本語**
+- **日本語**（后续支持）
 
 ## 🛠️ 技术架构
 
