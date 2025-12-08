@@ -62,12 +62,13 @@ Agent sandbox management page, supports switching between remote and local platf
 - ⌨️ Complete keyboard shortcut system
 - 🔄 Hot Module Replacement (HMR) support for smooth development experience
 
-### Agent Sandbox Management
-- 🌐 Supports both remote and local Agent execution platforms
-- 📦 Agent sandbox list management for quickly viewing all available sandboxes
-- 🔍 Sandbox search function for fast location of target sandbox
-- 📈 Sandbox session statistics, displaying session counts and timing information
-- 🔄 One-click refresh of the sandbox list to get the latest status
+### Agent Mode
+- 🤖 Invoke Claude Code via remote sandbox environments for intelligent task planning
+- 🎯 Agent task execution and real-time monitoring, track task progress and status
+- 🔄 Intelligent workflow management, supporting complex task decomposition and collaboration
+- 📊 Agent session statistics and analysis, view execution history and performance data
+- 🚀 One-click full-stack application deployment, Agent automatically writes, tests, and deploys code
+- 📦 Support for multiple tech stacks, quickly build web applications, API services, and more
 
 ### Multi-Language Support
 - **中文**
