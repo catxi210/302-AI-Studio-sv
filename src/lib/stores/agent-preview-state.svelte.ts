@@ -2,7 +2,7 @@ import type { SandboxFileInfo } from "$lib/api/sandbox-file";
 import { PersistedState } from "$lib/hooks/persisted-state.svelte";
 import { preferencesSettings } from "$lib/stores/preferences-settings.state.svelte";
 import type { CodeAgentType } from "@shared/storage/code-agent";
-import { SvelteDate } from "svelte/reactivity";
+import { SvelteDate, SvelteSet } from "svelte/reactivity";
 
 /**
  * Get threadId from window.tab or default to "shell"
@@ -52,6 +52,28 @@ export interface AgentPreviewStorageMap {
 	[key: string]: AgentPreviewStorage;
 }
 
+type AgentPreviewSyncMessage =
+	| {
+			type: "fileListUpdated";
+			sandboxId: string;
+			sessionId: string;
+			fileList: SandboxFileInfo[];
+			selectedFilePath?: string;
+	  }
+	| {
+			type: "fileContentUpdated";
+			sandboxId: string;
+			sessionId: string;
+			filePath: string;
+			content: string;
+			modifiedTime?: string;
+	  }
+	| {
+			type: "fileContentsCleared";
+			sandboxId: string;
+			sessionId: string;
+	  };
+
 // Helper function to get ISO timestamp string
 function getISOString(): string {
 	return new Date().toISOString();
@@ -64,6 +86,26 @@ function getStorageKey(sandboxId: string, sessionId: string): string {
 
 // Get threadId from window.tab or default to "shell"
 const threadId = getThreadId();
+const syncInstanceId =
+	typeof crypto !== "undefined" && "randomUUID" in crypto && crypto.randomUUID
+		? crypto.randomUUID()
+		: `s-${Date.now()}-${Math.random()}`;
+const SYNC_STORAGE_KEY = "agent-preview-sync-channel";
+
+function cloneForChannel<T>(data: T): T {
+	try {
+		if (typeof structuredClone === "function") {
+			return structuredClone(data);
+		}
+	} catch (_e) {
+		// fall through
+	}
+	try {
+		return JSON.parse(JSON.stringify(data)) as T;
+	} catch (_e) {
+		return data;
+	}
+}
 
 // Initialize PersistedState with empty map (per-thread storage)
 const persistedAgentPreviewStorage = new PersistedState<AgentPreviewStorageMap>(
@@ -71,14 +113,139 @@ const persistedAgentPreviewStorage = new PersistedState<AgentPreviewStorageMap>(
 	{},
 );
 
+type SyncEnvelope<T extends AgentPreviewSyncMessage> = T & {
+	sourceInstanceId: string;
+	timestamp: number;
+	_id: string;
+};
+export type AgentPreviewSyncEnvelope = SyncEnvelope<AgentPreviewSyncMessage>;
+
+class SyncBus {
+	private channel: BroadcastChannel | null = null;
+	private listeners = new SvelteSet<(message: SyncEnvelope<AgentPreviewSyncMessage>) => void>();
+	private lastStorageMessageId: string | null = null;
+
+	constructor(private readonly instanceId: string) {
+		this.initChannel();
+		if (typeof window !== "undefined" && "addEventListener" in window) {
+			window.addEventListener("storage", this.handleStorageEvent);
+		}
+	}
+
+	publish(message: AgentPreviewSyncMessage) {
+		const safeMessage = cloneForChannel(message);
+		const envelope: SyncEnvelope<AgentPreviewSyncMessage> = {
+			...safeMessage,
+			sourceInstanceId: this.instanceId,
+			timestamp: Date.now(),
+			_id:
+				typeof crypto !== "undefined" && "randomUUID" in crypto && crypto.randomUUID
+					? crypto.randomUUID()
+					: `m-${Date.now()}-${Math.random()}`,
+		};
+
+		for (const l of this.listeners) {
+			l(envelope);
+		}
+
+		if (this.channel) {
+			try {
+				this.channel.postMessage(envelope);
+			} catch (e) {
+				console.error("[SyncBus] Broadcast failed", e);
+			}
+		}
+
+		try {
+			localStorage.setItem(SYNC_STORAGE_KEY, JSON.stringify(envelope));
+		} catch (e) {
+			console.warn("[SyncBus] Storage sync failed", e);
+		}
+	}
+
+	subscribe(listener: (message: SyncEnvelope<AgentPreviewSyncMessage>) => void): () => void {
+		this.listeners.add(listener);
+		return () => {
+			this.listeners.delete(listener);
+		};
+	}
+
+	dispose() {
+		if (this.channel) {
+			this.channel.close();
+		}
+		this.listeners = new SvelteSet();
+		if (typeof window !== "undefined" && "removeEventListener" in window) {
+			window.removeEventListener("storage", this.handleStorageEvent);
+		}
+	}
+
+	private initChannel() {
+		try {
+			this.channel = new BroadcastChannel("agent-preview-sync");
+			this.channel.onmessage = (event: MessageEvent<SyncEnvelope<AgentPreviewSyncMessage>>) => {
+				this.deliver(event.data);
+			};
+		} catch (e) {
+			console.warn("[SyncBus] BroadcastChannel unavailable:", e);
+			this.channel = null;
+		}
+	}
+
+	private handleStorageEvent = (event: StorageEvent) => {
+		if (event.key !== SYNC_STORAGE_KEY || !event.newValue) {
+			return;
+		}
+		try {
+			const parsed = JSON.parse(event.newValue) as SyncEnvelope<AgentPreviewSyncMessage>;
+			this.deliver(parsed, true);
+		} catch (e) {
+			console.warn("[SyncBus] Failed to parse storage message", e);
+		}
+	};
+
+	private deliver(message: SyncEnvelope<AgentPreviewSyncMessage>, fromStorage = false) {
+		if (!message || message.sourceInstanceId === this.instanceId) {
+			return;
+		}
+		if (fromStorage && message._id === this.lastStorageMessageId) {
+			return;
+		}
+		if (fromStorage) {
+			this.lastStorageMessageId = message._id;
+		}
+
+		for (const l of this.listeners) {
+			try {
+				l(message);
+			} catch (e) {
+				console.error("[SyncBus] Listener error", e);
+			}
+		}
+	}
+}
+
 export class AgentPreviewState {
 	isVisible = $state(false);
 	mode = $state<HtmlPreviewMode>("preview");
 	sandBoxId = $state<string | undefined>(undefined);
+	private syncBus = new SyncBus(syncInstanceId);
 
 	// Use global preferencesSettings for isPinned
 	get isPinned(): boolean {
 		return preferencesSettings.previewPanelPinned;
+	}
+
+	get threadIdentifier(): string {
+		return threadId;
+	}
+
+	get syncIdentifier(): string {
+		return syncInstanceId;
+	}
+
+	constructor() {
+		// syncBus handles broadcast + storage fanout and dedupe
 	}
 
 	// Track active execution states in memory only (not persisted)
@@ -135,6 +302,7 @@ export class AgentPreviewState {
 		sandboxId: string,
 		sessionId: string,
 		updater: (state: AgentPreviewStorage) => Partial<AgentPreviewStorage>,
+		lastUpdatedOverride?: string,
 	): void {
 		if (!sandboxId || !sessionId) {
 			return;
@@ -151,7 +319,7 @@ export class AgentPreviewState {
 		const newState: AgentPreviewStorage = {
 			...currentState,
 			...updates,
-			lastUpdated: getISOString(),
+			lastUpdated: lastUpdatedOverride ?? getISOString(),
 		};
 
 		persistedAgentPreviewStorage.current = {
@@ -187,6 +355,7 @@ export class AgentPreviewState {
 		sandboxId: string,
 		sessionId: string,
 		data: AgentPreviewStorage,
+		lastUpdatedOverride?: string,
 	): Promise<void> {
 		if (!sandboxId || !sessionId) {
 			return;
@@ -197,7 +366,7 @@ export class AgentPreviewState {
 			...this.storageMap,
 			[key]: {
 				...data,
-				lastUpdated: getISOString(),
+				lastUpdated: lastUpdatedOverride ?? getISOString(),
 			},
 		};
 	}
@@ -274,7 +443,17 @@ export class AgentPreviewState {
 			terminalHistory: storage?.terminalHistory,
 			type: storage?.type,
 		};
-		await this.saveToStorage(sandboxId, sessionId, updatedStorage);
+		const timestamp = getISOString();
+		await this.saveToStorage(sandboxId, sessionId, updatedStorage, timestamp);
+
+		this.syncBus.publish({
+			type: "fileContentUpdated",
+			sandboxId,
+			sessionId,
+			filePath,
+			content,
+			modifiedTime,
+		});
 	}
 
 	/**
@@ -295,6 +474,105 @@ export class AgentPreviewState {
 				type: storage.type,
 			});
 		}
+
+		this.syncBus.publish({
+			type: "fileContentsCleared",
+			sandboxId,
+			sessionId,
+		});
+	}
+
+	onSync(listener: (message: AgentPreviewSyncEnvelope) => void): () => void {
+		return this.syncBus.subscribe(listener);
+	}
+
+	broadcastFileListSync(params: {
+		sandboxId: string;
+		sessionId: string;
+		fileList: SandboxFileInfo[];
+		selectedFilePath?: string | null;
+	}): void {
+		const message: AgentPreviewSyncMessage = {
+			type: "fileListUpdated",
+			sandboxId: params.sandboxId,
+			sessionId: params.sessionId,
+			fileList: params.fileList,
+			selectedFilePath: params.selectedFilePath ?? undefined,
+		};
+		this.syncBus.publish(message);
+	}
+
+	broadcastFileContentsCleared(params: { sandboxId: string; sessionId: string }): void {
+		const message: AgentPreviewSyncMessage = {
+			type: "fileContentsCleared",
+			sandboxId: params.sandboxId,
+			sessionId: params.sessionId,
+		};
+		this.syncBus.publish(message);
+	}
+
+	private handleIncomingSync(message: AgentPreviewSyncMessage) {
+		const envelope = message as SyncEnvelope<AgentPreviewSyncMessage>;
+		if (!envelope || envelope.sourceInstanceId === this.syncIdentifier) {
+			return;
+		}
+
+		const { sandboxId, sessionId } = envelope;
+		if (!sandboxId || !sessionId) {
+			return;
+		}
+
+		const existing = this.storageMap[getStorageKey(sandboxId, sessionId)];
+		const existingUpdatedAt = existing?.lastUpdated
+			? new SvelteDate(existing.lastUpdated).getTime()
+			: 0;
+
+		if (existingUpdatedAt > envelope.timestamp) {
+			return;
+		}
+
+		if (envelope.type === "fileListUpdated") {
+			this.updateState(
+				sandboxId,
+				sessionId,
+				(state) => ({
+					...state,
+					fileList: envelope.fileList,
+					selectedFilePath: envelope.selectedFilePath ?? state.selectedFilePath,
+				}),
+				new SvelteDate(envelope.timestamp).toISOString(),
+			);
+		} else if (envelope.type === "fileContentUpdated") {
+			const { filePath, content, modifiedTime } = envelope;
+			this.updateState(
+				sandboxId,
+				sessionId,
+				(state) => ({
+					...state,
+					fileContents: {
+						...state.fileContents,
+						[filePath]: {
+							content,
+							modifiedTime,
+							cachedAt: new SvelteDate(envelope.timestamp).toISOString(),
+						},
+					},
+				}),
+				new SvelteDate(envelope.timestamp).toISOString(),
+			);
+		} else if (envelope.type === "fileContentsCleared") {
+			this.updateState(
+				sandboxId,
+				sessionId,
+				(state) => ({
+					...state,
+					fileContents: {},
+				}),
+				new SvelteDate(envelope.timestamp).toISOString(),
+			);
+		}
+
+		// Local listeners already invoked by SyncBus before this method runs
 	}
 
 	/**
@@ -482,6 +760,8 @@ export class AgentPreviewState {
 	togglePin() {
 		preferencesSettings.togglePreviewPanelPinned();
 	}
+
+	// storage events handled inside SyncBus
 }
 
 export const agentPreviewState = new AgentPreviewState();

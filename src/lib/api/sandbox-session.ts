@@ -116,6 +116,18 @@ export async function updateSessionNote(
 			};
 		}
 
+		// Refresh sandbox/session list so UI stays in sync with latest note
+		if (typeof window !== "undefined") {
+			try {
+				await window.electronAPI?.codeAgentService?.updateClaudeCodeSandboxesByIpc?.();
+			} catch (refreshError) {
+				console.error(
+					"Failed to refresh Claude code sandboxes after updating session note:",
+					refreshError,
+				);
+			}
+		}
+
 		return {
 			success: true,
 			data: data,

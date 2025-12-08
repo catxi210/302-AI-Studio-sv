@@ -205,6 +205,46 @@ export class ThreadStorage extends StorageService<ThreadMetadata> {
 			return { deletedCount: 0, deletedThreadIds: [] };
 		}
 	}
+
+	/**
+	 * Clear selectedModel references from all threads for deleted models
+	 * Used when models are deleted to prevent stale references
+	 * @param deletedModelIds - Set of model IDs that were deleted
+	 * @returns Number of threads that had their selectedModel cleared
+	 */
+	async clearDeletedModelReferences(deletedModelIds: Set<string>): Promise<number> {
+		try {
+			const metadata = await this.getThreadMetadata();
+			if (!metadata) return 0;
+
+			let clearedCount = 0;
+
+			for (const threadId of metadata.threadIds) {
+				try {
+					const threadKey = "app-thread:" + threadId;
+					const thread = (await storageService.getItemInternal(threadKey)) as ThreadParmas;
+					if (thread && thread.selectedModel && deletedModelIds.has(thread.selectedModel.id)) {
+						// Clear the selectedModel reference
+						await storageService.setItemInternal(threadKey, {
+							...thread,
+							selectedModel: null,
+						});
+						clearedCount++;
+						console.log(
+							`[ThreadStorage] Cleared selectedModel reference for deleted model ${thread.selectedModel.id} in thread ${threadId}`,
+						);
+					}
+				} catch (error) {
+					console.warn(`Failed to clear model reference in thread ${threadId}:`, error);
+				}
+			}
+
+			return clearedCount;
+		} catch (error) {
+			console.error("Failed to clear deleted model references:", error);
+			return 0;
+		}
+	}
 }
 
 export const threadStorage = new ThreadStorage();

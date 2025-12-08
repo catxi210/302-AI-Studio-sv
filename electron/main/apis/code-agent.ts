@@ -4,6 +4,7 @@ import {
 	type CreateClaudeCodeSandboxResponse,
 } from "@shared/storage/code-agent";
 import { type } from "arktype";
+import ky from "ky";
 import { _302AIKy } from "./core/_302ai-ky";
 
 export const sessionInfoSchema = type({
@@ -154,9 +155,19 @@ export type ListClaudeCodeSandboxesResponse = typeof listClaudeCodeSandboxesResp
  * List all claude code sandboxes
  * @returns The list of claude code sandboxes
  */
-export async function listClaudeCodeSandboxes(): Promise<ListClaudeCodeSandboxesResponse> {
+export async function listClaudeCodeSandboxes(
+	apiKey?: string,
+): Promise<ListClaudeCodeSandboxesResponse> {
 	try {
-		const response = await _302AIKy.get("302/claude-code/sandbox/list").json();
+		const response = apiKey
+			? await ky
+					.get("https://api.302.ai/302/claude-code/sandbox/list", {
+						headers: {
+							Authorization: `Bearer ${apiKey}`,
+						},
+					})
+					.json()
+			: await _302AIKy.get("302/claude-code/sandbox/list").json();
 
 		const validated = listClaudeCodeSandboxesResponse(response);
 		if (validated instanceof type.errors) {

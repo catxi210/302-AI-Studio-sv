@@ -11,16 +11,20 @@
 	}
 
 	async function handleDeleteCurrentConversation() {
-		// Get current tab ID from window.tab
-		const currentTabId = window.tab?.id;
+		const threadId = chatState.id;
 
-		// First close the current tab (if exists)
-		if (currentTabId) {
-			await tabBarState.handleTabClose(currentTabId);
+		// Close any tab for this thread across all windows (align with sidebar deletion flow)
+		const allTabs = await tabBarState.getAllTabs();
+		const existingTab = allTabs?.find((tab) => tab.threadId === threadId);
+
+		if (existingTab) {
+			await tabBarState.handleTabClose(existingTab.id);
 		}
 
-		// Then delete the thread
-		await threadsState.deleteThread(chatState.id);
+		const success = await threadsState.deleteThread(threadId);
+		if (!success) {
+			console.error("Failed to delete thread:", threadId);
+		}
 	}
 </script>
 

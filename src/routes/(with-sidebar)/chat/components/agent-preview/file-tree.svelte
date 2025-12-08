@@ -21,6 +21,7 @@
 		FolderUp,
 		Loader2,
 	} from "@lucide/svelte";
+	import { onDestroy } from "svelte";
 	import { toast } from "svelte-sonner";
 	import { FileTreeState, type TreeNode } from "./file-tree-state.svelte";
 
@@ -221,6 +222,12 @@
 		const sandboxChanged = sandboxId !== previousSandboxId;
 		const sessionChanged = currentSessionId !== previousSessionId;
 
+		if (!sandboxId || !currentSessionId) {
+			fileTreeState.disposeSyncListener();
+		} else {
+			fileTreeState.setupSyncListener(currentSessionId);
+		}
+
 		if (sandboxChanged || sessionChanged) {
 			// Capture old values for logic
 			const oldSandboxId = previousSandboxId;
@@ -264,6 +271,13 @@
 					const shouldLoadFromAPI =
 						(isRealChange || isComponentRecreation) && fileTreeState.files.length === 0;
 
+					const shouldRefreshAfterStorage =
+						isComponentRecreation &&
+						!fileTreeState.isStreaming &&
+						!!workspacePath &&
+						!!sandboxId &&
+						!!currentSessionId;
+
 					// Only load from API if we have a valid workspace path
 					// If workspace path is empty, wait for it to be set by the workspace path effect
 					if (shouldLoadFromAPI) {
@@ -273,10 +287,17 @@
 								await fileTreeState.refreshFileTree();
 							}
 						}
+					} else if (shouldRefreshAfterStorage) {
+						hasLoadedWithWorkspacePath = true;
+						await fileTreeState.refreshFileTree();
 					}
 				})();
 			}
 		}
+	});
+
+	onDestroy(() => {
+		fileTreeState.disposeSyncListener();
 	});
 
 	// Watch for refresh trigger changes

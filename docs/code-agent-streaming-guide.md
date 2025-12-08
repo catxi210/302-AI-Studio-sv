@@ -67,17 +67,17 @@ data: {"type":"text","content":"！"}
 
 AI SDK 5.0 定义了一种标准的消息流格式，用于前端渲染 AI 响应。主要事件类型包括：
 
-| 事件类型 | 说明 | 示例 |
-|---------|------|------|
-| `start` | 消息开始 | `{"type":"start","messageId":"msg-123"}` |
-| `text-start` | 文本块开始 | `{"type":"text-start","id":"text-0"}` |
-| `text-delta` | 文本增量 | `{"type":"text-delta","id":"text-0","delta":"你好"}` |
-| `text-end` | 文本块结束 | `{"type":"text-end","id":"text-0"}` |
-| `tool-input-start` | 工具调用开始 | `{"type":"tool-input-start","toolCallId":"call-1","toolName":"Write"}` |
-| `tool-input-delta` | 工具参数增量 | `{"type":"tool-input-delta","toolCallId":"call-1","inputTextDelta":"..."}` |
-| `tool-input-available` | 工具参数完成 | `{"type":"tool-input-available","toolCallId":"call-1","input":{...}}` |
-| `tool-output-available` | 工具执行结果 | `{"type":"tool-output-available","toolCallId":"call-1","output":{...}}` |
-| `finish` | 消息结束 | `{"type":"finish","finishReason":"stop"}` |
+| 事件类型                | 说明         | 示例                                                                       |
+| ----------------------- | ------------ | -------------------------------------------------------------------------- |
+| `start`                 | 消息开始     | `{"type":"start","messageId":"msg-123"}`                                   |
+| `text-start`            | 文本块开始   | `{"type":"text-start","id":"text-0"}`                                      |
+| `text-delta`            | 文本增量     | `{"type":"text-delta","id":"text-0","delta":"你好"}`                       |
+| `text-end`              | 文本块结束   | `{"type":"text-end","id":"text-0"}`                                        |
+| `tool-input-start`      | 工具调用开始 | `{"type":"tool-input-start","toolCallId":"call-1","toolName":"Write"}`     |
+| `tool-input-delta`      | 工具参数增量 | `{"type":"tool-input-delta","toolCallId":"call-1","inputTextDelta":"..."}` |
+| `tool-input-available`  | 工具参数完成 | `{"type":"tool-input-available","toolCallId":"call-1","input":{...}}`      |
+| `tool-output-available` | 工具执行结果 | `{"type":"tool-output-available","toolCallId":"call-1","output":{...}}`    |
+| `finish`                | 消息结束     | `{"type":"finish","finishReason":"stop"}`                                  |
 
 ---
 
@@ -167,17 +167,17 @@ data: {"type":"xxx",...}
 
 ### 302.AI (Anthropic 格式) vs AI SDK (UIMessageStream 格式)
 
-| 场景 | 302.AI 输入格式 | AI SDK 输出格式 |
-|------|----------------|-----------------|
-| 消息开始 | `{"type":"stream_event","event":{"type":"message_start",...}}` | `{"type":"start","messageId":"..."}` |
-| 文本开始 | `{"type":"stream_event","event":{"type":"content_block_start","content_block":{"type":"text"}}}` | `{"type":"text-start","id":"..."}` |
-| 文本增量 | `{"type":"stream_event","event":{"type":"content_block_delta","delta":{"type":"text_delta","text":"..."}}}` | `{"type":"text-delta","id":"...","delta":"..."}` |
-| 文本结束 | `{"type":"stream_event","event":{"type":"content_block_stop"}}` | `{"type":"text-end","id":"..."}` |
-| 工具调用开始 | `{"type":"stream_event","event":{"type":"content_block_start","content_block":{"type":"tool_use","name":"Write"}}}` | `{"type":"tool-input-start","toolCallId":"...","toolName":"Write"}` |
-| 工具参数 | `{"type":"stream_event","event":{"type":"content_block_delta","delta":{"type":"input_json_delta","partial_json":"..."}}}` | `{"type":"tool-input-delta","toolCallId":"...","inputTextDelta":"..."}` |
-| 工具调用完成 | `{"type":"stream_event","event":{"type":"content_block_stop"}}` | `{"type":"tool-input-available","toolCallId":"...","input":{...}}` |
-| 工具执行结果 | `{"type":"user","message":{"content":[{"type":"tool_result",...}]}}` | `{"type":"tool-output-available","toolCallId":"...","output":{...}}` |
-| 消息结束 | `{"type":"stream_event","event":{"type":"message_delta","delta":{"stop_reason":"end_turn"}}}` | `{"type":"finish","finishReason":"stop"}` |
+| 场景         | 302.AI 输入格式                                                                                                           | AI SDK 输出格式                                                         |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| 消息开始     | `{"type":"stream_event","event":{"type":"message_start",...}}`                                                            | `{"type":"start","messageId":"..."}`                                    |
+| 文本开始     | `{"type":"stream_event","event":{"type":"content_block_start","content_block":{"type":"text"}}}`                          | `{"type":"text-start","id":"..."}`                                      |
+| 文本增量     | `{"type":"stream_event","event":{"type":"content_block_delta","delta":{"type":"text_delta","text":"..."}}}`               | `{"type":"text-delta","id":"...","delta":"..."}`                        |
+| 文本结束     | `{"type":"stream_event","event":{"type":"content_block_stop"}}`                                                           | `{"type":"text-end","id":"..."}`                                        |
+| 工具调用开始 | `{"type":"stream_event","event":{"type":"content_block_start","content_block":{"type":"tool_use","name":"Write"}}}`       | `{"type":"tool-input-start","toolCallId":"...","toolName":"Write"}`     |
+| 工具参数     | `{"type":"stream_event","event":{"type":"content_block_delta","delta":{"type":"input_json_delta","partial_json":"..."}}}` | `{"type":"tool-input-delta","toolCallId":"...","inputTextDelta":"..."}` |
+| 工具调用完成 | `{"type":"stream_event","event":{"type":"content_block_stop"}}`                                                           | `{"type":"tool-input-available","toolCallId":"...","input":{...}}`      |
+| 工具执行结果 | `{"type":"user","message":{"content":[{"type":"tool_result",...}]}}`                                                      | `{"type":"tool-output-available","toolCallId":"...","output":{...}}`    |
+| 消息结束     | `{"type":"stream_event","event":{"type":"message_delta","delta":{"stop_reason":"end_turn"}}}`                             | `{"type":"finish","finishReason":"stop"}`                               |
 
 ---
 
@@ -264,6 +264,7 @@ const response = await claudeCodeFetch(...);              // ← 这里才发请
 ```
 
 这就是"乐观更新"（Optimistic Update）：
+
 - 用户点击发送后，**立刻**看到 AI 消息占位符
 - 不需要等待网络请求往返
 - 大大改善用户体验
@@ -278,20 +279,20 @@ const response = await claudeCodeFetch(...);              // ← 这里才发请
 
 ```typescript
 class ClaudeCodeProcessor {
-  // 状态变量
-  private messageId: string = "";           // 当前消息 ID
-  private buffer: string = "";              // SSE 数据缓冲区
-  private contentBlocks: Map<number, ContentBlockState> = new Map();  // 内容块状态
-  private hasStarted: boolean = false;      // 是否已发送 start
-  private textBlockCounter: number = 0;     // 文本块计数器
+	// 状态变量
+	private messageId: string = ""; // 当前消息 ID
+	private buffer: string = ""; // SSE 数据缓冲区
+	private contentBlocks: Map<number, ContentBlockState> = new Map(); // 内容块状态
+	private hasStarted: boolean = false; // 是否已发送 start
+	private textBlockCounter: number = 0; // 文本块计数器
 
-  constructor(preGeneratedMessageId?: string) {
-    if (preGeneratedMessageId) {
-      // 使用预生成的 ID，跳过发送 start（因为 router 已发送）
-      this.messageId = preGeneratedMessageId;
-      this.hasStarted = true;
-    }
-  }
+	constructor(preGeneratedMessageId?: string) {
+		if (preGeneratedMessageId) {
+			// 使用预生成的 ID，跳过发送 start（因为 router 已发送）
+			this.messageId = preGeneratedMessageId;
+			this.hasStarted = true;
+		}
+	}
 }
 ```
 
@@ -435,6 +436,7 @@ private handleContentBlockStart(event: AnthropicEvent): string | null {
 **为什么需要 `contentBlocks` Map？**
 
 因为：
+
 1. 302.AI 用 `index` 来标识不同的内容块
 2. 多个块可能**同时存在**（比如先文字后工具调用）
 3. 我们需要追踪每个块的状态（ID、累积的数据等）
@@ -574,17 +576,18 @@ const combinedStream = new ReadableStream({
 
 ```typescript
 const immediateStartEvent = `data: ${JSON.stringify({
-  type: "start",
-  messageId,
-  messageMetadata: {
-    model,                        // ← 显示正确的模型名称
-    provider: "302ai-code-agent", // ← 显示正确的图标
-    createdAt: new Date().toISOString(),
-  },
+	type: "start",
+	messageId,
+	messageMetadata: {
+		model, // ← 显示正确的模型名称
+		provider: "302ai-code-agent", // ← 显示正确的图标
+		createdAt: new Date().toISOString(),
+	},
 })}\n\n`;
 ```
 
 前端通过 `messageMetadata` 知道：
+
 - 显示哪个模型的图标
 - 显示哪个模型的名称
 - 消息创建时间
@@ -678,8 +681,8 @@ Claude Code Agent 最强大的功能是**工具调用**——AI 可以执行实�
 ```typescript
 // handleMessageDelta 中
 if (finishReason === "tool-calls") {
-  // 重要：不发送任何事件！
-  return null;
+	// 重要：不发送任何事件！
+	return null;
 }
 ```
 
@@ -743,7 +746,7 @@ controller.enqueue(startEvent);           // 后发送
 
 ```typescript
 if (delta.stop_reason === "tool_use") {
-  return null;  // 什么都不发！
+	return null; // 什么都不发！
 }
 ```
 
@@ -766,10 +769,10 @@ const input = JSON.parse(fullJson);
 
 ## 总结
 
-| 组件 | 职责 | 关键功能 |
-|------|------|----------|
-| `router.ts` | HTTP 路由 | 乐观更新、请求转发、流组合 |
-| `claude-code-processor.ts` | 格式转换 | SSE 解析、状态追踪、事件转换 |
+| 组件                       | 职责      | 关键功能                     |
+| -------------------------- | --------- | ---------------------------- |
+| `router.ts`                | HTTP 路由 | 乐观更新、请求转发、流组合   |
+| `claude-code-processor.ts` | 格式转换  | SSE 解析、状态追踪、事件转换 |
 
 **核心设计思想**：
 

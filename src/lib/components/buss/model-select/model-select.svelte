@@ -72,6 +72,7 @@
 					enabled: model.enabled,
 					collected: model.collected,
 					remark: model.remark,
+					isFeatured: model.isFeatured,
 				};
 			})
 			.filter((model): model is Model => model !== null);
@@ -191,7 +192,12 @@
 					return b.matchDetails.exactWordMatches - a.matchDetails.exactWordMatches;
 				}
 
-				// 最后按模型名称长度排序（较短的优先）
+				// 分数相同时，优先 featured 模型
+				if (a.model.isFeatured !== b.model.isFeatured) {
+					return a.model.isFeatured ? -1 : 1;
+				}
+
+				// 然后按模型名称长度排序（较短的优先）
 				if (a.model.name.length !== b.model.name.length) {
 					return a.model.name.length - b.model.name.length;
 				}
@@ -236,12 +242,20 @@
 				groups[provider.name].push(model);
 			});
 
-			// 对每个分组进行排序（无搜索时按收藏排序）
+			// 对每个分组进行排序（无搜索时按三层优先级：collected > isFeatured > normal）
 			Object.keys(groups).forEach((key) => {
 				if (groups[key].length > 0) {
 					groups[key].sort((a, b) => {
-						if (a.collected === b.collected) return 0;
-						return a.collected ? -1 : 1;
+						// 1. 收藏的模型优先
+						if (a.collected !== b.collected) {
+							return a.collected ? -1 : 1;
+						}
+						// 2. Featured 模型次之
+						if (a.isFeatured !== b.isFeatured) {
+							return a.isFeatured ? -1 : 1;
+						}
+						// 3. 保持原有顺序（稳定排序）
+						return 0;
 					});
 				}
 			});

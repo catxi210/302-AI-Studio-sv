@@ -1213,7 +1213,6 @@ export const chat = new Chat({
 							sandbox_id: claudeCodeAgentState.sandboxId,
 							session_id: claudeCodeAgentState.currentSessionId,
 						});
-						// codeAgentState.updateSessionRemark(generatedTitle);
 					}
 
 					tabBarState.updateTabTitle(persistedChatParamsState.current.id, generatedTitle);
@@ -1231,9 +1230,6 @@ export const chat = new Chat({
 					const titleText = [...text].slice(0, 10).join("");
 					if (titleText) {
 						persistedChatParamsState.current.title = titleText;
-						if (codeAgentEnabled) {
-							// codeAgentState.updateSessionRemark(titleText);
-						}
 						tabBarState.updateTabTitle(persistedChatParamsState.current.id, titleText);
 					}
 				}

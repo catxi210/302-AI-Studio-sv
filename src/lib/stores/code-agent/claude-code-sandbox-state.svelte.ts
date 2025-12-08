@@ -188,24 +188,6 @@ class ClaudeCodeSandboxState {
 		}
 	}
 
-	async updateSessionRemark(
-		sandboxId: string,
-		sessionId: string,
-		remark: string,
-	): Promise<boolean> {
-		const { isOK } = await window.electronAPI.codeAgentService.updateClaudeCodeSessionRemark(
-			sandboxId,
-			sessionId,
-			remark,
-		);
-		if (isOK) {
-			toast.success(m.update_session_remark_success());
-		} else {
-			toast.error(m.update_session_remark_failed());
-		}
-		return isOK;
-	}
-
 	async deleteSession(sandboxId: string, sessionId: string): Promise<boolean> {
 		const providerResult = validate302Provider(persistedProviderState.current);
 		if (!providerResult.valid || !providerResult.provider) {

@@ -15,6 +15,7 @@ import {
 	dataService,
 	externalLinkService,
 	mcpService,
+	providerService,
 	ssoService,
 	threadService,
 	updaterService,
@@ -176,11 +177,6 @@ export function registerIpcHandlers() {
 	ipcMain.handle("codeAgentService:deleteClaudeCodeSandboxByIpc", (event, sandbox_id) =>
 		codeAgentService.deleteClaudeCodeSandboxByIpc(event, sandbox_id),
 	);
-	ipcMain.handle(
-		"codeAgentService:updateClaudeCodeSessionRemark",
-		(event, sandbox_id, session_id, remark) =>
-			codeAgentService.updateClaudeCodeSessionRemark(event, sandbox_id, session_id, remark),
-	);
 	ipcMain.handle("codeAgentService:deleteClaudeCodeSession", (event, sandbox_id, session_id) =>
 		codeAgentService.deleteClaudeCodeSession(event, sandbox_id, session_id),
 	);
@@ -279,9 +275,6 @@ export function registerIpcHandlers() {
 	ipcMain.handle("aiApplicationService:getAiApplicationUrl", (event, applicationId) =>
 		aiApplicationService.getAiApplicationUrl(event, applicationId),
 	);
-	ipcMain.handle("aiApplicationService:handle302AIProviderChange", (event, updatedApiKey) =>
-		aiApplicationService.handle302AIProviderChange(event, updatedApiKey),
-	);
 	ipcMain.handle("aiApplicationService:handleAiApplicationReload", (event, tabId) =>
 		aiApplicationService.handleAiApplicationReload(event, tabId),
 	);
@@ -327,6 +320,11 @@ export function registerIpcHandlers() {
 		mcpService.closeServer(event, serverId),
 	);
 
+	// providerService service registration
+	ipcMain.handle("providerService:handle302AIProviderChange", (event, apiKey) =>
+		providerService.handle302AIProviderChange(event, apiKey),
+	);
+
 	// ssoService service registration
 	ipcMain.handle("ssoService:openSsoLogin", (event, serverPort, language) =>
 		ssoService.openSsoLogin(event, serverPort, language),
@@ -358,6 +356,9 @@ export function registerIpcHandlers() {
 	);
 	ipcMain.handle("threadService:deleteThreadsByApiKeyHash", (event, apiKeyHash) =>
 		threadService.deleteThreadsByApiKeyHash(event, apiKeyHash),
+	);
+	ipcMain.handle("threadService:clearDeletedModelReferences", (event, deletedModelIds) =>
+		threadService.clearDeletedModelReferences(event, deletedModelIds),
 	);
 
 	// updaterService service registration
@@ -434,7 +435,6 @@ export function removeIpcHandlers() {
 	ipcMain.removeHandler("codeAgentService:updateClaudeCodeSandboxRemark");
 	ipcMain.removeHandler("codeAgentService:createClaudeCodeSandboxByIpc");
 	ipcMain.removeHandler("codeAgentService:deleteClaudeCodeSandboxByIpc");
-	ipcMain.removeHandler("codeAgentService:updateClaudeCodeSessionRemark");
 	ipcMain.removeHandler("codeAgentService:deleteClaudeCodeSession");
 	ipcMain.removeHandler("codeAgentService:findClaudeCodeSandboxWithValidDisk");
 	ipcMain.removeHandler("ghostWindowService:startTracking");
@@ -463,7 +463,6 @@ export function removeIpcHandlers() {
 	ipcMain.removeHandler("tabService:handleClearTabMessages");
 	ipcMain.removeHandler("tabService:handleGenerateTabTitle");
 	ipcMain.removeHandler("aiApplicationService:getAiApplicationUrl");
-	ipcMain.removeHandler("aiApplicationService:handle302AIProviderChange");
 	ipcMain.removeHandler("aiApplicationService:handleAiApplicationReload");
 	ipcMain.removeHandler("appService:getTheme");
 	ipcMain.removeHandler("appService:setTheme");
@@ -482,6 +481,7 @@ export function removeIpcHandlers() {
 	ipcMain.removeHandler("externalLinkService:openExternalLink");
 	ipcMain.removeHandler("mcpService:getToolsFromServer");
 	ipcMain.removeHandler("mcpService:closeServer");
+	ipcMain.removeHandler("providerService:handle302AIProviderChange");
 	ipcMain.removeHandler("ssoService:openSsoLogin");
 	ipcMain.removeHandler("ssoService:waitForSsoCallback");
 	ipcMain.removeHandler("ssoService:cancelSsoLogin");
@@ -493,6 +493,7 @@ export function removeIpcHandlers() {
 	ipcMain.removeHandler("threadService:addFavorite");
 	ipcMain.removeHandler("threadService:removeFavorite");
 	ipcMain.removeHandler("threadService:deleteThreadsByApiKeyHash");
+	ipcMain.removeHandler("threadService:clearDeletedModelReferences");
 	ipcMain.removeHandler("updaterService:checkForUpdatesManually");
 	ipcMain.removeHandler("updaterService:quitAndInstall");
 	ipcMain.removeHandler("updaterService:isUpdateDownloaded");
