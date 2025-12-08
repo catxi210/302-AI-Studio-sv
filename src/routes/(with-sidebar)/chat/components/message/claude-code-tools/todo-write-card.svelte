@@ -15,7 +15,16 @@
 
 <script lang="ts">
 	import { m } from "$lib/paraglide/messages.js";
-	import { Ban, Check, Circle, CircleCheck, ListTodo, LoaderCircle } from "@lucide/svelte";
+	import { cn } from "$lib/utils";
+	import {
+		ArrowRight,
+		Ban,
+		Check,
+		Circle,
+		CircleCheck,
+		ListTodo,
+		LoaderCircle,
+	} from "@lucide/svelte";
 
 	let { part, messageId: _messageId }: TodoWriteCardProps = $props();
 
@@ -80,20 +89,18 @@
 		<!-- Left: Tool Icon and Name -->
 		<div class="flex items-center gap-3">
 			<div class="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
-				<ListTodo class="h-5 w-5 text-muted-foreground" />
+				<ListTodo class="h-5 w-5" />
 			</div>
 
 			<!-- Tool Name and Progress -->
-			<div class="flex flex-col items-start gap-1">
-				<div class="flex items-center gap-2">
-					<h3 class="text-sm font-medium text-foreground">
-						{m.todo_list_title?.() ?? "Task List"}
-					</h3>
-					<span class="text-xs text-muted-foreground">
-						{completedCount}/{totalCount}
-					</span>
-				</div>
-				<p class="text-xs text-muted-foreground">TodoWrite</p>
+
+			<div class="flex items-center gap-2">
+				<h3 class="text-sm font-medium text-foreground">
+					{m.todo_list_title?.() ?? "Task List"}
+				</h3>
+				<span class="text-xs text-muted-foreground">
+					{completedCount}/{totalCount}
+				</span>
 			</div>
 		</div>
 
@@ -108,7 +115,6 @@
 		</div>
 	</div>
 
-	<!-- Todo List -->
 	{#if todos().length > 0}
 		<div class="space-y-1.5 border-t border-border pt-3">
 			{#each todos() as todo, index (index)}
@@ -119,7 +125,7 @@
 						</div>
 					{:else if todo.status === "in_progress"}
 						<div class="flex h-5 w-5 items-center justify-center rounded-full bg-[#0056FE]/10">
-							<LoaderCircle class="h-3.5 w-3.5 text-[#0056FE] animate-spin" />
+							<ArrowRight class="h-3.5 w-3.5 text-[#0056FE]" />
 						</div>
 					{:else}
 						<div class="flex h-5 w-5 items-center justify-center rounded-full bg-muted">
@@ -128,11 +134,14 @@
 					{/if}
 
 					<span
-						class="text-sm {todo.status === 'completed'
-							? 'text-muted-foreground line-through'
-							: todo.status === 'in_progress'
-								? 'text-foreground font-medium'
-								: 'text-foreground'}"
+						class={cn(
+							"text-sm",
+							todo.status === "completed"
+								? "text-muted-foreground line-through"
+								: todo.status === "in_progress"
+									? "text-foreground font-medium"
+									: "text-foreground",
+						)}
 					>
 						{todo.status === "in_progress" ? todo.activeForm : todo.content}
 					</span>
@@ -141,7 +150,6 @@
 		</div>
 	{/if}
 
-	<!-- Error message -->
 	{#if part.state === "output-error" && part.errorText}
 		<div
 			class="mt-3 rounded-lg border border-red-200 bg-red-50 p-3 dark:border-red-900 dark:bg-red-950"

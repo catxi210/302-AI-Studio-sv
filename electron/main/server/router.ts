@@ -9,7 +9,6 @@ import type { McpServer } from "@shared/types";
 import {
 	Experimental_Agent as Agent,
 	convertToModelMessages,
-	createUIMessageStream,
 	createUIMessageStreamResponse,
 	extractReasoningMiddleware,
 	generateText,
@@ -26,7 +25,7 @@ import { mcpService } from "../services/mcp-service";
 import { storageService } from "../services/storage-service";
 import { createCitationsFetch } from "./citations-processor";
 import { createClaudeCodeFetch } from "./claude-code-processor";
-import { createClaudeCodeTools } from "./claude-code-tools";
+// import { createClaudeCodeTools } from "./claude-code-tools";
 
 export type RouterRequestBody = {
 	baseUrl?: string;
@@ -787,20 +786,12 @@ app.post("/chat/302ai-code-agent", async (c) => {
 		model = "claude-sonnet-4-5-20250929",
 		apiKey,
 		messages,
-		speedOptions,
 		threadId,
 		sessionId,
 		systemPrompt,
 		mcpServers,
 		sandboxName,
 	} = await c.req.json<RouterRequestBody>();
-
-	const openai = createOpenAICompatible({
-		name: "302.AI",
-		baseURL: baseUrl ?? "https://api.302.ai/v1",
-		apiKey: apiKey,
-		fetch: createClaudeCodeFetch(),
-	});
 
 	const cfg = {
 		llm_model: model,
@@ -814,85 +805,142 @@ app.post("/chat/302ai-code-agent", async (c) => {
 	);
 
 	console.log(
-		"Received request for 302ai-code-agent",
+		"[302ai-code-agent] Received request",
 		baseUrl,
 		sandboxId,
-		apiKey,
-		messages,
-		speedOptions,
 		threadId,
 		sessionId,
 		createdResult,
 	);
 
-	const wrapModel = wrapLanguageModel({
-		model: openai.chatModel(sandboxId),
-		middleware: [
-			extractReasoningMiddleware({ tagName: "think" }),
-			extractReasoningMiddleware({ tagName: "thinking" }),
-		],
-		providerId: "302.AI",
-	});
+	// Generate messageId upfront for immediate start event
+	const messageId = `msg-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
 
-	const provider302Options: Record<string, boolean | string> = {
+	// Use createClaudeCodeFetch to get the transformed stream directly
+	const claudeCodeFetch = createClaudeCodeFetch(messageId);
+
+	// Build request body for 302.AI Claude Code API
+	const requestBody = {
+		model: sandboxId,
+		messages: [convertToModelMessages(enhanceMessagesWithFeedback(messages)).at(-1)!],
 		session_id: sessionId ?? "",
 		structured_output: true,
 	};
 
-	// Create Claude Code virtual tools for SDK recognition
-	const claudeCodeTools = createClaudeCodeTools();
+	console.log("[302ai-code-agent] Messages:", JSON.stringify(requestBody.messages));
+	console.log("[302ai-code-agent] Sending request to 302.AI...");
+	console.log("[302ai-code-agent] Request body:", JSON.stringify(requestBody).substring(0, 500));
 
-	const streamTextOptions = {
-		model: wrapModel,
-		messages: convertToModelMessages(enhanceMessagesWithFeedback(messages)),
-		providerOptions: {
-			"302": provider302Options,
+	// Create immediate start event for optimistic UI update
+	// Include messageMetadata with model and provider info so the UI shows correct icon/name
+	const encoder = new TextEncoder();
+	const immediateStartEvent = `data: ${JSON.stringify({
+		type: "start",
+		messageId,
+		messageMetadata: {
+			model,
+			provider: "302ai-code-agent",
+			createdAt: new Date().toISOString(),
 		},
-		tools: claudeCodeTools,
-		maxSteps: 50, // Allow multiple tool call steps
-	};
+	})}\n\n`;
 
-	const streamTextOptionsWithTransform = {
-		...streamTextOptions,
-		...(speedOptions?.enabled && {
-			experimental_transform: smoothStream({
-				chunking: smartChunking,
-				delayInMs: getDelayForSpeed(speedOptions.speed),
-			}),
-		}),
-	};
+	// Make the request using the custom fetch that transforms the response
+	const responsePromise = claudeCodeFetch(
+		`${baseUrl ?? "https://api.302.ai/v1"}/chat/completions`,
+		{
+			method: "POST",
+			headers: {
+				"Content-Type": "application/json",
+				Authorization: `Bearer ${apiKey}`,
+			},
+			body: JSON.stringify(requestBody),
+		},
+	);
 
-	const stream = createUIMessageStream({
-		execute: async ({ writer }) => {
+	// Create a combined stream that sends start immediately, then pipes upstream data
+	const combinedStream = new ReadableStream({
+		async start(controller) {
+			// Send start event immediately for optimistic UI update
+			controller.enqueue(encoder.encode(immediateStartEvent));
+			console.log("[302ai-code-agent] Sent immediate start event");
+
 			try {
-				console.log("[302ai-code-agent] Starting Agent stream...");
-				const result = new Agent({
-					...streamTextOptionsWithTransform,
-					stopWhen: stepCountIs(20),
-				}).stream(streamTextOptionsWithTransform);
+				const response = await responsePromise;
 
-				console.log("[302ai-code-agent] Merging to UI stream...");
-				writer.merge(
-					result.toUIMessageStream({
-						messageMetadata: () => ({
-							model,
-							provider: "ai302",
-							createdAt: new Date().toISOString(),
-						}),
-					}),
-				);
+				if (!response.ok) {
+					const errorText = await response.text();
+					console.error("[302ai-code-agent] API error:", response.status, errorText);
+					// Send error as text-delta so user sees it
+					const errorId = `error-${Date.now()}`;
+					controller.enqueue(
+						encoder.encode(`data: ${JSON.stringify({ type: "text-start", id: errorId })}\n\n`),
+					);
+					controller.enqueue(
+						encoder.encode(
+							`data: ${JSON.stringify({ type: "text-delta", id: errorId, delta: `**Error**: ${errorText}` })}\n\n`,
+						),
+					);
+					controller.enqueue(
+						encoder.encode(`data: ${JSON.stringify({ type: "text-end", id: errorId })}\n\n`),
+					);
+					controller.enqueue(
+						encoder.encode(
+							`data: ${JSON.stringify({ type: "finish", finishReason: "error" })}\n\n`,
+						),
+					);
+					controller.close();
+					return;
+				}
 
-				console.log("[302ai-code-agent] Consuming stream...");
-				await result.consumeStream();
-				console.log("[302ai-code-agent] Stream consumed successfully");
+				console.log("[302ai-code-agent] Got response, streaming...");
+
+				// Pipe the transformed stream from ClaudeCodeProcessor
+				const reader = response.body?.getReader();
+				if (!reader) {
+					controller.close();
+					return;
+				}
+
+				while (true) {
+					const { done, value } = await reader.read();
+					if (done) {
+						controller.close();
+						break;
+					}
+					controller.enqueue(value);
+				}
 			} catch (error) {
-				console.error("[302ai-code-agent] Error in stream:", error);
-				throw error;
+				console.error("[302ai-code-agent] Stream error:", error);
+				const errorId = `error-${Date.now()}`;
+				const errorMessage = error instanceof Error ? error.message : "Unknown error";
+				controller.enqueue(
+					encoder.encode(`data: ${JSON.stringify({ type: "text-start", id: errorId })}\n\n`),
+				);
+				controller.enqueue(
+					encoder.encode(
+						`data: ${JSON.stringify({ type: "text-delta", id: errorId, delta: `**Error**: ${errorMessage}` })}\n\n`,
+					),
+				);
+				controller.enqueue(
+					encoder.encode(`data: ${JSON.stringify({ type: "text-end", id: errorId })}\n\n`),
+				);
+				controller.enqueue(
+					encoder.encode(`data: ${JSON.stringify({ type: "finish", finishReason: "error" })}\n\n`),
+				);
+				controller.close();
 			}
 		},
 	});
 
-	return createUIMessageStreamResponse({ stream });
+	return new Response(combinedStream, {
+		status: 200,
+		headers: {
+			"Content-Type": "text/event-stream",
+			"Cache-Control": "no-cache",
+			Connection: "keep-alive",
+			"x-vercel-ai-ui-message-stream": "v1",
+		},
+	});
 });
 
 // Helper function to render SSO callback page

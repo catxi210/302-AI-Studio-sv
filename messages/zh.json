@@ -953,5 +953,7 @@
 	"sso_logout_button_close": "关闭",
 	"sso_logout_button_confirm": "退出",
 	"login_banner_text": "登录302.AI账号快速开始",
-	"login_banner_button": "授权登录"
+	"login_banner_button": "授权登录",
+	"text_edit_file": "编辑文件",
+	"text_write_file": "写入文件"
 }

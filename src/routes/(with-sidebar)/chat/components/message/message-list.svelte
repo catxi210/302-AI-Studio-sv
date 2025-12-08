@@ -12,7 +12,6 @@
 	import { onMount } from "svelte";
 	import { toast } from "svelte-sonner";
 	import AssistantMessage from "./assistant-message.svelte";
-	import SandboxStatusCallout from "./code-agent/sandbox-status-calllout.svelte";
 	import {
 		create302Watermark,
 		createContentContainer,
@@ -226,7 +225,7 @@
 				{#each messages as message, index (message.id + "-" + index)}
 					{#if message.role === "user"}
 						<UserMessage message={{ ...message, role: "user" as const }} />
-						<SandboxStatusCallout show={index === 0 && messages.length === 1} />
+						<!-- <SandboxStatusCallout show={index === 0 && messages.length === 1} /> -->
 					{:else if message.role === "assistant"}
 						<AssistantMessage message={{ ...message, role: "assistant" as const }} />
 					{/if}

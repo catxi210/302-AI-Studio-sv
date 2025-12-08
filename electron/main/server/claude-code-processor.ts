@@ -1,18 +1,32 @@
 /**
  * 302.AI Claude Code SSE Response Processor
  *
- * This processor transforms 302.AI Claude Code's SSE format to OpenAI-compatible format.
+ * This processor transforms 302.AI Claude Code's SSE format to AI SDK UIMessageStream format.
  *
- * Input format (302.AI Claude Code):
+ * Input format (302.AI Claude Code - Anthropic format):
  * - {"type":"alias_info","session_alias":"..."} - Skip
  * - {"type":"system","subtype":"init",...} - Skip
- * - {"type":"stream_event","event":{"type":"message_start",...}} - Extract inner event
- * - {"type":"stream_event","event":{"type":"content_block_delta","delta":{"type":"text_delta","text":"..."}}} - Convert to OpenAI delta
- * - {"type":"stream_event","event":{"type":"content_block_start","content_block":{"type":"tool_use",...}}} - Convert to tool_calls
+ * - {"type":"stream_event","event":{"type":"message_start",...}} - Extract message info
+ * - {"type":"stream_event","event":{"type":"content_block_start","content_block":{"type":"text",...}}} - text-start
+ * - {"type":"stream_event","event":{"type":"content_block_delta","delta":{"type":"text_delta","text":"..."}}} - text-delta
+ * - {"type":"stream_event","event":{"type":"content_block_start","content_block":{"type":"tool_use",...}}} - tool-input-start
+ * - {"type":"stream_event","event":{"type":"content_block_delta","delta":{"type":"input_json_delta",...}}} - tool-input-delta
+ * - {"type":"stream_event","event":{"type":"content_block_stop",...}} - text-end or tool-input-available
+ * - {"type":"user","message":{"content":[{"type":"tool_result",...}]}} - tool-result
  *
- * Output format (OpenAI-compatible):
- * - {"id":"chatcmpl-xxx","choices":[{"index":0,"delta":{"content":"..."}}]}
- * - {"id":"chatcmpl-xxx","choices":[{"index":0,"delta":{"tool_calls":[...]}}]}
+ * Output format (AI SDK UIMessageStream SSE):
+ * - {"type":"start","messageId":"..."}
+ * - {"type":"text-start","id":"..."}
+ * - {"type":"text-delta","id":"...","delta":"..."}
+ * - {"type":"text-end","id":"..."}
+ * - {"type":"tool-input-start","toolCallId":"...","toolName":"..."}
+ * - {"type":"tool-input-delta","toolCallId":"...","inputTextDelta":"..."}
+ * - {"type":"tool-input-available","toolCallId":"...","toolName":"...","input":{...}}
+ * - {"type":"tool-output-available","toolCallId":"...","output":{...}} - Tool execution result
+ * - {"type":"finish","finishReason":"..."} - Final message completion (only sent at end_turn)
+ *
+ * Note: No finish-step/start-step events are sent for tool calls.
+ * The stream continues naturally after tool-input-available and tool-output-available.
  */
 
 interface ClaudeCodeEvent {
@@ -20,6 +34,14 @@ interface ClaudeCodeEvent {
 	subtype?: string;
 	session_alias?: string;
 	event?: AnthropicEvent;
+	message?: {
+		content: Array<{
+			type: string;
+			tool_use_id?: string;
+			content?: string | Array<{ type: string; text?: string }>;
+			is_error?: boolean;
+		}>;
+	};
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	[key: string]: any;
 }
@@ -54,39 +76,30 @@ interface AnthropicEvent {
 	[key: string]: any;
 }
 
-interface OpenAIStreamChunk {
+interface ContentBlockState {
+	type: "text" | "tool_use";
 	id: string;
-	object: string;
-	created: number;
-	model: string;
-	choices: Array<{
-		index: number;
-		delta: {
-			role?: string;
-			content?: string;
-			tool_calls?: Array<{
-				index: number;
-				id?: string;
-				type?: string;
-				function?: {
-					name?: string;
-					arguments?: string;
-				};
-			}>;
-		};
-		finish_reason?: string | null;
-	}>;
+	toolName?: string;
+	toolCallId?: string;
+	inputJsonParts: string[];
 }
 
 class ClaudeCodeProcessor {
 	private messageId: string = "";
-	private model: string = "";
 	private buffer: string = "";
-	private toolCallIndexMap: Map<number, number> = new Map(); // Maps content_block index to tool_call index
-	private currentToolCallIndex: number = 0;
+	private contentBlocks: Map<number, ContentBlockState> = new Map();
+	private hasStarted: boolean = false;
+	private textBlockCounter: number = 0;
 
-	constructor() {
-		this.messageId = `chatcmpl-${Date.now()}`;
+	constructor(preGeneratedMessageId?: string) {
+		if (preGeneratedMessageId) {
+			// Use pre-generated messageId and skip sending start event
+			// (start event was already sent immediately for optimistic UI)
+			this.messageId = preGeneratedMessageId;
+			this.hasStarted = true; // Mark as started to skip generating start event
+		} else {
+			this.messageId = `msg-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+		}
 	}
 
 	processSSEChunk(chunk: string): string {
@@ -104,20 +117,18 @@ class ClaudeCodeProcessor {
 			for (const line of lines) {
 				const processed = this.processLine(line);
 				if (processed) {
-					// Each processed event needs to be followed by double newline for SSE
 					processedEvents.push(processed);
 				}
 			}
 		}
 
-		// SSE format: each event ends with \n\n
 		return processedEvents.length > 0 ? processedEvents.join("\n\n") + "\n\n" : "";
 	}
 
 	private processLine(line: string): string | null {
 		// Skip empty lines
 		if (!line.trim()) {
-			return line;
+			return null;
 		}
 
 		// Skip event: lines (SSE event type markers)
@@ -127,7 +138,7 @@ class ClaudeCodeProcessor {
 
 		// Handle data: lines
 		if (!line.startsWith("data: ")) {
-			return line;
+			return null;
 		}
 
 		const jsonStr = line.substring(6).trim();
@@ -141,8 +152,8 @@ class ClaudeCodeProcessor {
 			const data = JSON.parse(jsonStr) as ClaudeCodeEvent;
 			return this.transformEvent(data);
 		} catch {
-			// If JSON parsing fails, pass through as-is
-			return line;
+			// If JSON parsing fails, skip
+			return null;
 		}
 	}
 
@@ -152,13 +163,61 @@ class ClaudeCodeProcessor {
 			return null;
 		}
 
+		// Handle tool result events from user messages
+		if (data.type === "user" && data.message?.content) {
+			return this.handleToolResultMessage(data);
+		}
+
 		// Handle stream_event wrapper
 		if (data.type === "stream_event" && data.event) {
 			return this.transformAnthropicEvent(data.event);
 		}
 
-		// Pass through unknown events as comments (for debugging)
 		return null;
+	}
+
+	private handleToolResultMessage(data: ClaudeCodeEvent): string | null {
+		const results: string[] = [];
+
+		for (const content of data.message?.content || []) {
+			if (content.type === "tool_result" && content.tool_use_id) {
+				// Extract the result content
+				let resultContent: unknown;
+
+				if (typeof content.content === "string") {
+					// Try to parse as JSON, otherwise use as string
+					try {
+						resultContent = JSON.parse(content.content);
+					} catch {
+						resultContent = content.content;
+					}
+				} else if (Array.isArray(content.content)) {
+					// Extract text from content array
+					const textParts = content.content
+						.filter((c) => c.type === "text" && c.text)
+						.map((c) => c.text)
+						.join("\n");
+					try {
+						resultContent = JSON.parse(textParts);
+					} catch {
+						resultContent = textParts;
+					}
+				} else {
+					resultContent = content.content;
+				}
+
+				// AI SDK 5.0 uses tool-output-available instead of tool-result
+				const toolOutputEvent = {
+					type: "tool-output-available",
+					toolCallId: content.tool_use_id,
+					output: resultContent,
+				};
+
+				results.push(`data: ${JSON.stringify(toolOutputEvent)}`);
+			}
+		}
+
+		return results.length > 0 ? results.join("\n\n") : null;
 	}
 
 	private transformAnthropicEvent(event: AnthropicEvent): string | null {
@@ -170,17 +229,15 @@ class ClaudeCodeProcessor {
 			case "content_block_delta":
 				return this.handleContentBlockDelta(event);
 			case "content_block_stop":
-				// No direct equivalent in OpenAI format, skip
-				return null;
+				return this.handleContentBlockStop(event);
 			case "message_delta":
 				return this.handleMessageDelta(event);
 			case "message_stop":
-				return "data: [DONE]";
+				// Don't send [DONE] here, let finish handle it
+				return null;
 			case "ping":
-				// Skip ping events
 				return null;
 			default:
-				// Skip unknown events
 				return null;
 		}
 	}
@@ -188,53 +245,74 @@ class ClaudeCodeProcessor {
 	private handleMessageStart(event: AnthropicEvent): string | null {
 		if (event.message) {
 			this.messageId = event.message.id || this.messageId;
-			this.model = event.message.model || this.model;
 
-			// Send initial role delta
-			const chunk = this.createOpenAIChunk({
-				role: "assistant",
-			});
-			return `data: ${JSON.stringify(chunk)}`;
+			if (!this.hasStarted) {
+				this.hasStarted = true;
+				const startEvent = {
+					type: "start",
+					messageId: this.messageId,
+				};
+				return `data: ${JSON.stringify(startEvent)}`;
+			}
+			// For subsequent message_start events (after tool execution),
+			// we don't send a new start event - the start-step was already sent
+			// in handleToolResultMessage
 		}
 		return null;
 	}
 
 	private handleContentBlockStart(event: AnthropicEvent): string | null {
 		const contentBlock = event.content_block;
+		const index = event.index ?? 0;
+
 		if (!contentBlock) return null;
 
 		if (contentBlock.type === "text") {
-			// Text block start - no content yet
+			const textId = `text-${this.textBlockCounter++}`;
+			this.contentBlocks.set(index, {
+				type: "text",
+				id: textId,
+				inputJsonParts: [],
+			});
+
+			const textStartEvent = {
+				type: "text-start",
+				id: textId,
+			};
+
+			// If there's initial text content, include it
 			if (contentBlock.text) {
-				const chunk = this.createOpenAIChunk({
-					content: contentBlock.text,
-				});
-				return `data: ${JSON.stringify(chunk)}`;
+				const textDeltaEvent = {
+					type: "text-delta",
+					id: textId,
+					delta: contentBlock.text,
+				};
+				return `data: ${JSON.stringify(textStartEvent)}\n\ndata: ${JSON.stringify(textDeltaEvent)}`;
 			}
-			return null;
+
+			return `data: ${JSON.stringify(textStartEvent)}`;
 		}
 
 		if (contentBlock.type === "tool_use") {
-			// Tool use block start
-			const toolCallIndex = this.currentToolCallIndex++;
-			if (event.index !== undefined) {
-				this.toolCallIndexMap.set(event.index, toolCallIndex);
-			}
+			const toolCallId = contentBlock.id || `call_${Date.now()}`;
+			const toolName = contentBlock.name || "unknown";
 
-			const chunk = this.createOpenAIChunk({
-				tool_calls: [
-					{
-						index: toolCallIndex,
-						id: contentBlock.id || `call_${Date.now()}`,
-						type: "function",
-						function: {
-							name: contentBlock.name || "",
-							arguments: "",
-						},
-					},
-				],
+			this.contentBlocks.set(index, {
+				type: "tool_use",
+				id: toolCallId,
+				toolName: toolName,
+				toolCallId: toolCallId,
+				inputJsonParts: [],
 			});
-			return `data: ${JSON.stringify(chunk)}`;
+
+			// AI SDK 5.0 uses tool-input-start instead of tool-call-streaming-start
+			const toolStartEvent = {
+				type: "tool-input-start",
+				toolCallId: toolCallId,
+				toolName: toolName,
+			};
+
+			return `data: ${JSON.stringify(toolStartEvent)}`;
 		}
 
 		return null;
@@ -242,28 +320,76 @@ class ClaudeCodeProcessor {
 
 	private handleContentBlockDelta(event: AnthropicEvent): string | null {
 		const delta = event.delta;
+		const index = event.index ?? 0;
+
 		if (!delta) return null;
 
+		const blockState = this.contentBlocks.get(index);
+
 		if (delta.type === "text_delta" && delta.text) {
-			const chunk = this.createOpenAIChunk({
-				content: delta.text,
-			});
-			return `data: ${JSON.stringify(chunk)}`;
+			const textId = blockState?.id || `text-${index}`;
+			const textDeltaEvent = {
+				type: "text-delta",
+				id: textId,
+				delta: delta.text,
+			};
+			return `data: ${JSON.stringify(textDeltaEvent)}`;
 		}
 
 		if (delta.type === "input_json_delta" && delta.partial_json) {
-			const toolCallIndex = this.toolCallIndexMap.get(event.index ?? 0) ?? 0;
-			const chunk = this.createOpenAIChunk({
-				tool_calls: [
-					{
-						index: toolCallIndex,
-						function: {
-							arguments: delta.partial_json,
-						},
-					},
-				],
-			});
-			return `data: ${JSON.stringify(chunk)}`;
+			if (blockState && blockState.type === "tool_use") {
+				// Accumulate JSON parts for later
+				blockState.inputJsonParts.push(delta.partial_json);
+
+				const toolInputDeltaEvent = {
+					type: "tool-input-delta",
+					toolCallId: blockState.toolCallId,
+					inputTextDelta: delta.partial_json,
+				};
+				return `data: ${JSON.stringify(toolInputDeltaEvent)}`;
+			}
+		}
+
+		return null;
+	}
+
+	private handleContentBlockStop(event: AnthropicEvent): string | null {
+		const index = event.index ?? 0;
+		const blockState = this.contentBlocks.get(index);
+
+		if (!blockState) return null;
+
+		if (blockState.type === "text") {
+			const textEndEvent = {
+				type: "text-end",
+				id: blockState.id,
+			};
+			this.contentBlocks.delete(index);
+			return `data: ${JSON.stringify(textEndEvent)}`;
+		}
+
+		if (blockState.type === "tool_use") {
+			// Parse accumulated JSON input
+			const fullJson = blockState.inputJsonParts.join("");
+			let input: unknown = {};
+			try {
+				if (fullJson) {
+					input = JSON.parse(fullJson);
+				}
+			} catch {
+				input = { raw: fullJson };
+			}
+
+			// AI SDK 5.0 uses tool-input-available instead of tool-call
+			const toolInputAvailableEvent = {
+				type: "tool-input-available",
+				toolCallId: blockState.toolCallId,
+				toolName: blockState.toolName,
+				input: input,
+			};
+
+			this.contentBlocks.delete(index);
+			return `data: ${JSON.stringify(toolInputAvailableEvent)}`;
 		}
 
 		return null;
@@ -273,15 +399,14 @@ class ClaudeCodeProcessor {
 		const delta = event.delta;
 		if (!delta) return null;
 
-		let finishReason: string | null = null;
 		if (delta.stop_reason) {
-			// Map Anthropic stop_reason to OpenAI finish_reason
+			let finishReason: string;
 			switch (delta.stop_reason) {
 				case "end_turn":
 					finishReason = "stop";
 					break;
 				case "tool_use":
-					finishReason = "tool_calls";
+					finishReason = "tool-calls";
 					break;
 				case "max_tokens":
 					finishReason = "length";
@@ -292,33 +417,24 @@ class ClaudeCodeProcessor {
 				default:
 					finishReason = delta.stop_reason;
 			}
-		}
 
-		if (finishReason) {
-			const chunk = this.createOpenAIChunk({}, finishReason);
-			return `data: ${JSON.stringify(chunk)}`;
+			// For tool-calls, DO NOT send any finish event
+			// The stream will continue with tool results and more content
+			// AI SDK's Chat class will trigger onFinish if we send finish-step
+			if (finishReason === "tool-calls") {
+				// Don't send anything - let the stream continue naturally
+				return null;
+			}
+
+			// For final completion, send finish
+			const finishEvent = {
+				type: "finish",
+				finishReason: finishReason,
+			};
+			return `data: ${JSON.stringify(finishEvent)}`;
 		}
 
 		return null;
-	}
-
-	private createOpenAIChunk(
-		delta: OpenAIStreamChunk["choices"][0]["delta"],
-		finishReason: string | null = null,
-	): OpenAIStreamChunk {
-		return {
-			id: this.messageId,
-			object: "chat.completion.chunk",
-			created: Math.floor(Date.now() / 1000),
-			model: this.model,
-			choices: [
-				{
-					index: 0,
-					delta,
-					finish_reason: finishReason,
-				},
-			],
-		};
 	}
 
 	flushBuffer(): string {
@@ -332,12 +448,15 @@ class ClaudeCodeProcessor {
 
 /**
  * Creates a custom fetch function that transforms 302.AI Claude Code SSE responses
- * to OpenAI-compatible format.
+ * to AI SDK UIMessageStream format.
+ * @param preGeneratedMessageId - Optional pre-generated messageId for optimistic UI updates.
+ *                                 When provided, the processor will skip generating the start event
+ *                                 (assuming it was already sent immediately for optimistic UI).
  */
-export function createClaudeCodeFetch(): typeof fetch {
+export function createClaudeCodeFetch(preGeneratedMessageId?: string): typeof fetch {
 	return async (url, options) => {
 		const response = await fetch(url, options);
-		const processor = new ClaudeCodeProcessor();
+		const processor = new ClaudeCodeProcessor(preGeneratedMessageId);
 		return interceptSSEResponse(response, processor);
 	};
 }
@@ -345,17 +464,12 @@ export function createClaudeCodeFetch(): typeof fetch {
 function interceptSSEResponse(response: Response, processor: ClaudeCodeProcessor): Response {
 	const contentType = response.headers.get("content-type");
 
-	console.log("[ClaudeCodeProcessor] Content-Type:", contentType);
-	console.log("[ClaudeCodeProcessor] Response status:", response.status);
-
 	if (!contentType?.includes("text/event-stream")) {
-		console.log("[ClaudeCodeProcessor] Not an SSE response, passing through");
 		return response;
 	}
 
 	const originalStream = response.body;
 	if (!originalStream) {
-		console.log("[ClaudeCodeProcessor] No response body");
 		return response;
 	}
 
@@ -365,13 +479,11 @@ function interceptSSEResponse(response: Response, processor: ClaudeCodeProcessor
 
 	const transformedStream = new ReadableStream({
 		async start(controller) {
-			console.log("[ClaudeCodeProcessor] Stream started");
 			try {
 				while (true) {
 					const { done, value } = await reader.read();
 
 					if (done) {
-						console.log("[ClaudeCodeProcessor] Stream done");
 						const finalChunk = processor.flushBuffer();
 						if (finalChunk) {
 							controller.enqueue(encoder.encode(finalChunk));
@@ -381,12 +493,9 @@ function interceptSSEResponse(response: Response, processor: ClaudeCodeProcessor
 					}
 
 					const chunk = decoder.decode(value, { stream: true });
-					console.log("[ClaudeCodeProcessor] Raw chunk:", chunk.substring(0, 300));
-
 					const processedChunk = processor.processSSEChunk(chunk);
 
 					if (processedChunk) {
-						console.log("[ClaudeCodeProcessor] Processed:", processedChunk.substring(0, 300));
 						controller.enqueue(encoder.encode(processedChunk));
 					}
 				}
@@ -397,10 +506,14 @@ function interceptSSEResponse(response: Response, processor: ClaudeCodeProcessor
 		},
 	});
 
+	// Create new headers with UI message stream marker
+	const newHeaders = new Headers(response.headers);
+	newHeaders.set("x-vercel-ai-ui-message-stream", "v1");
+
 	return new Response(transformedStream, {
 		status: response.status,
 		statusText: response.statusText,
-		headers: response.headers,
+		headers: newHeaders,
 	});
 }
 
