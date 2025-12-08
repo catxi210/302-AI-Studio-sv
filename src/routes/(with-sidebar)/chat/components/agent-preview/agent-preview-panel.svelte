@@ -689,35 +689,34 @@
 											{#if isEditing}
 												<div class="flex items-center gap-2">
 													<button
-														class="flex flex-shrink-0 items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground disabled:pointer-events-none disabled:opacity-50"
+														class="rounded p-1 transition-colors hover:bg-accent hover:text-accent-foreground disabled:cursor-not-allowed disabled:opacity-50"
 														onclick={handleCancelEdit}
 														disabled={isSaving}
+														title={m.text_button_cancel()}
 													>
-														<X class="h-3.5 w-3.5 flex-shrink-0" />
-														<span class="whitespace-nowrap">{m.text_button_cancel()}</span>
+														<X class="h-4 w-4 flex-shrink-0" />
+														<!-- <span class="whitespace-nowrap">{m.text_button_cancel()}</span> -->
 													</button>
 													<button
-														class="flex flex-shrink-0 items-center gap-1.5 rounded-md bg-primary px-2 py-1 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:pointer-events-none disabled:opacity-50"
+														class="rounded p-1 transition-colors hover:bg-accent hover:text-accent-foreground disabled:cursor-not-allowed disabled:opacity-50"
 														onclick={handleSaveEdit}
 														disabled={isSaving}
+														title={isSaving ? m.text_button_saving() : m.text_button_save()}
 													>
 														{#if isSaving}
-															<Loader2 class="h-3.5 w-3.5 flex-shrink-0 animate-spin" />
+															<Loader2 class="h-4 w-4 flex-shrink-0 animate-spin" />
 														{:else}
-															<Save class="h-3.5 w-3.5 flex-shrink-0" />
+															<Save class="h-4 w-4 flex-shrink-0" strokeWidth={1.25} />
 														{/if}
-														<span class="whitespace-nowrap"
-															>{isSaving ? m.text_button_saving() : m.text_button_save()}</span
-														>
 													</button>
 												</div>
 											{:else}
 												<button
-													class="flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+													class="rounded p-1 transition-colors hover:bg-accent hover:text-accent-foreground disabled:cursor-not-allowed disabled:opacity-50"
 													onclick={handleStartEdit}
 												>
-													<Pencil class="h-3.5 w-3.5" />
-													{m.text_button_edit()}
+													<Pencil class="h-4 w-4" strokeWidth={1.25} />
+													<!-- {m.text_button_edit()} -->
 												</button>
 											{/if}
 										</div>

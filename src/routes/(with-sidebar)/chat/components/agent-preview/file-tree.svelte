@@ -8,11 +8,12 @@
 	import { m } from "$lib/paraglide/messages";
 	import { claudeCodeAgentState } from "$lib/stores/code-agent";
 	import {
+		ArrowDownToLine,
 		ChevronDown,
 		ChevronRight,
 		File,
 		FileCode,
-		FileDown,
+		FilePlus,
 		FileUp,
 		Folder,
 		FolderInput,
@@ -20,6 +21,7 @@
 		FolderPlus,
 		FolderUp,
 		Loader2,
+		RefreshCw,
 	} from "@lucide/svelte";
 	import { onDestroy } from "svelte";
 	import { toast } from "svelte-sonner";
@@ -580,44 +582,44 @@
 			<button
 				type="button"
 				onclick={() => handleCreateFile()}
-				class="rounded p-1 hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+				class="rounded p-1 transition-colors hover:bg-accent hover:text-accent-foreground disabled:cursor-not-allowed disabled:opacity-50"
 				disabled={fileTreeState.loading || fileTreeState.isStreaming}
 				title={m.title_button_create_file()}
 			>
-				<FileCode class="h-3.5 w-3.5" />
+				<FilePlus class="h-4 w-4" strokeWidth={1.25} />
 			</button>
 
 			<!-- Create Folder -->
 			<button
 				type="button"
 				onclick={() => handleCreateFolder()}
-				class="rounded p-1 hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+				class="rounded p-1 transition-colors hover:bg-accent hover:text-accent-foreground disabled:cursor-not-allowed disabled:opacity-50"
 				disabled={fileTreeState.loading || fileTreeState.isStreaming}
 				title={m.title_button_new_folder()}
 			>
-				<Folder class="h-3.5 w-3.5" />
+				<FolderPlus class="h-4 w-4" strokeWidth={1.25} />
 			</button>
 
 			<!-- Upload File -->
 			<button
 				type="button"
 				onclick={() => triggerFileUpload()}
-				class="rounded p-1 hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+				class="rounded p-1 transition-colors hover:bg-accent hover:text-accent-foreground disabled:cursor-not-allowed disabled:opacity-50"
 				disabled={fileTreeState.loading || fileTreeState.isStreaming}
 				title={m.label_file_tree_upload_file()}
 			>
-				<FileUp class="h-3.5 w-3.5" />
+				<FileUp class="h-4 w-4" strokeWidth={1.25} />
 			</button>
 
 			<!-- Upload Folder -->
 			<button
 				type="button"
 				onclick={() => handleFolderUpload()}
-				class="rounded p-1 hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+				class="rounded p-1 transition-colors hover:bg-accent hover:text-accent-foreground disabled:cursor-not-allowed disabled:opacity-50"
 				disabled={fileTreeState.loading || fileTreeState.isStreaming}
 				title={m.label_file_tree_upload_folder()}
 			>
-				<FolderUp class="h-3.5 w-3.5" />
+				<FolderUp class="h-4 w-4" strokeWidth={1.25} />
 			</button>
 
 			<button
@@ -629,11 +631,11 @@
 						type: "dir",
 					});
 				}}
-				class="rounded p-1 hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+				class="rounded p-1 transition-colors hover:bg-accent hover:text-accent-foreground disabled:cursor-not-allowed disabled:opacity-50"
 				disabled={fileTreeState.loading || fileTreeState.isStreaming}
 				title={m.label_file_tree_download_all()}
 			>
-				<FileDown class="h-3.5 w-3.5" />
+				<ArrowDownToLine class="h-4 w-4" strokeWidth={1.25} />
 			</button>
 		</div>
 
@@ -643,7 +645,7 @@
 				<DropdownMenu.Trigger>
 					<button
 						type="button"
-						class="rounded p-1 hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50 flex items-center gap-1"
+						class="rounded p-1 transition-colors hover:bg-accent hover:text-accent-foreground disabled:cursor-not-allowed disabled:opacity-50 flex items-center gap-1"
 						disabled={fileTreeState.loading || fileTreeState.isStreaming}
 						title={m.common_actions()}
 						aria-label={m.common_actions()}
@@ -729,11 +731,14 @@
 		<button
 			type="button"
 			onclick={() => fileTreeState.refreshFileTree()}
-			class="rounded p-1 hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+			class="rounded p-1 disabled:cursor-not-allowed disabled:opacity-50 transition-colors hover:bg-accent hover:text-accent-foreground"
 			disabled={fileTreeState.loading || fileTreeState.isStreaming}
 			title={m.label_file_tree_refresh()}
 		>
-			<Loader2 class={`h-3.5 w-3.5 ${fileTreeState.loading ? "animate-spin" : ""}`} />
+			<RefreshCw
+				strokeWidth={1.25}
+				class={`h-4 w-4 ${fileTreeState.loading ? "animate-spin" : ""}`}
+			/>
 		</button>
 	</div>
 
