@@ -5,10 +5,19 @@ import { open302SsoLogin } from "$lib/utils/sso";
 import type { McpServer } from "@shared/storage/mcp";
 import { nanoid } from "nanoid";
 import { toast } from "svelte-sonner";
+import { chatState } from "./chat-state.svelte";
 import { generalSettings } from "./general-settings.state.svelte";
 import { mcpState } from "./mcp-state.svelte";
-import { providerState } from "./provider-state.svelte";
+import { preferencesSettings } from "./preferences-settings.state.svelte";
+import { persistedModelState, providerState } from "./provider-state.svelte";
+import { sessionState } from "./session-state.svelte";
 import { userState } from "./user-state.svelte";
+
+/**
+ * Default model ID to use for new users after initial login
+ * This should be a popular, featured model that provides a good first experience
+ */
+const DEFAULT_MODEL_ID = "gemini-3-pro-preview";
 
 class SsoStateManager {
 	isLoading = $state(false);
@@ -147,6 +156,9 @@ class SsoStateManager {
 				this.isSuccess = true;
 				toast.success(m.login_success());
 
+				// Set default model for first-time users (after models are fetched)
+				this.setDefaultModelIfNeeded();
+
 				// Fetch and import MCP servers from 302.AI (silently, don't block login)
 				this.fetchAndImportMcpServers();
 
@@ -160,6 +172,54 @@ class SsoStateManager {
 			}
 		} finally {
 			this.isLoading = false;
+		}
+	}
+
+	/**
+	 * Set a default model for first-time users after initial login
+	 * This ensures users don't have to manually select a model to start chatting
+	 */
+	private setDefaultModelIfNeeded() {
+		// Check if user already has a model preference set
+		const hasExistingModelPreference =
+			preferencesSettings.newSessionModel !== null || sessionState.latestUsedModel !== null;
+
+		if (hasExistingModelPreference) {
+			console.log("[SSO] User already has model preference, skipping default model setup");
+			return;
+		}
+
+		// Find the default model from the fetched models
+		const models = persistedModelState.current;
+		if (models.length === 0) {
+			console.log("[SSO] No models available, skipping default model setup");
+			return;
+		}
+
+		// Try to find the preferred default model
+		let defaultModel = models.find((m) => m.id === DEFAULT_MODEL_ID);
+
+		// If preferred model not found, fall back to any featured model
+		if (!defaultModel) {
+			defaultModel = models.find((m) => m.isFeatured);
+		}
+
+		// If still no model found, use the first available model
+		if (!defaultModel) {
+			defaultModel = models[0];
+		}
+
+		if (defaultModel) {
+			// Set as the default model for future new sessions
+			preferencesSettings.setNewSessionModel(defaultModel);
+			console.log(`[SSO] Set default model for new user: ${defaultModel.id}`);
+
+			// Also set the model for the current tab if it doesn't have one selected
+			// This handles the case where the app was just installed and a tab was auto-created before login
+			if (chatState.selectedModel === null) {
+				chatState.selectedModel = defaultModel;
+				console.log(`[SSO] Set model for current tab: ${defaultModel.id}`);
+			}
 		}
 	}
 
