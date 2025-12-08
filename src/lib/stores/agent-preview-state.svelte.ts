@@ -246,6 +246,7 @@ export class AgentPreviewState {
 
 	constructor() {
 		// syncBus handles broadcast + storage fanout and dedupe
+		this.syncBus.subscribe((message) => this.handleIncomingSync(message));
 	}
 
 	// Track active execution states in memory only (not persisted)
