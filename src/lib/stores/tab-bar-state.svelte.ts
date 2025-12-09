@@ -17,13 +17,6 @@ $effect.root(() => {
 });
 const { tabService, windowService, threadService } = window.electronAPI;
 
-$effect.root(() => {
-	$effect(() => {
-		// eslint-disable-next-line @typescript-eslint/no-unused-expressions
-		persistedTabState.current[window.windowId];
-	});
-});
-
 class TabBarState {
 	#windowId = $state<string>(window.windowId);
 	#activeOverlayId = $state<string | null>(null);
