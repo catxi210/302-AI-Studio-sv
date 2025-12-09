@@ -12,11 +12,9 @@
 		ChevronDown,
 		ChevronRight,
 		File,
-		FileCode,
 		FilePlus,
 		FileUp,
 		Folder,
-		FolderInput,
 		FolderOpen,
 		FolderPlus,
 		FolderUp,
@@ -673,7 +671,7 @@
 						onclick={() => handleCreateFile()}
 						disabled={fileTreeState.loading || fileTreeState.isStreaming}
 					>
-						<FileCode class="mr-2 h-4 w-4" />
+						<FilePlus class="mr-2 h-4 w-4" />
 						<span>{m.label_file_tree_create_file()}</span>
 					</DropdownMenu.Item>
 
@@ -719,7 +717,7 @@
 						}}
 						disabled={fileTreeState.loading || fileTreeState.isStreaming}
 					>
-						<FolderInput class="mr-2 h-4 w-4" />
+						<ArrowDownToLine class="mr-2 h-4 w-4" />
 						<span>{m.label_file_tree_download_all()}</span>
 					</DropdownMenu.Item>
 				</DropdownMenu.Content>
