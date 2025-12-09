@@ -657,7 +657,7 @@ app.post("/generate-title", async (c) => {
 	try {
 		const { text } = await generateText({
 			model: languageModel,
-			prompt: `Based on the following conversation, generate a concise title (5-10 characters, no punctuation):
+			prompt: `Based on the following conversation, generate a concise title (Please limit your response to a very short length: approximately 10-20 words if in English, or 10-20 characters if in Chinese., no punctuation):
 
 ${conversationText}
 
