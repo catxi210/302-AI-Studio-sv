@@ -42,6 +42,19 @@ interface ClaudeCodeEvent {
 			is_error?: boolean;
 		}>;
 	};
+	// Result event fields (302.AI specific)
+	is_error?: boolean;
+	duration_ms?: number;
+	duration_api_ms?: number;
+	num_turns?: number;
+	choices?: Array<{
+		index: number;
+		delta: { content?: string };
+		finish_reason?: string | null;
+	}>;
+	session_id?: string;
+	total_cost_usd?: number;
+	uuid?: string;
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	[key: string]: any;
 }
@@ -163,6 +176,11 @@ class ClaudeCodeProcessor {
 			return null;
 		}
 
+		// Handle result event - extract metadata for storage
+		if (data.type === "result") {
+			return this.handleResultEvent(data);
+		}
+
 		// Handle tool result events from user messages
 		if (data.type === "user" && data.message?.content) {
 			return this.handleToolResultMessage(data);
@@ -174,6 +192,30 @@ class ClaudeCodeProcessor {
 		}
 
 		return null;
+	}
+
+	private handleResultEvent(data: ClaudeCodeEvent): string | null {
+		// Extract relevant fields from result event
+		const resultMetadata = {
+			type: data.type,
+			subtype: data.subtype,
+			is_error: data.is_error,
+			duration_ms: data.duration_ms,
+			duration_api_ms: data.duration_api_ms,
+			num_turns: data.num_turns,
+			content: data.choices?.[0]?.delta?.content ?? "",
+			session_id: data.session_id,
+			total_cost_usd: data.total_cost_usd,
+			uuid: data.uuid,
+		};
+
+		// Send as message-metadata event for frontend to process
+		const metadataEvent = {
+			type: "message-metadata",
+			metadata: resultMetadata,
+		};
+
+		return `data: ${JSON.stringify(metadataEvent)}`;
 	}
 
 	private handleToolResultMessage(data: ClaudeCodeEvent): string | null {
@@ -493,9 +535,15 @@ function interceptSSEResponse(response: Response, processor: ClaudeCodeProcessor
 					}
 
 					const chunk = decoder.decode(value, { stream: true });
+
+					// Debug: Log raw SSE chunk
+					console.debug("[ClaudeCodeProcessor] Raw SSE chunk:", chunk);
+
 					const processedChunk = processor.processSSEChunk(chunk);
 
 					if (processedChunk) {
+						// Debug: Log processed SSE chunk
+						console.debug("[ClaudeCodeProcessor] Processed SSE chunk:", processedChunk);
 						controller.enqueue(encoder.encode(processedChunk));
 					}
 				}

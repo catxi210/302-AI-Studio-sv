@@ -1,6 +1,13 @@
-import type { ChatMessage } from "$lib/types/chat";
+import type { ChatMessage, ResultMetadata } from "$lib/types/chat";
 import type { HttpChatTransportInitOptions } from "ai";
 import { DefaultChatTransport } from "ai";
+
+// Store for pending result metadata (will be merged into message on finish)
+export let pendingResultMetadata: ResultMetadata | null = null;
+
+export function clearPendingResultMetadata() {
+	pendingResultMetadata = null;
+}
 
 export type DynamicChatTransportOptions<UI_MESSAGE extends ChatMessage> = Omit<
 	HttpChatTransportInitOptions<UI_MESSAGE>,
@@ -50,6 +57,31 @@ export class DynamicChatTransport<
 									buffer = lines.pop() || "";
 
 									for (const line of lines) {
+										// Handle message-metadata event (from 302.AI Claude Code result)
+										if (line.includes('"type":"message-metadata"')) {
+											try {
+												const jsonStr = line.replace(/^data: /, "").trim();
+												if (jsonStr) {
+													const data = JSON.parse(jsonStr);
+													if (data.type === "message-metadata" && data.metadata) {
+														console.log(
+															"[DynamicChatTransport] Captured result metadata:",
+															data.metadata,
+														);
+														// Store metadata for later use in onFinish
+														pendingResultMetadata = data.metadata as ResultMetadata;
+														// Don't forward this event to the stream
+														continue;
+													}
+												}
+											} catch (e) {
+												console.error(
+													"[DynamicChatTransport] Failed to parse message-metadata:",
+													e,
+												);
+											}
+										}
+
 										if (line.includes('"type":"error"')) {
 											try {
 												// Extract the JSON part from "data: {...}"

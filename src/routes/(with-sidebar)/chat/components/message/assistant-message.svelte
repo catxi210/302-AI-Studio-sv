@@ -21,6 +21,7 @@
 	import { m } from "$lib/paraglide/messages.js";
 	import { getLocale } from "$lib/paraglide/runtime";
 	import { chatState } from "$lib/stores/chat-state.svelte";
+	import { codeAgentState } from "$lib/stores/code-agent";
 	import { mcpState } from "$lib/stores/mcp-state.svelte";
 	import { preferencesSettings } from "$lib/stores/preferences-settings.state.svelte";
 	import { tabBarState } from "$lib/stores/tab-bar-state.svelte";
@@ -46,6 +47,7 @@
 		isClaudeCodeTool,
 		isClaudeCodeToolType,
 	} from "./claude-code-tools";
+	import AgentTaskResult from "./code-agent/agent-task-result.svelte";
 	import MessageActions from "./message-actions.svelte";
 	import MessageContextMenu from "./message-context-menu.svelte";
 	import ToolCallModal from "./tool-call-modal.svelte";
@@ -330,6 +332,10 @@
 						<Volume2 />
 					{/if}
 				</ButtonWithTooltip>
+			{/if}
+
+			{#if codeAgentState.inCodeAgentMode && message.metadata?.result}
+				<AgentTaskResult result={message.metadata.result} />
 			{/if}
 
 			<div class="h-4 w-px bg-border"></div>

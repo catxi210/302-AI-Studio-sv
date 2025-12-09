@@ -2,8 +2,12 @@ import { generateSuggestions } from "$lib/api/suggestions-generation";
 import { generateTitle } from "$lib/api/title-generation";
 import { PersistedState } from "$lib/hooks/persisted-state.svelte";
 import { m } from "$lib/paraglide/messages.js";
-import { DynamicChatTransport } from "$lib/transport/dynamic-chat-transport";
-import type { ChatMessage } from "$lib/types/chat";
+import {
+	clearPendingResultMetadata,
+	DynamicChatTransport,
+	pendingResultMetadata,
+} from "$lib/transport/dynamic-chat-transport";
+import type { ChatMessage, MessageMetadata } from "$lib/types/chat";
 import {
 	convertAttachmentsToMessageParts,
 	type MessagePart,
@@ -1123,10 +1127,24 @@ export const chat = new Chat({
 	}),
 	onFinish: async ({ messages }) => {
 		console.log("更新完成", $state.snapshot(messages));
+
+		const codeAgentEnabled = codeAgentState.enabled;
+		if (codeAgentEnabled && pendingResultMetadata) {
+			const lastMessage = messages[messages.length - 1];
+			if (lastMessage && lastMessage.role === "assistant") {
+				const currentMetadata = (lastMessage.metadata as MessageMetadata) || {};
+				lastMessage.metadata = {
+					...currentMetadata,
+					result: pendingResultMetadata,
+				};
+				console.log("[ChatState] Merged result metadata into message:", pendingResultMetadata);
+			}
+			clearPendingResultMetadata();
+		}
+
 		persistedMessagesState.current = messages;
 
 		sessionState.latestUsedModel = chatState.selectedModel ?? null;
-		const codeAgentEnabled = codeAgentState.enabled;
 
 		// Execute after send message hook
 		try {

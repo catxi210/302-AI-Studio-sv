@@ -34,9 +34,6 @@
 		return input?.todos ?? [];
 	});
 
-	const completedCount = $derived(todos().filter((t) => t.status === "completed").length);
-	const totalCount = $derived(todos().length);
-
 	const statusConfig = $derived(() => {
 		switch (part.state) {
 			case "output-available":
@@ -92,16 +89,9 @@
 				<ListTodo class="h-5 w-5" />
 			</div>
 
-			<!-- Tool Name and Progress -->
-
-			<div class="flex items-center gap-2">
-				<h3 class="text-sm font-medium text-foreground">
-					{m.todo_list_title?.() ?? "Task List"}
-				</h3>
-				<span class="text-xs text-muted-foreground">
-					{completedCount}/{totalCount}
-				</span>
-			</div>
+			<h3 class="text-sm font-medium text-foreground">
+				{m.todo_list_title()}
+			</h3>
 		</div>
 
 		<!-- Right: Status -->

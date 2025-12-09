@@ -955,5 +955,8 @@
 	"login_banner_text": "登录302.AI账号快速开始",
 	"login_banner_button": "授权登录",
 	"text_edit_file": "编辑文件",
-	"text_write_file": "写入文件"
+	"text_write_file": "写入文件",
+	"title_agent_task_infos": "任务详情",
+	"text_duration": "执行时间",
+	"text_turns": "执行次数"
 }

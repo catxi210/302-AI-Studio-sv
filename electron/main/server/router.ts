@@ -25,7 +25,6 @@ import { mcpService } from "../services/mcp-service";
 import { storageService } from "../services/storage-service";
 import { createCitationsFetch } from "./citations-processor";
 import { createClaudeCodeFetch } from "./claude-code-processor";
-// import { createClaudeCodeTools } from "./claude-code-tools";
 
 export type RouterRequestBody = {
 	baseUrl?: string;

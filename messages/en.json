@@ -959,5 +959,8 @@
 	"login_banner_text": "Login to 302.AI to get started quickly",
 	"login_banner_button": "Login",
 	"text_edit_file": "edit file",
-	"text_write_file": "write file"
+	"text_write_file": "write file",
+	"title_agent_task_infos": "Mission Details",
+	"text_duration": "Duration",
+	"text_turns": "Turns"
 }
