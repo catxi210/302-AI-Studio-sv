@@ -80,6 +80,7 @@
 			options={claudeCodeSandboxState.sessions}
 			placeholder={m.select_session_placeholder()}
 			{disabled}
+			contentClass="max-w-[600px]"
 			onValueChange={(v) => claudeCodeSandboxState.handleSessionSelected(v)}
 		/>
 	</div>
@@ -134,6 +135,7 @@
 			onValueChange={(v) => claudeCodeSandboxState.handleSelectSandbox(v)}
 			disabled={disabled || isRefreshing}
 			class="!bg-background dark:!bg-background"
+			contentClass="max-w-[500px]"
 		/>
 	</div>
 {/snippet}

@@ -12,6 +12,7 @@
 		options: SelectOption[];
 		placeholder?: string;
 		class?: string;
+		contentClass?: string;
 		disabled?: boolean;
 		onValueChange?: (value: string) => void;
 	}
@@ -31,6 +32,7 @@
 		options,
 		placeholder,
 		class: className,
+		contentClass,
 		disabled,
 		onValueChange,
 	}: Props = $props();
@@ -48,14 +50,17 @@
 <Select.Root type="single" {name} bind:value {onValueChange} {disabled}>
 	<Select.Trigger
 		class={cn(
-			"!bg-settings-item-bg dark:!bg-settings-item-bg data-[size=default]:h-settings-item w-full",
+			"!bg-settings-item-bg dark:!bg-settings-item-bg data-[size=default]:h-settings-item w-full min-w-0",
 			className,
 		)}
 		{disabled}
+		title={value ? getLabel(value) : placeholder}
 	>
-		{placeholder && !value ? placeholder : getLabel(value)}
+		<span class="truncate min-w-0" title={value ? getLabel(value) : placeholder}>
+			{placeholder && !value ? placeholder : getLabel(value)}
+		</span>
 	</Select.Trigger>
-	<Select.Content>
+	<Select.Content class={contentClass}>
 		{#if options.length === 0}
 			<Empty.Root>
 				<Empty.Content>
@@ -67,16 +72,18 @@
 		{:else}
 			{#each options as option (option.key || option.value)}
 				{#if option.extra}
-					<Select.Item value={option.value} label={option.label}>
-						<span class="flex w-full items-center justify-between">
-							<span class="truncate">{option.label}</span>
+					<Select.Item value={option.value} label={option.label} title={option.label}>
+						<span class="flex w-full items-center justify-between min-w-0">
+							<span class="truncate" title={option.label}>{option.label}</span>
 							<span class="ml-2 text-xs text-muted-foreground shrink-0"
 								>{formatExtra(option.extra)}</span
 							>
 						</span>
 					</Select.Item>
 				{:else}
-					<Select.Item value={option.value} label={option.label} />
+					<Select.Item value={option.value} label={option.label} title={option.label}>
+						<span class="truncate" title={option.label}>{option.label}</span>
+					</Select.Item>
 				{/if}
 			{/each}
 		{/if}
