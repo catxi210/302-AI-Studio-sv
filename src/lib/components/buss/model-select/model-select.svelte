@@ -528,7 +528,11 @@
 									<div class="flex min-w-0 flex-1 items-center gap-2">
 										<ModelIcon
 											modelName={model.name}
-											className={cn("size-4 shrink-0", isSelected && "brightness-0 invert")}
+											className={cn(
+												"size-4 shrink-0",
+												isSelected &&
+													"text-primary-foreground [&_*]:!text-primary-foreground [&_*]:!fill-primary-foreground",
+											)}
 										/>
 										<span class="truncate">{model.name}</span>
 									</div>
