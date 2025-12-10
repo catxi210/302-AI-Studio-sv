@@ -30,7 +30,7 @@ export interface PreferencesSettingsState {
 }
 
 const getDefaults = (): PreferencesSettingsState => ({
-	autoHideCode: false,
+	autoHideCode: true,
 	autoHideReason: false,
 	autoCollapseThink: false,
 	autoDisableMarkdown: false,
