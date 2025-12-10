@@ -123,9 +123,9 @@
 
 		// Listen for apply default model event from SSO login
 		const unsubApplyDefaultModel = window.electronAPI?.onApplyDefaultModel?.(
-			(data: { model: Model }) => {
+			(data: { model: unknown }) => {
 				if (chatState.selectedModel === null && data.model) {
-					chatState.selectedModel = data.model;
+					chatState.selectedModel = data.model as Model;
 				}
 			},
 		);
