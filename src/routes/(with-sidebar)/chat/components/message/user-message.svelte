@@ -217,7 +217,7 @@
 
 {#snippet messageFooter()}
 	<div class="flex items-center gap-2 opacity-0 group-hover:opacity-100">
-		<MessageActions {message} enabledActions={["edit"]} />
+		<MessageActions {message} enabledActions={["edit", "regenerate"]} />
 	</div>
 {/snippet}
 

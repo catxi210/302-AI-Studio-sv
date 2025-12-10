@@ -24,6 +24,7 @@ import { toast } from "svelte-sonner";
 
 import { updateSessionNote } from "$lib/api/sandbox-session";
 import { claudeCodeAgentState } from "$lib/stores/code-agent/claude-code-state.svelte";
+import { agentPreviewState } from "./agent-preview-state.svelte";
 import { codeAgentState } from "./code-agent";
 import { generalSettings } from "./general-settings.state.svelte";
 import { notificationState } from "./notification-state.svelte";
@@ -1145,6 +1146,59 @@ export const chat = new Chat({
 				console.log("[ChatState] Merged result metadata into message:", pendingResultMetadata);
 			}
 			clearPendingResultMetadata();
+		}
+
+		// Parse deploy sandbox info from the last message
+		let isDeploy = false;
+		let deployInfo: {
+			success: boolean;
+			status: string;
+			id: string;
+			url: string;
+			cover: string;
+		} | null = null;
+
+		if (codeAgentEnabled) {
+			const lastMessage = messages[messages.length - 1];
+			if (lastMessage && lastMessage.role === "assistant") {
+				// Extract text content from the message parts
+				const textContent = lastMessage.parts
+					.filter((part): part is { type: "text"; text: string } => part.type === "text")
+					.map((part) => part.text)
+					.join("\n");
+
+				// Check if deploy was successful
+				if (textContent.includes("**deploy sandbox successfully**")) {
+					isDeploy = true;
+
+					// Extract the Python dict-like structure after the success message
+					// Pattern matches: {'success': True, 'status': '...', 'id': '...', 'url': '...', 'cover': '...'}
+					const deployInfoRegex =
+						/\{[^{}]*'success'\s*:\s*(True|False)[^{}]*'status'\s*:\s*'([^']*)'[^{}]*'id'\s*:\s*'([^']*)'[^{}]*'url'\s*:\s*'([^']*)'[^{}]*'cover'\s*:\s*'([^']*)'\s*\}/;
+					const match = textContent.match(deployInfoRegex);
+
+					if (match) {
+						deployInfo = {
+							success: match[1] === "True",
+							status: match[2],
+							id: match[3],
+							url: match[4],
+							cover: match[5],
+						};
+						console.log("[ChatState] Parsed deploy info:", deployInfo);
+					}
+				}
+			}
+		}
+
+		if (isDeploy && deployInfo) {
+			await agentPreviewState.setDeploymentInfo(
+				claudeCodeAgentState.sandboxId,
+				claudeCodeAgentState.currentSessionId,
+				deployInfo.url,
+				deployInfo.id,
+			);
+			console.log("[ChatState] Deploy detected:", { isDeploy, deployInfo });
 		}
 
 		persistedMessagesState.current = messages;
