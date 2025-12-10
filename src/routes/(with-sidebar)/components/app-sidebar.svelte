@@ -307,7 +307,7 @@
 		const agentInfo = await isCodeAgentThread(renameTargetThreadId);
 
 		await threadsState.renameThread(renameTargetThreadId, trimmedName);
-		tabBarState.updateTabTitle(renameTargetThreadId, trimmedName);
+		await tabBarState.updateTabTitle(renameTargetThreadId, trimmedName);
 
 		// Update session note for code agent threads (preserves original sessionId)
 		if (agentInfo.isCodeAgent && agentInfo.sandboxId && agentInfo.sessionId) {

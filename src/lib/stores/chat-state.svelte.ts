@@ -765,7 +765,7 @@ class ChatState {
 
 			if (generatedTitle) {
 				persistedChatParamsState.current.title = generatedTitle;
-				tabBarState.updateTabTitle(persistedChatParamsState.current.id, generatedTitle);
+				await tabBarState.updateTabTitle(persistedChatParamsState.current.id, generatedTitle);
 
 				// Force flush to ensure all changes are persisted before broadcasting
 				persistedChatParamsState.flush();
@@ -1233,7 +1233,7 @@ export const chat = new Chat({
 						});
 					}
 
-					tabBarState.updateTabTitle(persistedChatParamsState.current.id, generatedTitle);
+					await tabBarState.updateTabTitle(persistedChatParamsState.current.id, generatedTitle);
 				}
 			} catch (error) {
 				console.error("Failed to generate title:", error);
@@ -1248,7 +1248,7 @@ export const chat = new Chat({
 					const titleText = [...text].slice(0, 10).join("");
 					if (titleText) {
 						persistedChatParamsState.current.title = titleText;
-						tabBarState.updateTabTitle(persistedChatParamsState.current.id, titleText);
+						await tabBarState.updateTabTitle(persistedChatParamsState.current.id, titleText);
 					}
 				}
 			}
