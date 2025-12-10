@@ -39,6 +39,7 @@ declare global {
 			) => () => void;
 			onTriggerSendMessage: (callback: (data: { threadId: string }) => void) => () => void;
 			onSidebarStateChanged: (callback: (data: { open: boolean }) => void) => () => void;
+			onApplyDefaultModel: (callback: (data: { model: unknown }) => void) => () => void;
 			onThreadListUpdate: (callback: (eventData: BroadcastEventData) => void) => () => void;
 			onShellWindowFullscreenChange: (
 				callback: (payload: ShellWindowFullscreenChange) => void,

@@ -12,7 +12,7 @@
 	import { setupPanelResize } from "$lib/utils/panel-resize";
 	import { MessageSquarePlus } from "@lucide/svelte";
 	import GripVerticalIcon from "@lucide/svelte/icons/grip-vertical";
-	import type { AttachmentFile, ThreadParmas } from "@shared/types";
+	import type { AttachmentFile, Model, ThreadParmas } from "@shared/types";
 	import { onMount } from "svelte";
 	import { toast } from "svelte-sonner";
 	import PageHeader from "../../components/page-header.svelte";
@@ -121,6 +121,15 @@
 			},
 		);
 
+		// Listen for apply default model event from SSO login
+		const unsubApplyDefaultModel = window.electronAPI?.onApplyDefaultModel?.(
+			(data: { model: Model }) => {
+				if (chatState.selectedModel === null && data.model) {
+					chatState.selectedModel = data.model;
+				}
+			},
+		);
+
 		// Check if we should auto-send on load (for branch and send functionality)
 		const checkAutoSend = async () => {
 			const threadKey = `app-thread:${chatState.id}`;
@@ -177,6 +186,7 @@
 			unsubTriggerSend?.();
 			unsubShowToast?.();
 			unsubSandboxCreated?.();
+			unsubApplyDefaultModel?.();
 		};
 	});
 

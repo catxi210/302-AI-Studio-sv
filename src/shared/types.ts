@@ -159,7 +159,8 @@ export type BroadcastEvent =
 	| "trigger-screenshot"
 	| "trigger-send-message"
 	| "show-toast"
-	| "sidebar-state-changed";
+	| "sidebar-state-changed"
+	| "apply-default-model";
 
 export interface BroadcastEventData {
 	broadcastEvent: BroadcastEvent;

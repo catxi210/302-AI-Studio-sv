@@ -5,7 +5,6 @@ import { open302SsoLogin } from "$lib/utils/sso";
 import type { McpServer } from "@shared/storage/mcp";
 import { nanoid } from "nanoid";
 import { toast } from "svelte-sonner";
-import { chatState } from "./chat-state.svelte";
 import { generalSettings } from "./general-settings.state.svelte";
 import { mcpState } from "./mcp-state.svelte";
 import { preferencesSettings } from "./preferences-settings.state.svelte";
@@ -157,7 +156,7 @@ class SsoStateManager {
 				toast.success(m.login_success());
 
 				// Set default model for first-time users (after models are fetched)
-				this.setDefaultModelIfNeeded();
+				await this.setDefaultModelIfNeeded();
 
 				// Fetch and import MCP servers from 302.AI (silently, don't block login)
 				this.fetchAndImportMcpServers();
@@ -179,7 +178,7 @@ class SsoStateManager {
 	 * Set a default model for first-time users after initial login
 	 * This ensures users don't have to manually select a model to start chatting
 	 */
-	private setDefaultModelIfNeeded() {
+	private async setDefaultModelIfNeeded() {
 		// Check if user already has a model preference set
 		const hasExistingModelPreference =
 			preferencesSettings.newSessionModel !== null || sessionState.latestUsedModel !== null;
@@ -193,6 +192,7 @@ class SsoStateManager {
 		const models = persistedModelState.current;
 		if (models.length === 0) {
 			console.log("[SSO] No models available, skipping default model setup");
+
 			return;
 		}
 
@@ -212,13 +212,18 @@ class SsoStateManager {
 		if (defaultModel) {
 			// Set as the default model for future new sessions
 			preferencesSettings.setNewSessionModel(defaultModel);
-			console.log(`[SSO] Set default model for new user: ${defaultModel.id}`);
 
-			// Also set the model for the current tab if it doesn't have one selected
-			// This handles the case where the app was just installed and a tab was auto-created before login
-			if (chatState.selectedModel === null) {
-				chatState.selectedModel = defaultModel;
-				console.log(`[SSO] Set model for current tab: ${defaultModel.id}`);
+			// Broadcast to all chat tabs to apply the default model
+			// This handles the case where chat tabs are already open but don't have a model selected
+			try {
+				// Clone the model object to ensure it can be serialized for IPC
+				// The original object may be a Proxy from Svelte's reactivity system
+				const modelForBroadcast = JSON.parse(JSON.stringify(defaultModel));
+				await window.electronAPI.broadcastService.broadcastToAll("apply-default-model", {
+					model: modelForBroadcast,
+				});
+			} catch (error) {
+				console.error("[SSO] Failed to broadcast apply-default-model event:", error);
 			}
 		}
 	}
