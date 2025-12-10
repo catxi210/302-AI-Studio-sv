@@ -144,9 +144,27 @@
 		syncUnsubscribe = agentPreviewState.onSync((message: AgentPreviewSyncEnvelope) => {
 			if (
 				message.sandboxId !== sandboxId ||
-				message.sessionId !== sessionId ||
+				message.sessionId !== sessionId
+			) {
+				return;
+			}
+
+			// Handle deployment update from any source (including self)
+			// This is needed when onFinish saves deployment info and we need to refresh the UI
+			if (
+				message.type === "fileListUpdated" &&
 				message.sourceInstanceId === agentPreviewState.syncIdentifier
 			) {
+				// Force re-check deployment info by clearing the restored key
+				lastRestoredKey = "";
+				// Trigger a state restore to pick up the new deployment info
+				untrack(() => {
+					restoreState(sandboxId, sessionId);
+				});
+			}
+
+			// For other message types, only handle from other instances
+			if (message.sourceInstanceId === agentPreviewState.syncIdentifier) {
 				return;
 			}
 

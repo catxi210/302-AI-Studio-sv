@@ -603,6 +603,16 @@ export class AgentPreviewState {
 			type: storage?.type,
 		};
 		await this.saveToStorage(sandboxId, sessionId, updatedStorage);
+
+		// Fire a sync event to trigger state restoration in all preview panels
+		// This ensures the UI updates when deployment info changes
+		this.syncBus.publish({
+			type: "fileListUpdated",
+			sandboxId,
+			sessionId,
+			fileList: storage?.fileList || [],
+			selectedFilePath: storage?.selectedFilePath,
+		});
 	}
 
 	/**
