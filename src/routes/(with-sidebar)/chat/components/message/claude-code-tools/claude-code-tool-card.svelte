@@ -9,7 +9,6 @@
 
 <script lang="ts">
 	import StaticCodeBlock from "$lib/components/buss/markdown/static-code-block.svelte";
-	import { Button } from "$lib/components/ui/button/index.js";
 	import {
 		Dialog,
 		DialogContent,
@@ -93,7 +92,7 @@
 		<!-- Left: Tool Icon and Name -->
 		<div class="flex items-center gap-3">
 			<div class="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
-				<ToolIcon class="h-5 w-5 text-muted-foreground" />
+				<ToolIcon class="h-5 w-5" />
 			</div>
 
 			<!-- Tool Name -->
@@ -119,64 +118,52 @@
 
 <!-- Modal Dialog -->
 <Dialog bind:open={isModalOpen}>
-	<DialogContent class="max-w-4xl max-h-[80vh] flex flex-col">
-		<DialogHeader class="shrink-0">
+	<DialogContent class="!flex !flex-col !grid-cols-none !gap-0 h-[80vh] w-[60vw]">
+		<DialogHeader class="shrink-0 mb-4">
 			<DialogTitle class="flex items-center gap-2">
 				<ToolIcon class="h-5 w-5" />
 				<span>{part.toolName}</span>
 			</DialogTitle>
 		</DialogHeader>
 
-		<div class="flex-1 min-h-0">
-			<!-- Status indicator -->
-			<div class="mb-4 flex items-center gap-2">
-				{#if statusConfig().animate}
-					<div class="h-3 w-3 animate-pulse rounded-full {statusConfig().bgColor}"></div>
-				{:else}
-					<div class="h-3 w-3 rounded-full {statusConfig().bgColor}"></div>
+		<!-- Input & Output Layout -->
+		<div class="flex-1 min-h-0 flex gap-4">
+			<!-- Left: Input Parameters -->
+			<div class="flex-1 min-h-0 min-w-0 overflow-y-auto pr-2">
+				{#if part.input}
+					<div class="h-full [&_.shiki]:overflow-auto [&_.shiki]:text-xs">
+						<StaticCodeBlock
+							code={formatJson(part.input)}
+							language="json"
+							title={m.tool_call_parameters()}
+							showCollapseButton={false}
+						/>
+					</div>
 				{/if}
-				<span class="text-sm {statusConfig().color}">{statusConfig().label}</span>
 			</div>
 
-			<!-- Input Parameters -->
-			{#if part.input}
-				<div class="mb-4 [&_.shiki]:max-h-[300px] [&_.shiki]:overflow-auto [&_.shiki]:text-xs">
-					<StaticCodeBlock
-						code={formatJson(part.input)}
-						language="json"
-						title={m.tool_call_parameters()}
-						showCollapseButton={false}
-					/>
-				</div>
-			{/if}
-
-			<!-- Output / Error -->
-			{#if part.state === "output-available" && part.output}
-				<div class="[&_.shiki]:max-h-[300px] [&_.shiki]:overflow-auto [&_.shiki]:text-xs">
-					<StaticCodeBlock
-						code={formatJson(part.output)}
-						language="json"
-						title={m.tool_call_result()}
-						showCollapseButton={false}
-					/>
-				</div>
-			{:else if part.state === "output-error" && part.errorText}
-				<div
-					class="rounded-lg border border-red-200 bg-red-50 p-4 dark:border-red-900 dark:bg-red-950"
-				>
-					<p class="text-sm font-medium text-[#D82525] mb-2">{m.tool_call_error_message()}</p>
-					<p class="text-xs text-red-900 dark:text-red-100 whitespace-pre-wrap">
-						{part.errorText}
-					</p>
-				</div>
-			{/if}
-		</div>
-
-		<!-- Footer -->
-		<div class="flex justify-center pt-4 shrink-0">
-			<Button variant="default" class="h-[42px] w-[148px]" onclick={() => (isModalOpen = false)}>
-				{m.tool_call_close()}
-			</Button>
+			<!-- Right: Output / Error -->
+			<div class="flex-1 min-h-0 min-w-0 overflow-y-auto pl-2">
+				{#if part.state === "output-available" && part.output}
+					<div class="h-full [&_.shiki]:overflow-auto [&_.shiki]:text-xs">
+						<StaticCodeBlock
+							code={formatJson(part.output)}
+							language="json"
+							title={m.tool_call_result()}
+							showCollapseButton={false}
+						/>
+					</div>
+				{:else if part.state === "output-error" && part.errorText}
+					<div
+						class="h-full rounded-lg border border-red-200 bg-red-50 p-4 overflow-y-auto dark:border-red-900 dark:bg-red-950"
+					>
+						<p class="text-sm font-medium text-[#D82525] mb-2">{m.tool_call_error_message()}</p>
+						<p class="text-xs text-red-900 dark:text-red-100 whitespace-pre-wrap">
+							{part.errorText}
+						</p>
+					</div>
+				{/if}
+			</div>
 		</div>
 	</DialogContent>
 </Dialog>

@@ -35,13 +35,24 @@ interface ClaudeCodeEvent {
 	session_alias?: string;
 	event?: AnthropicEvent;
 	message?: {
+		id?: string;
+		role?: string;
+		model?: string;
 		content: Array<{
 			type: string;
+			// For tool_result
 			tool_use_id?: string;
 			content?: string | Array<{ type: string; text?: string }>;
 			is_error?: boolean;
+			// For tool_use (sub-agent tool calls)
+			id?: string;
+			name?: string;
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			input?: any;
 		}>;
 	};
+	// Parent tool use ID for sub-agent events
+	parent_tool_use_id?: string | null;
 	// Result event fields (302.AI specific)
 	is_error?: boolean;
 	duration_ms?: number;
@@ -103,6 +114,8 @@ class ClaudeCodeProcessor {
 	private contentBlocks: Map<number, ContentBlockState> = new Map();
 	private hasStarted: boolean = false;
 	private textBlockCounter: number = 0;
+	// Store pending finish event to send after message-metadata
+	private pendingFinishEvent: string | null = null;
 
 	constructor(preGeneratedMessageId?: string) {
 		if (preGeneratedMessageId) {
@@ -181,6 +194,12 @@ class ClaudeCodeProcessor {
 			return this.handleResultEvent(data);
 		}
 
+		// Handle assistant messages (sub-agent tool calls)
+		// These contain tool_use content that needs tool-input-start and tool-input-available
+		if (data.type === "assistant" && data.message?.content) {
+			return this.handleAssistantMessage(data);
+		}
+
 		// Handle tool result events from user messages
 		if (data.type === "user" && data.message?.content) {
 			return this.handleToolResultMessage(data);
@@ -215,7 +234,53 @@ class ClaudeCodeProcessor {
 			metadata: resultMetadata,
 		};
 
-		return `data: ${JSON.stringify(metadataEvent)}`;
+		const metadataStr = `data: ${JSON.stringify(metadataEvent)}`;
+
+		// If there's a pending finish event, send metadata first, then finish
+		// This ensures onFinish callback receives the metadata
+		if (this.pendingFinishEvent) {
+			const result = `${metadataStr}\n\n${this.pendingFinishEvent}`;
+			this.pendingFinishEvent = null;
+			return result;
+		}
+
+		return metadataStr;
+	}
+
+	/**
+	 * Handle assistant messages from sub-agents.
+	 * These contain tool_use content blocks that need to be converted to
+	 * tool-input-start and tool-input-available events.
+	 */
+	private handleAssistantMessage(data: ClaudeCodeEvent): string | null {
+		const results: string[] = [];
+
+		for (const content of data.message?.content || []) {
+			if (content.type === "tool_use" && content.id && content.name) {
+				const toolCallId = content.id;
+				const toolName = content.name;
+				const input = content.input || {};
+
+				// Generate tool-input-start event
+				const toolStartEvent = {
+					type: "tool-input-start",
+					toolCallId: toolCallId,
+					toolName: toolName,
+				};
+				results.push(`data: ${JSON.stringify(toolStartEvent)}`);
+
+				// Generate tool-input-available event with full input
+				const toolInputAvailableEvent = {
+					type: "tool-input-available",
+					toolCallId: toolCallId,
+					toolName: toolName,
+					input: input,
+				};
+				results.push(`data: ${JSON.stringify(toolInputAvailableEvent)}`);
+			}
+		}
+
+		return results.length > 0 ? results.join("\n\n") : null;
 	}
 
 	private handleToolResultMessage(data: ClaudeCodeEvent): string | null {
@@ -468,23 +533,45 @@ class ClaudeCodeProcessor {
 				return null;
 			}
 
-			// For final completion, send finish
+			// For final completion, store finish event to send after message-metadata
+			// This ensures onFinish callback receives the metadata from result event
 			const finishEvent = {
 				type: "finish",
 				finishReason: finishReason,
 			};
-			return `data: ${JSON.stringify(finishEvent)}`;
+
+			// Store the finish event to send later
+			this.pendingFinishEvent = `data: ${JSON.stringify(finishEvent)}`;
+
+			// Don't send it yet - wait for result event to send metadata first
+			return null;
 		}
 
 		return null;
 	}
 
 	flushBuffer(): string {
-		if (this.buffer.trim() === "") return "";
+		if (this.buffer.trim() === "") {
+			// If buffer is empty but we have a pending finish event, send it now
+			if (this.pendingFinishEvent) {
+				const result = this.pendingFinishEvent + "\n\n";
+				this.pendingFinishEvent = null;
+				return result;
+			}
+			return "";
+		}
 
 		const finalLine = this.processLine(this.buffer);
 		this.buffer = "";
-		return finalLine ? `${finalLine}\n\n` : "";
+		let result = finalLine ? `${finalLine}\n\n` : "";
+
+		// If we have a pending finish event, append it
+		if (this.pendingFinishEvent) {
+			result += this.pendingFinishEvent + "\n\n";
+			this.pendingFinishEvent = null;
+		}
+
+		return result;
 	}
 }
 

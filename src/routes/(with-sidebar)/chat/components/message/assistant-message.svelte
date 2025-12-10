@@ -57,12 +57,10 @@
 
 	// Extract suggestions from message parts
 	const suggestions = $derived(() => {
-		console.log("[Suggestions] Message parts:", message.parts);
 		const suggestionPart = message.parts.find((part) => part.type === "data-suggestions");
-		console.log("[Suggestions] Found suggestion part:", suggestionPart);
+
 		if (suggestionPart && "data" in suggestionPart && suggestionPart.data) {
 			const data = suggestionPart.data as { suggestions?: string[] };
-			console.log("[Suggestions] Extracted suggestions:", data.suggestions);
 			return data.suggestions || [];
 		}
 		return [];
@@ -562,7 +560,6 @@
 
 		<!-- Suggestions -->
 		{#if suggestions().length > 0 && !isCurrentMessageStreaming && (!preferencesSettings.showOnlyLastSuggestion || isLastAssistantMessage)}
-			{console.log("[Suggestions] Rendering suggestions UI:", suggestions())}
 			<div class="mt-3 flex flex-wrap gap-2">
 				{#each suggestions() as suggestion, index (index)}
 					<button

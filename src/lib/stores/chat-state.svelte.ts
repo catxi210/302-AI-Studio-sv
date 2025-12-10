@@ -1125,10 +1125,15 @@ export const chat = new Chat({
 			};
 		},
 	}),
-	onFinish: async ({ messages }) => {
+	onError: (error) => {
+		console.error("[Chat onError]", error);
+	},
+	onFinish: async ({ messages, isAbort, isDisconnect, isError }) => {
 		console.log("更新完成", $state.snapshot(messages));
+		console.log("[onFinish] isAbort:", isAbort, "isDisconnect:", isDisconnect, "isError:", isError);
 
 		const codeAgentEnabled = codeAgentState.enabled;
+		console.log("onFinish: async ({ messages }) pendingResultMetadata", pendingResultMetadata);
 		if (codeAgentEnabled && pendingResultMetadata) {
 			const lastMessage = messages[messages.length - 1];
 			if (lastMessage && lastMessage.role === "assistant") {
