@@ -578,17 +578,6 @@
 					</button>
 				{/each}
 			</div>
-		{:else}
-			{console.log(
-				"[Suggestions] Not rendering. Count:",
-				suggestions().length,
-				"Streaming:",
-				isCurrentMessageStreaming,
-				"ShowOnlyLast:",
-				preferencesSettings.showOnlyLastSuggestion,
-				"IsLast:",
-				isLastAssistantMessage,
-			)}
 		{/if}
 	</div>
 </MessageContextMenu>

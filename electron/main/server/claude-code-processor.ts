@@ -23,7 +23,7 @@
  * - {"type":"tool-input-delta","toolCallId":"...","inputTextDelta":"..."}
  * - {"type":"tool-input-available","toolCallId":"...","toolName":"...","input":{...}}
  * - {"type":"tool-output-available","toolCallId":"...","output":{...}} - Tool execution result
- * - {"type":"finish","finishReason":"..."} - Final message completion (only sent at end_turn)
+ * - {"type":"finish"} - Final message completion (only sent at end_turn)
  *
  * Note: No finish-step/start-step events are sent for tool calls.
  * The stream continues naturally after tool-input-available and tool-output-available.
@@ -108,6 +108,24 @@ interface ContentBlockState {
 	inputJsonParts: string[];
 }
 
+/**
+ * OpenAI compatible streaming format (used by /deploy command)
+ */
+interface OpenAIStreamChunk {
+	id: string;
+	object: "chat.completion.chunk";
+	created: number;
+	model: string;
+	choices: Array<{
+		index: number;
+		delta: {
+			role?: string;
+			content?: string;
+		};
+		finish_reason: string | null;
+	}>;
+}
+
 class ClaudeCodeProcessor {
 	private messageId: string = "";
 	private buffer: string = "";
@@ -116,6 +134,8 @@ class ClaudeCodeProcessor {
 	private textBlockCounter: number = 0;
 	// Store pending finish event to send after message-metadata
 	private pendingFinishEvent: string | null = null;
+	// Track if we're in OpenAI streaming mode (for /deploy command)
+	private openaiTextId: string | null = null;
 
 	constructor(preGeneratedMessageId?: string) {
 		if (preGeneratedMessageId) {
@@ -189,6 +209,12 @@ class ClaudeCodeProcessor {
 			return null;
 		}
 
+		// Handle OpenAI compatible streaming format (used by /deploy command)
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		if ((data as any).object === "chat.completion.chunk") {
+			return this.handleOpenAIStreamChunk(data as unknown as OpenAIStreamChunk);
+		}
+
 		// Handle result event - extract metadata for storage
 		if (data.type === "result") {
 			return this.handleResultEvent(data);
@@ -211,6 +237,71 @@ class ClaudeCodeProcessor {
 		}
 
 		return null;
+	}
+
+	/**
+	 * Handle OpenAI compatible streaming format (used by /deploy command)
+	 * Converts OpenAI chat.completion.chunk to AI SDK text events
+	 */
+	private handleOpenAIStreamChunk(data: OpenAIStreamChunk): string | null {
+		const results: string[] = [];
+		const choice = data.choices[0];
+
+		if (!choice) return null;
+
+		// First chunk with role - send start and text-start
+		if (choice.delta.role === "assistant" && !this.openaiTextId) {
+			this.openaiTextId = `text-${this.textBlockCounter++}`;
+
+			// Send start event if not already started
+			if (!this.hasStarted) {
+				this.hasStarted = true;
+				this.messageId = data.id;
+				const startEvent = {
+					type: "start",
+					messageId: this.messageId,
+				};
+				results.push(`data: ${JSON.stringify(startEvent)}`);
+			}
+
+			// Send text-start
+			const textStartEvent = {
+				type: "text-start",
+				id: this.openaiTextId,
+			};
+			results.push(`data: ${JSON.stringify(textStartEvent)}`);
+		}
+
+		// Content delta
+		if (choice.delta.content && this.openaiTextId) {
+			const textDeltaEvent = {
+				type: "text-delta",
+				id: this.openaiTextId,
+				delta: choice.delta.content,
+			};
+			results.push(`data: ${JSON.stringify(textDeltaEvent)}`);
+		}
+
+		// Finish reason - send text-end and finish
+		if (choice.finish_reason === "stop" && this.openaiTextId) {
+			// Send text-end
+			const textEndEvent = {
+				type: "text-end",
+				id: this.openaiTextId,
+			};
+			results.push(`data: ${JSON.stringify(textEndEvent)}`);
+
+			// Send finish (UIMessageStream schema only accepts {type: "finish"} with optional messageMetadata)
+			const finishEvent = {
+				type: "finish",
+			};
+			results.push(`data: ${JSON.stringify(finishEvent)}`);
+
+			// Reset openai text id
+			this.openaiTextId = null;
+		}
+
+		return results.length > 0 ? results.join("\n\n") : null;
 	}
 
 	private handleResultEvent(data: ClaudeCodeEvent): string | null {
@@ -535,9 +626,10 @@ class ClaudeCodeProcessor {
 
 			// For final completion, store finish event to send after message-metadata
 			// This ensures onFinish callback receives the metadata from result event
+			// Note: UIMessageStream schema only accepts {type: "finish"} with optional messageMetadata
+			// finishReason is passed through message-metadata event instead
 			const finishEvent = {
 				type: "finish",
-				finishReason: finishReason,
 			};
 
 			// Store the finish event to send later
