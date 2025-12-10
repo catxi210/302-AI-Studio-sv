@@ -27,7 +27,7 @@ function getModelsEndpoint(provider: ModelProvider): string {
 		case "openai":
 		case "302ai":
 			if (baseUrl.endsWith("/v1")) {
-				return `${baseUrl}/models?llm=1`;
+				return `${baseUrl}/models?llm=1&include_custom_models=1`;
 			}
 			return `${baseUrl}/v1/models?llm=1`;
 		case "anthropic":
@@ -79,6 +79,7 @@ interface ApiModelItem {
 	id: string;
 	name?: string;
 	is_featured?: boolean;
+	is_custom_mode?: boolean;
 	[key: string]: unknown;
 }
 
@@ -114,6 +115,9 @@ function parseModelsResponse(
 	return modelItems.map((modelItem) => {
 		const modelName = modelItem.id;
 		const capabilities = parseModelCapabilities(modelName);
+		// 如果 is_custom_mode 为 true，将 isAddedByUser 设置为 true，这样这些模型就能在过滤后的列表中显示出来
+		const isAddedByUser = modelItem.is_custom_model === true;
+
 		return {
 			id: modelName,
 			name: modelName,
@@ -125,6 +129,7 @@ function parseModelsResponse(
 			enabled: true,
 			collected: false,
 			isFeatured: modelItem.is_featured ?? false,
+			isAddedByUser,
 		};
 	});
 }

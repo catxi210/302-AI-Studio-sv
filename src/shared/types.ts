@@ -92,6 +92,7 @@ export interface ModelCreateInput {
 	enabled?: boolean;
 	collected?: boolean;
 	isFeatured?: boolean;
+	isAddedByUser?: boolean;
 }
 
 export interface ModelUpdateInput {
@@ -105,6 +106,7 @@ export interface ModelUpdateInput {
 	enabled?: boolean;
 	collected?: boolean;
 	isFeatured?: boolean;
+	isAddedByUser?: boolean;
 }
 
 export interface MCPServer {

@@ -25,6 +25,7 @@
 		providerState,
 	} from "$lib/stores/provider-state.svelte";
 	import { cn } from "$lib/utils";
+	import { getFilteredModels } from "$lib/utils/model-filters.js";
 	import { Check, ChevronRight, Star } from "@lucide/svelte";
 	// import { CLUADE_CODE_MODELS } from "@shared/constants/codeAgentModel";
 	import type { Model, ModelCapability, Model as ProviderModel } from "@shared/types";
@@ -49,8 +50,8 @@
 		const providers = persistedProviderState.current;
 		const models = persistedModelState.current;
 
-		// Filter models based on codeAgentState.enabled
-		let filteredModels = models.filter((model) => model.enabled);
+		// 使用统一的过滤方法：只显示已启用且（isFeatured === true 或 isAddedByUser === true）的模型
+		const filteredModels = getFilteredModels(models, true);
 
 		// if (codeAgentState.enabled) {
 		// 	// When code agent is enabled, only show Claude Code models

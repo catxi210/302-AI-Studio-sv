@@ -2,6 +2,7 @@ import { getAllModels, getModelsByProvider } from "$lib/api/models.js";
 import { DEFAULT_PROVIDERS } from "$lib/datas/providers.js";
 import { PersistedState } from "$lib/hooks/persisted-state.svelte";
 import { m } from "$lib/paraglide/messages.js";
+import { getFilteredModels } from "$lib/utils/model-filters.js";
 import type { Model, ModelCreateInput, ModelProvider, ModelUpdateInput } from "@shared/types";
 import { nanoid } from "nanoid";
 import { toast } from "svelte-sonner";
@@ -117,10 +118,36 @@ class ProviderState {
 
 		const existingModel = persistedModelState.current.find((m) => m.id === input.id);
 		if (existingModel) {
-			throw new Error(`Model with ID "${input.id}" already exists`);
+			// 检查 isAddedByUser 字段
+			const isAddedByUser = (existingModel as Model & { isAddedByUser?: boolean }).isAddedByUser;
+			// 如果 isAddedByUser 为 true，说明已经被用户添加过，不允许重复添加
+			if (isAddedByUser === true) {
+				throw new Error(`Model with ID "${input.id}" already exists`);
+			}
+			// 如果 isAddedByUser 为 false 或 undefined，则更新该模型，将 isAddedByUser 设置为 true
+			const updateSuccess = this.updateModel(existingModel.id, {
+				id: input.id,
+				name: input.name,
+				remark: input.remark,
+				providerId: input.providerId,
+				capabilities: input.capabilities,
+				type: input.type,
+				custom: input.custom,
+				enabled: input.enabled,
+				collected: input.collected,
+				isFeatured: input.isFeatured,
+				isAddedByUser: true,
+			});
+			if (updateSuccess) {
+				const updatedModel = persistedModelState.current.find((m) => m.id === input.id);
+				if (updatedModel) {
+					return updatedModel;
+				}
+			}
+			return existingModel;
 		}
 
-		const model: Model = {
+		const model: Model & { isAddedByUser?: boolean } = {
 			id: input.id,
 			name: input.name,
 			remark: input.remark || "",
@@ -131,6 +158,7 @@ class ProviderState {
 			enabled: input.enabled ?? true,
 			collected: input.collected || false,
 			isFeatured: input.isFeatured || false,
+			isAddedByUser: input.isAddedByUser || false,
 		};
 		persistedModelState.current = [...persistedModelState.current, model];
 
@@ -254,9 +282,15 @@ class ProviderState {
 					})
 					.concat(result.data.models);
 
+				// 对于 302AI provider，只统计 isFeatured === true 或 isAddedByUser === true 的模型数量
+				const displayCount =
+					latestProvider.id === "302AI"
+						? getFilteredModels(result.data.models).length
+						: result.data.models.length;
+
 				toast.success(
 					m.text_fetch_models_success({
-						count: result.data.models.length.toString(),
+						count: displayCount.toString(),
 						provider: latestProvider.name,
 					}),
 				);

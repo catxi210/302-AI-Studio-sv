@@ -11,6 +11,7 @@
 	import { m } from "$lib/paraglide/messages.js";
 	import { persistedModelState, providerState } from "$lib/stores/provider-state.svelte.js";
 	import { userState } from "$lib/stores/user-state.svelte";
+	import { getFilteredModels } from "$lib/utils/model-filters.js";
 	import { Eye, EyeOff } from "@lucide/svelte";
 	import type { Model, ModelCreateInput, ModelProvider } from "@shared/types";
 	import { onMount } from "svelte";
@@ -62,7 +63,12 @@
 	);
 	let showApiKey = $state(false);
 
-	const sortedModels = $derived.by(() => providerState.getSortedModels());
+	// 使用统一的过滤方法：对于 302AI provider，只包含 isFeatured === true 或 isAddedByUser === true 的模型；其他 provider 不应用过滤
+	const sortedModels = $derived.by(() => {
+		return getFilteredModels(persistedModelState.current).sort((a, b) =>
+			a.name.localeCompare(b.name),
+		);
+	});
 
 	let formData = $derived.by<ModelProvider>(() => {
 		if (currentProvider) {
@@ -178,7 +184,8 @@
 
 		try {
 			if (dialogMode === "add") {
-				const newModel = await providerState.addModel({
+				// 确保传递 isAddedByUser 字段
+				const createInput: ModelCreateInput = {
 					id: data.id,
 					name: data.name,
 					remark: data.remark,
@@ -188,7 +195,9 @@
 					custom: true,
 					enabled: data.enabled,
 					collected: false,
-				});
+					isAddedByUser: true,
+				};
+				const newModel = await providerState.addModel(createInput);
 
 				toast.success(m.text_model_add_success({ name: newModel.name }));
 			} else if (editingModel) {
