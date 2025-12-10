@@ -101,6 +101,7 @@
 	let isToolModalOpen = $state(false);
 	let isReading = $state(false);
 	let _currentUtterance: SpeechSynthesisUtterance | null = null;
+	let _isUserCancelled = $state(false);
 	let speechSynthesisAvailable = $state(false);
 
 	// Check if speech synthesis is available
@@ -186,6 +187,7 @@
 	async function handleReadAloud() {
 		if (isReading) {
 			// Stop current reading
+			_isUserCancelled = true;
 			window.speechSynthesis.cancel();
 			isReading = false;
 			_currentUtterance = null;
@@ -279,7 +281,10 @@
 				console.error("[ReadAloud] Error:", event);
 				isReading = false;
 				_currentUtterance = null;
-				toast.error(`朗读失败: ${event.error}`);
+				if (!_isUserCancelled) {
+					toast.error(`朗读失败: ${event.error}`);
+				}
+				_isUserCancelled = false;
 			};
 
 			_currentUtterance = utterance;
