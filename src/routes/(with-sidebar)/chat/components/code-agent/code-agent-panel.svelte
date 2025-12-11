@@ -30,7 +30,7 @@
 	import * as Empty from "$lib/components/ui/empty/index.js";
 	import { Label } from "$lib/components/ui/label";
 	import { m } from "$lib/paraglide/messages";
-	import { codeAgentState } from "$lib/stores/code-agent";
+	import { codeAgentState } from "$lib/stores/code-agent/code-agent-state.svelte";
 	import type { CodeAgentType } from "@shared/storage/code-agent";
 	import ClaudeCodePanel from "./claude-code-panel.svelte";
 

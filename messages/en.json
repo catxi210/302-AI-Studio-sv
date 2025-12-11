@@ -314,6 +314,7 @@
 	"text_model_type_rerank": "Rerank",
 	"text_model_update_failed": "Failed to update model. Model ID may already exist.",
 	"text_model_update_success": "Model \"{name}\" updated successfully",
+	"text_provider_update_success": "{name} updated successfully",
 	"text_models_column_action": "Action",
 	"text_models_column_capability": "Model Capability",
 	"text_models_column_name": "Model Name",

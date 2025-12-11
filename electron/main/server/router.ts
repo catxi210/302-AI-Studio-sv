@@ -299,6 +299,17 @@ app.post("/chat/302ai", async (c) => {
 		}),
 	});
 
+	// 	const debugStream = stream.pipeThrough(
+	// 	new TransformStream({
+	// 		transform(chunk, controller) {
+	// 			console.debug("Stream chunk:", chunk);
+	// 			controller.enqueue(chunk);
+	// 		},
+	// 	}),
+	// );
+
+	// return createUIMessageStreamResponse({ stream: debugStream });
+
 	return createUIMessageStreamResponse({ stream });
 });
 
@@ -844,6 +855,7 @@ app.post("/chat/302ai-code-agent", async (c) => {
 	})}\n\n`;
 
 	// Make the request using the custom fetch that transforms the response
+	const abortController = new AbortController();
 	const responsePromise = claudeCodeFetch(
 		`${baseUrl ?? "https://api.302.ai/v1"}/chat/completions`,
 		{
@@ -853,6 +865,7 @@ app.post("/chat/302ai-code-agent", async (c) => {
 				Authorization: `Bearer ${apiKey}`,
 			},
 			body: JSON.stringify(requestBody),
+			signal: abortController.signal,
 		},
 	);
 
@@ -900,13 +913,29 @@ app.post("/chat/302ai-code-agent", async (c) => {
 					return;
 				}
 
-				while (true) {
-					const { done, value } = await reader.read();
-					if (done) {
-						controller.close();
-						break;
+				try {
+					while (true) {
+						const { done, value } = await reader.read();
+						if (done) {
+							controller.close();
+							break;
+						}
+						try {
+							controller.enqueue(value);
+						} catch (_error) {
+							// Client disconnected or controller closed
+							console.log("[302ai-code-agent] Controller closed, stopping stream");
+							reader.cancel();
+							abortController.abort();
+							break;
+						}
 					}
-					controller.enqueue(value);
+				} catch (error) {
+					console.error("[302ai-code-agent] Reader error:", error);
+					reader.cancel().catch(() => {
+						// Ignore cancel errors
+					});
+					throw error;
 				}
 			} catch (error) {
 				console.error("[302ai-code-agent] Stream error:", error);

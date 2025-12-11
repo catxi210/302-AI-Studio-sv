@@ -34,10 +34,20 @@ export class DynamicChatTransport<
 					const reader = response.body.getReader();
 					const decoder = new TextDecoder();
 					const encoder = new TextEncoder();
+					const signal = init?.signal;
 
 					const stream = new ReadableStream({
 						async start(controller) {
 							let buffer = "";
+
+							// Listen for abort signal
+							if (signal) {
+								signal.addEventListener("abort", () => {
+									console.log("[DynamicChatTransport] Abort signal received");
+									reader.cancel();
+									controller.close();
+								});
+							}
 
 							try {
 								while (true) {

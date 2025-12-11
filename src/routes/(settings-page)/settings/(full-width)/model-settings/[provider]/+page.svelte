@@ -151,8 +151,7 @@
 		if (apiKeyToUse) {
 			formData.apiKey = apiKeyToUse;
 			handleInputChange();
-			// @ts-expect-error - text_provider_update_success may not exist in all locales
-			toast.success(m.text_provider_update_success?.({ name: formData.name }) || "API Key updated");
+			toast.success(m.text_provider_update_success({ name: formData.name }));
 		}
 	}
 

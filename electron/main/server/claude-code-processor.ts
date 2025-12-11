@@ -777,7 +777,16 @@ function interceptSSEResponse(response: Response, processor: ClaudeCodeProcessor
 					if (processedChunk) {
 						// Debug: Log processed SSE chunk
 						console.debug("[ClaudeCodeProcessor] Processed SSE chunk:", processedChunk);
-						controller.enqueue(encoder.encode(processedChunk));
+						try {
+							controller.enqueue(encoder.encode(processedChunk));
+						} catch (_error) {
+							// Client disconnected or controller closed
+							console.log("[ClaudeCodeProcessor] Controller closed, stopping stream");
+							reader.cancel().catch(() => {
+								// Ignore cancel errors
+							});
+							break;
+						}
 					}
 				}
 			} catch (error) {

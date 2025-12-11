@@ -4,7 +4,7 @@
 	import PreviewPanel from "$lib/components/html-preview/preview-panel.svelte";
 	import * as m from "$lib/paraglide/messages";
 	import { chatState } from "$lib/stores/chat-state.svelte";
-	import { codeAgentState } from "$lib/stores/code-agent";
+	import { codeAgentState } from "$lib/stores/code-agent/code-agent-state.svelte";
 	import {
 		htmlPreviewDeploymentsState,
 		type HtmlPreviewDeploymentRecord,

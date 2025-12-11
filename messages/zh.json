@@ -310,6 +310,7 @@
 	"text_model_type_rerank": "重排序",
 	"text_model_update_failed": "更新模型失败，模型 ID 可能已存在。",
 	"text_model_update_success": "模型 \"{name}\" 更新成功",
+	"text_provider_update_success": "{name} 更新成功",
 	"text_models_column_action": "操作",
 	"text_models_column_capability": "模型能力",
 	"text_models_column_name": "模型名称",

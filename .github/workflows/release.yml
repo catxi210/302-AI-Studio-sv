@@ -64,6 +64,8 @@ jobs:
         run: pnpm --filter @302ai/studio-plugin-sdk run build
 
       - name: Run quality checks
+        env:
+          NODE_OPTIONS: --max-old-space-size=8192
         run: |
           npx eslint electron/main/
           pnpm run check

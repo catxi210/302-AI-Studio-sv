@@ -5,7 +5,8 @@
 	import { m } from "$lib/paraglide/messages";
 	import { agentPreviewState } from "$lib/stores/agent-preview-state.svelte";
 	import { chatState } from "$lib/stores/chat-state.svelte";
-	import { claudeCodeAgentState, codeAgentState } from "$lib/stores/code-agent";
+	import { claudeCodeAgentState } from "$lib/stores/code-agent/claude-code-state.svelte";
+	import { codeAgentState } from "$lib/stores/code-agent/code-agent-state.svelte";
 	import { cn } from "$lib/utils";
 	import { Ghost, Server, Settings } from "@lucide/svelte";
 
