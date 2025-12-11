@@ -135,6 +135,7 @@
 						<StaticCodeBlock
 							code={formatJson(part.input)}
 							language="json"
+							canCollapse={false}
 							title={m.tool_call_parameters()}
 							showCollapseButton={false}
 						/>
@@ -149,6 +150,7 @@
 						<StaticCodeBlock
 							code={formatJson(part.output)}
 							language="json"
+							canCollapse={false}
 							title={m.tool_call_result()}
 							showCollapseButton={false}
 						/>

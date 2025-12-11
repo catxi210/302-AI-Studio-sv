@@ -192,7 +192,13 @@
 				</div>
 			{:else if content}
 				<div class="[&_.shiki]:max-h-[50vh] [&_.shiki]:overflow-auto [&_.shiki]:text-xs">
-					<StaticCodeBlock code={content} {language} title={toolLabel} showCollapseButton={false} />
+					<StaticCodeBlock
+						code={content}
+						{language}
+						title={toolLabel}
+						showCollapseButton={false}
+						canCollapse={false}
+					/>
 				</div>
 			{:else}
 				<div class="p-4 text-sm text-muted-foreground rounded-lg border border-border">

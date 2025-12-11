@@ -15,13 +15,14 @@
 		theme?: string | null;
 		title?: string | null;
 		showCollapseButton?: boolean;
+		canCollapse: boolean;
 	}
 
 	const props: Props = $props();
 
 	let highlighter = $state<ShikiHighlighter | null>(null);
 	let highlightedHtml = $state<string>("");
-	let isCollapsed = $state(preferencesSettings.autoHideCode);
+	let isCollapsed = $state(props.canCollapse ? preferencesSettings.autoHideCode : false);
 	let resolvedLanguage = $state("plaintext");
 	let resolvedTheme = $state<string>("");
 
