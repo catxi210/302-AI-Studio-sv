@@ -159,15 +159,16 @@ export async function listClaudeCodeSandboxes(
 	apiKey?: string,
 ): Promise<ListClaudeCodeSandboxesResponse> {
 	try {
-		const response = apiKey
-			? await ky
-					.get("https://api.302.ai/302/claude-code/sandbox/list", {
-						headers: {
-							Authorization: `Bearer ${apiKey}`,
-						},
-					})
-					.json()
-			: await _302AIKy.get("302/claude-code/sandbox/list").json();
+		const response =
+			apiKey && apiKey.trim() !== ""
+				? await ky
+						.get("https://api.302.ai/302/claude-code/sandbox/list", {
+							headers: {
+								Authorization: `Bearer ${apiKey}`,
+							},
+						})
+						.json()
+				: await _302AIKy.get("302/claude-code/sandbox/list").json();
 
 		const validated = listClaudeCodeSandboxesResponse(response);
 		if (validated instanceof type.errors) {

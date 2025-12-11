@@ -8,7 +8,8 @@ export const _302AIKy = ky.create({
 		beforeRequest: [
 			async (request) => {
 				const { valid, apiKey } = await providerStorage.validate302AIProvider();
-				if (valid) request.headers.set("Authorization", `Bearer ${apiKey}`);
+				if (!valid) throw new Error("302.ai API key validation failed");
+				request.headers.set("Authorization", `Bearer ${apiKey}`);
 			},
 		],
 	},
