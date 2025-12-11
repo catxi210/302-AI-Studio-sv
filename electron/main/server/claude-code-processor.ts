@@ -126,6 +126,18 @@ interface OpenAIStreamChunk {
 	}>;
 }
 
+/**
+ * Error payload from upstream (e.g., sandbox deployment failures)
+ */
+interface OpenAIErrorPayload {
+	error: {
+		message: string;
+		type: string;
+		code: string;
+		param: string | null;
+	};
+}
+
 class ClaudeCodeProcessor {
 	private messageId: string = "";
 	private buffer: string = "";
@@ -207,6 +219,12 @@ class ClaudeCodeProcessor {
 		// Skip 302.AI Claude Code specific metadata events
 		if (data.type === "alias_info" || data.type === "system") {
 			return null;
+		}
+
+		// Handle error payload from upstream (e.g., sandbox deployment failures)
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		if ((data as any).error) {
+			return this.handleErrorPayload(data as unknown as OpenAIErrorPayload);
 		}
 
 		// Handle OpenAI compatible streaming format (used by /deploy command)
@@ -301,7 +319,43 @@ class ClaudeCodeProcessor {
 			this.openaiTextId = null;
 		}
 
+		// Error finish reason - close text block but wait for error payload
+		if (choice.finish_reason === "error" && this.openaiTextId) {
+			// Send text-end to properly close the text block
+			const textEndEvent = {
+				type: "text-end",
+				id: this.openaiTextId,
+			};
+			results.push(`data: ${JSON.stringify(textEndEvent)}`);
+
+			// Reset openai text id - error payload will come separately
+			this.openaiTextId = null;
+		}
+
 		return results.length > 0 ? results.join("\n\n") : null;
+	}
+
+	/**
+	 * Handle error payload from upstream (e.g., sandbox deployment failures)
+	 * Converts error payload to AI SDK error event
+	 */
+	private handleErrorPayload(data: OpenAIErrorPayload): string | null {
+		const results: string[] = [];
+
+		// Send error event with message from upstream
+		const errorEvent = {
+			type: "error",
+			errorText: data.error.message,
+		};
+		results.push(`data: ${JSON.stringify(errorEvent)}`);
+
+		// Send finish event to properly close the stream
+		const finishEvent = {
+			type: "finish",
+		};
+		results.push(`data: ${JSON.stringify(finishEvent)}`);
+
+		return results.join("\n\n");
 	}
 
 	private handleResultEvent(data: ClaudeCodeEvent): string | null {
