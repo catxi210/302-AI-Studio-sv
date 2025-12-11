@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { deploySandboxProject } from "$lib/api/sandbox-deploy";
 	import { getFileContent, uploadSandboxFile, type SandboxFileInfo } from "$lib/api/sandbox-file";
 	import { deployHtmlTo302, validate302Provider } from "$lib/api/webserve-deploy";
 	import UnDeployedIcon from "$lib/assets/icons/code-agent/unDeployed.svg";
@@ -142,10 +141,7 @@
 		}
 
 		syncUnsubscribe = agentPreviewState.onSync((message: AgentPreviewSyncEnvelope) => {
-			if (
-				message.sandboxId !== sandboxId ||
-				message.sessionId !== sessionId
-			) {
+			if (message.sandboxId !== sandboxId || message.sessionId !== sessionId) {
 				return;
 			}
 
@@ -435,34 +431,12 @@
 		);
 
 	const handleDeploySandbox = async () => {
-		if (!currentSandboxId) {
-			toast.error("Sandbox ID not available");
-			return;
-		}
+		// Set /deploy command in the chat input and send it
+		// This is equivalent to typing /deploy in the chat input and pressing enter
+		chatState.inputValue = "/deploy";
 
-		const data = await handleDeployCommon(
-			(provider) =>
-				withRetry(
-					() =>
-						deploySandboxProject(provider, {
-							sandbox_id: currentSandboxId!, // Non-null asserted due to check above
-							session_id: currentSessionId,
-						}),
-					3,
-					1000,
-				),
-			m.toast_deploy_sandbox_success(),
-		);
-
-		// Sandbox specific post-deploy logic
-		if (data && currentSandboxId) {
-			await agentPreviewState.setDeploymentInfo(
-				currentSandboxId,
-				currentSessionId || "",
-				data.url,
-				data.id || "",
-			);
-		}
+		// Send the message immediately
+		await chatState.sendMessage();
 	};
 
 	const handleOpenInNewTab = async () => {

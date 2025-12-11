@@ -5,6 +5,7 @@ import {
 	type ThreadParmas,
 } from "@shared/types";
 import { storageService, StorageService } from ".";
+import { emitter } from "../broadcast-service";
 
 export class ThreadStorage extends StorageService<ThreadMetadata> {
 	constructor() {
@@ -63,6 +64,8 @@ export class ThreadStorage extends StorageService<ThreadMetadata> {
 			// Delete the actual thread data file
 			const threadKey = "app-thread:" + threadId;
 			await storageService.removeItemInternal(threadKey);
+			await storageService.removeItemInternal("app-chat-messages:" + threadId);
+			emitter.emit("thread:thread-deleted", { threadId });
 		} catch (error) {
 			console.error(`Failed to delete thread ${threadId}:`, error);
 			throw error;
