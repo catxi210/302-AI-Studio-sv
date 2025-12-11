@@ -423,16 +423,8 @@
 										{part.text}
 									</div>
 								{:else}
-									<div class="text-xs text-muted-foreground">
-										<MarkdownRenderer
-											content={part.text}
-											messageId={message.id}
-											messagePartIndex={partIndex}
-											isStreaming={isCurrentMessageStreaming}
-											codeTheme={persistedThemeState.current.shouldUseDarkColors
-												? "vitesse-dark"
-												: "vitesse-light"}
-										/>
+									<div class="text-xs text-muted-foreground leading-relaxed whitespace-pre-wrap">
+										{part.text.replace(/\\n/g, "\n").replace(/</g, "&lt;").replace(/>/g, "&gt;")}
 									</div>
 								{/if}
 							</div>

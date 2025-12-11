@@ -113,11 +113,15 @@ export class StorageService<T extends StorageValue> {
 				const sendKey = key.split(".")[0];
 				const sourceWebContentsId = this.lastUpdateSource.get(jsonKey) ?? -1;
 
-				emitter.emit("persisted-state:sync", {
-					sendKey,
-					syncValue: await this.getItemInternal(key),
-					sourceWebContentsId,
-				});
+				const syncValue = await this.getItemInternal(key);
+				// Only emit sync if value is not null to prevent overwriting valid state with null
+				if (syncValue !== null) {
+					emitter.emit("persisted-state:sync", {
+						sendKey,
+						syncValue,
+						sourceWebContentsId,
+					});
+				}
 
 				this.lastUpdateSource.delete(jsonKey);
 			}
