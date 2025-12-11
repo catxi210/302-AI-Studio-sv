@@ -576,8 +576,48 @@ class ChatState {
 		try {
 			this.resetError();
 
+			let regenerateMessageId = messageId;
+
+			// If messageId is provided, remove messages to prevent duplicates when regenerating
+			if (messageId) {
+				const messageIndex = this.messages.findIndex((msg) => msg.id === messageId);
+				if (messageIndex !== -1) {
+					const message = this.messages[messageIndex];
+
+					if (message.role === "assistant") {
+						// If regenerating an assistant message, find the previous user message
+						// and remove the assistant message and all messages after it
+						let userMessageId: string | undefined;
+						for (let i = messageIndex - 1; i >= 0; i--) {
+							if (this.messages[i].role === "user") {
+								userMessageId = this.messages[i].id;
+								break;
+							}
+						}
+
+						// Remove the assistant message and all messages after it
+						const messagesToKeep = this.messages.slice(0, messageIndex);
+						chat.messages = messagesToKeep;
+						persistedMessagesState.current = messagesToKeep;
+
+						// Use the user message ID for regeneration
+						regenerateMessageId = userMessageId;
+					} else if (message.role === "user") {
+						// If regenerating a user message, remove all messages after it (including assistant messages)
+						const messagesToKeep = this.messages.slice(0, messageIndex + 1);
+						const messagesAfter = this.messages.slice(messageIndex + 1);
+						const hasAssistantAfter = messagesAfter.some((msg) => msg.role === "assistant");
+
+						if (hasAssistantAfter) {
+							chat.messages = messagesToKeep;
+							persistedMessagesState.current = messagesToKeep;
+						}
+					}
+				}
+			}
+
 			await chat.regenerate({
-				...(messageId && { messageId }),
+				...(regenerateMessageId && { messageId: regenerateMessageId }),
 				body: {
 					model: currentModel.id,
 					apiKey: persistedProviderState.current.find((p) => p.id === currentModel.providerId)
