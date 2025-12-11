@@ -10,9 +10,10 @@ function isModelAddedByUser(model: Model): boolean {
 
 /**
  * 检查模型是否为精选模型
+ * 如果 isFeatured 字段不存在，默认返回 true（兼容旧数据）
  */
 function isModelFeatured(model: Model): boolean {
-	return model.isFeatured === true;
+	return model.isFeatured !== false;
 }
 
 /**
