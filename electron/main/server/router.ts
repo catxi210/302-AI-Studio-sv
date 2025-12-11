@@ -1,4 +1,5 @@
 import type { SearchProvider } from "$lib/stores/preferences-settings.state.svelte";
+import { createAI302 } from "@302ai/ai-sdk";
 import { createAnthropic } from "@ai-sdk/anthropic";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { createOpenAI } from "@ai-sdk/openai";
@@ -213,15 +214,14 @@ app.post("/chat/302ai", async (c) => {
 		speedOptions,
 	);
 
-	const openai = createOpenAICompatible({
-		name: "302.AI",
+	const ai302 = createAI302({
 		baseURL: baseUrl || "https://api.openai.com/v1",
 		apiKey: apiKey || "[REDACTED:sk-secret]",
 		fetch: createCitationsFetch(),
 	});
 
 	const wrapModel = wrapLanguageModel({
-		model: openai.chatModel(model),
+		model: ai302.chatModel(model, { thinking: { type: "enabled" } }),
 		middleware: [
 			extractReasoningMiddleware({ tagName: "think" }),
 			extractReasoningMiddleware({ tagName: "thinking" }),
@@ -286,7 +286,7 @@ app.post("/chat/302ai", async (c) => {
 	};
 
 	// Stream the main text response using Agent without waiting for suggestions
-	const result = new Agent({
+	const result = await new Agent({
 		...streamTextOptionsWithTransform,
 		stopWhen: stepCountIs(20),
 	}).stream(streamTextOptionsWithTransform);
