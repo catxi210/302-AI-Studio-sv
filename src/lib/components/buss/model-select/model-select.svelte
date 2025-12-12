@@ -18,6 +18,7 @@
 	import * as Command from "$lib/components/ui/command";
 	import * as ScrollArea from "$lib/components/ui/scroll-area";
 	import { m } from "$lib/paraglide/messages";
+	import { SvelteMap } from "svelte/reactivity";
 	// import { codeAgentState } from "$lib/stores/code-agent/code-agent-state.svelte";
 	import {
 		persistedModelState,
@@ -63,6 +64,7 @@
 				const provider = providers.find((p) => p.id === model.providerId);
 				if (!provider) return null;
 
+				const modelWithCustom = model as Model & { is_custom_model?: boolean };
 				return {
 					id: model.id,
 					name: model.name,
@@ -74,7 +76,8 @@
 					collected: model.collected,
 					remark: model.remark,
 					isFeatured: model.isFeatured,
-				};
+					is_custom_model: modelWithCustom.is_custom_model,
+				} as Model;
 			})
 			.filter((model): model is Model => model !== null);
 	});
@@ -232,6 +235,14 @@
 				groups[provider.name].push(model);
 			});
 		} else {
+			// 创建模型到原始索引的映射（用于时间排序）
+			const modelToIndex = new SvelteMap<string, number>();
+			const allModels = persistedModelState.current;
+			allModels.forEach((model, index) => {
+				// 使用 providerId 和 id 作为唯一标识
+				modelToIndex.set(`${model.providerId}-${model.id}`, index);
+			});
+
 			// 无搜索词时，使用原有逻辑
 			transformedModels.forEach((model) => {
 				const provider = providers.find((p) => p.id === model.providerId);
@@ -243,20 +254,19 @@
 				groups[provider.name].push(model);
 			});
 
-			// 对每个分组进行排序（无搜索时按三层优先级：collected > isFeatured > normal）
+			// 对每个分组进行排序（先按名称字母顺序，再按时间排序）
 			Object.keys(groups).forEach((key) => {
 				if (groups[key].length > 0) {
 					groups[key].sort((a, b) => {
-						// 1. 收藏的模型优先
-						if (a.collected !== b.collected) {
-							return a.collected ? -1 : 1;
+						// 先按名称字母顺序排序
+						const nameCompare = a.name.localeCompare(b.name);
+						if (nameCompare !== 0) {
+							return nameCompare;
 						}
-						// 2. Featured 模型次之
-						if (a.isFeatured !== b.isFeatured) {
-							return a.isFeatured ? -1 : 1;
-						}
-						// 3. 保持原有顺序（稳定排序）
-						return 0;
+						// 名称相同时，按添加时间排序（原始数组索引）
+						const aIndex = modelToIndex.get(`${a.providerId}-${a.id}`) ?? Infinity;
+						const bIndex = modelToIndex.get(`${b.providerId}-${b.id}`) ?? Infinity;
+						return aIndex - bIndex;
 					});
 				}
 			});
@@ -528,9 +538,26 @@
 									<div class="flex min-w-0 flex-1 items-center gap-2">
 										<ModelIcon
 											modelName={model.name}
-											className={cn("size-4 shrink-0", isSelected && "brightness-0 invert")}
+											className={cn(
+												"size-4 shrink-0",
+												isSelected &&
+													"text-primary-foreground [&_*]:!text-primary-foreground [&_*]:!fill-primary-foreground",
+											)}
 										/>
 										<span class="truncate">{model.name}</span>
+										{#if (model as Model & { is_custom_model?: boolean }).is_custom_model}
+											<span
+												class={cn(
+													"flex-shrink-0 rounded-sm px-1.5 py-0.5 text-xs",
+													isSelected
+														? "bg-primary-foreground/20 text-primary-foreground/80"
+														: "bg-muted text-muted-foreground",
+												)}
+												title={m.common_custom()}
+											>
+												{m.common_custom()}
+											</span>
+										{/if}
 									</div>
 
 									<Button

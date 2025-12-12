@@ -79,7 +79,7 @@ interface ApiModelItem {
 	id: string;
 	name?: string;
 	is_featured?: boolean;
-	is_custom_mode?: boolean;
+	is_custom_model?: boolean;
 	[key: string]: unknown;
 }
 
@@ -115,7 +115,7 @@ function parseModelsResponse(
 	return modelItems.map((modelItem) => {
 		const modelName = modelItem.id;
 		const capabilities = parseModelCapabilities(modelName);
-		// 如果 is_custom_mode 为 true，将 isAddedByUser 设置为 true，这样这些模型就能在过滤后的列表中显示出来
+		// 如果 is_custom_model 为 true，将 isAddedByUser 设置为 true，这样这些模型就能在过滤后的列表中显示出来
 		const isAddedByUser = modelItem.is_custom_model === true;
 
 		return {
@@ -130,6 +130,7 @@ function parseModelsResponse(
 			collected: false,
 			isFeatured: modelItem.is_featured ?? false,
 			isAddedByUser,
+			is_custom_model: modelItem.is_custom_model ?? false,
 		};
 	});
 }
