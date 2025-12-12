@@ -123,6 +123,15 @@ if (process.contextIsolated) {
 				ipcRenderer.on("broadcast-event", listener);
 				return () => ipcRenderer.removeListener("broadcast-event", listener);
 			},
+			onModelsDeleted: (callback: (data: { deletedModelIds: string[] }) => void) => {
+				const listener = (_: unknown, eventData: BroadcastEventData) => {
+					if (eventData.broadcastEvent === "models-deleted") {
+						callback(eventData.data as { deletedModelIds: string[] });
+					}
+				};
+				ipcRenderer.on("broadcast-event", listener);
+				return () => ipcRenderer.removeListener("broadcast-event", listener);
+			},
 			onShellWindowFullscreenChange: (callback: (payload: ShellWindowFullscreenChange) => void) => {
 				const listener = (_: unknown, payload: ShellWindowFullscreenChange) => callback(payload);
 				ipcRenderer.on(SHELL_WINDOW_FULLSCREEN_CHANGED, listener);

@@ -29,7 +29,11 @@ import { codeAgentState } from "./code-agent";
 import { generalSettings } from "./general-settings.state.svelte";
 import { notificationState } from "./notification-state.svelte";
 import { preferencesSettings } from "./preferences-settings.state.svelte";
-import { persistedProviderState, providerState } from "./provider-state.svelte";
+import {
+	persistedModelState,
+	persistedProviderState,
+	providerState,
+} from "./provider-state.svelte";
 import { sessionState } from "./session-state.svelte";
 import { tabBarState } from "./tab-bar-state.svelte";
 
@@ -95,6 +99,28 @@ export const persistedChatParamsState = new PersistedState<ThreadParmas>(
 	initialThread,
 );
 
+$effect.root(() => {
+	$effect(() => {
+		// Avoid clearing too early (e.g. before persisted states are hydrated)
+		if (!persistedChatParamsState.isHydrated || !persistedModelState.isHydrated) {
+			return;
+		}
+
+		const selected = persistedChatParamsState.current.selectedModel;
+		if (!selected) return;
+
+		const exists = persistedModelState.current.some(
+			(m) => m.id === selected.id && m.providerId === selected.providerId,
+		);
+		if (!exists) {
+			console.log(
+				`[ChatState] Clearing selectedModel ${selected.providerId}:${selected.id} (model not found)`,
+			);
+			persistedChatParamsState.current.selectedModel = null;
+		}
+	});
+});
+
 class ChatState {
 	private lastError: ChatError | null = $state(null);
 	private retryInProgress = $state(false);
@@ -123,6 +149,15 @@ class ChatState {
 				this.hydrateCheckInterval = null;
 			}
 		}, 5000);
+
+		// Listen for models-deleted events and clear selectedModel if it was deleted
+		window.electronAPI.onModelsDeleted(({ deletedModelIds }) => {
+			const currentModel = this.selectedModel;
+			if (currentModel && deletedModelIds.includes(currentModel.id)) {
+				console.log(`[ChatState] Clearing selectedModel ${currentModel.id} as it was deleted`);
+				this.selectedModel = null;
+			}
+		});
 	}
 
 	private syncPersistedStatesToChat() {

@@ -161,7 +161,8 @@ export type BroadcastEvent =
 	| "trigger-send-message"
 	| "show-toast"
 	| "sidebar-state-changed"
-	| "apply-default-model";
+	| "apply-default-model"
+	| "models-deleted";
 
 export interface BroadcastEventData {
 	broadcastEvent: BroadcastEvent;

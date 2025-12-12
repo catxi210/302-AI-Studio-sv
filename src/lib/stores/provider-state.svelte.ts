@@ -6,6 +6,8 @@ import { getFilteredModels } from "$lib/utils/model-filters.js";
 import type { Model, ModelCreateInput, ModelProvider, ModelUpdateInput } from "@shared/types";
 import { nanoid } from "nanoid";
 import { toast } from "svelte-sonner";
+import { preferencesSettings } from "./preferences-settings.state.svelte";
+import { sessionState } from "./session-state.svelte";
 
 export const persistedProviderState = new PersistedState<ModelProvider[]>(
 	"app-providers",
@@ -238,6 +240,7 @@ class ProviderState {
 		const originalLength = persistedModelState.current.length;
 		const modelsToRemove = persistedModelState.current.filter((m) => m.providerId === providerId);
 		const deletedModelIds = modelsToRemove.map((m) => m.id);
+		const deletedModelIdSet = new Set(deletedModelIds);
 
 		persistedModelState.current = persistedModelState.current.filter(
 			(m) => m.providerId !== providerId,
@@ -246,14 +249,36 @@ class ProviderState {
 
 		// Clear selectedModel references from all threads for deleted models
 		if (removedCount > 0 && deletedModelIds.length > 0) {
+			// Clear global model references if they point to a deleted model
+			const latestUsedModel = sessionState.latestUsedModel;
+			if (latestUsedModel && deletedModelIdSet.has(latestUsedModel.id)) {
+				sessionState.latestUsedModel = null;
+				console.log(`[Provider] Cleared latestUsedModel reference for deleted model`);
+			}
+
+			const newSessionModel = preferencesSettings.newSessionModel;
+			if (newSessionModel && deletedModelIdSet.has(newSessionModel.id)) {
+				preferencesSettings.setNewSessionModel(null);
+				console.log(`[Provider] Cleared newSessionModel reference for deleted model`);
+			}
+
+			const titleGenModel = preferencesSettings.state.titleGenerationModel;
+			if (titleGenModel && deletedModelIdSet.has(titleGenModel.id)) {
+				preferencesSettings.setTitleGenerationModel(null);
+				console.log(`[Provider] Cleared titleGenerationModel reference for deleted model`);
+			}
+
 			try {
-				const { threadService } = window.electronAPI;
+				const { threadService, broadcastService } = window.electronAPI;
 				const clearedCount = await threadService.clearDeletedModelReferences(deletedModelIds);
 				if (clearedCount > 0) {
 					console.log(
 						`[Provider] Cleared selectedModel references in ${clearedCount} thread(s) for deleted models`,
 					);
 				}
+
+				// Broadcast to all tabs to clear their in-memory selectedModel if it was deleted
+				await broadcastService.broadcastToAll("models-deleted", { deletedModelIds });
 			} catch (error) {
 				console.error("[Provider] Failed to clear deleted model references:", error);
 			}
