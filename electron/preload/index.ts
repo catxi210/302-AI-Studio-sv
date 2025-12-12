@@ -123,10 +123,12 @@ if (process.contextIsolated) {
 				ipcRenderer.on("broadcast-event", listener);
 				return () => ipcRenderer.removeListener("broadcast-event", listener);
 			},
-			onModelsDeleted: (callback: (data: { deletedModelIds: string[] }) => void) => {
+			onModelsDeleted: (
+				callback: (data: { deletedModelIds: string[]; providerId?: string }) => void,
+			) => {
 				const listener = (_: unknown, eventData: BroadcastEventData) => {
 					if (eventData.broadcastEvent === "models-deleted") {
-						callback(eventData.data as { deletedModelIds: string[] });
+						callback(eventData.data as { deletedModelIds: string[]; providerId?: string });
 					}
 				};
 				ipcRenderer.on("broadcast-event", listener);

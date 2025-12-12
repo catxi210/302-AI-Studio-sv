@@ -40,7 +40,9 @@ declare global {
 			onTriggerSendMessage: (callback: (data: { threadId: string }) => void) => () => void;
 			onSidebarStateChanged: (callback: (data: { open: boolean }) => void) => () => void;
 			onApplyDefaultModel: (callback: (data: { model: unknown }) => void) => () => void;
-			onModelsDeleted: (callback: (data: { deletedModelIds: string[] }) => void) => () => void;
+			onModelsDeleted: (
+				callback: (data: { deletedModelIds: string[]; providerId?: string }) => void,
+			) => () => void;
 			onThreadListUpdate: (callback: (eventData: BroadcastEventData) => void) => () => void;
 			onShellWindowFullscreenChange: (
 				callback: (payload: ShellWindowFullscreenChange) => void,

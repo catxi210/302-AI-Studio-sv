@@ -182,22 +182,39 @@ export class ThreadStorage extends StorageService<ThreadMetadata> {
 		apiKeyHash: string,
 	): Promise<{ deletedCount: number; deletedThreadIds: string[] }> {
 		try {
-			const allThreads = await this.getThreadsData();
-			if (!allThreads) return { deletedCount: 0, deletedThreadIds: [] };
+			// IMPORTANT:
+			// Do NOT rely on ThreadStorage metadata (threadIds). We only add threadIds when a message is sent
+			// (see threadService.addThread usage), so "new / empty" chats may not be tracked in metadata yet.
+			// To guarantee we delete *all* sessions associated with apiKeyHash, we scan persisted thread files.
+			const allKeys = await storageService.getKeysInternal();
+			const threadKeys = allKeys.filter((key) => key.startsWith("app-thread:"));
 
 			const deletedThreadIds: string[] = [];
-			for (const threadData of allThreads) {
-				if (threadData.thread.apiKeyHash === apiKeyHash) {
+			for (const threadKey of threadKeys) {
+				// Defensive: normalize potential ".json" suffix from storage drivers
+				const rawId = threadKey.slice("app-thread:".length);
+				const threadId = rawId.endsWith(".json") ? rawId.slice(0, -".json".length) : rawId;
+
+				const thread = (await storageService.getItemInternal(
+					"app-thread:" + threadId,
+				)) as ThreadParmas | null;
+				if (!thread) continue;
+
+				// Back-compat:
+				// - Older boot-created initial tabs may have no apiKeyHash persisted.
+				// - Treat 302AI-selected threads without apiKeyHash as associated, so logout cleanup
+				//   behaves as users expect (clears those sessions too).
+				const isAssociatedByHash = thread.apiKeyHash === apiKeyHash;
+				const isAssociatedLegacy =
+					!thread.apiKeyHash && (thread as ThreadParmas).selectedModel?.providerId === "302AI";
+
+				if (isAssociatedByHash || isAssociatedLegacy) {
 					try {
-						await this.deleteThread(threadData.threadId);
-						// Also delete messages
-						await storageService.removeItemInternal("app-chat-messages:" + threadData.threadId);
-						deletedThreadIds.push(threadData.threadId);
-						console.log(
-							`[ThreadStorage] Deleted thread ${threadData.threadId} with matching apiKeyHash`,
-						);
+						await this.deleteThread(threadId);
+						deletedThreadIds.push(threadId);
+						console.log(`[ThreadStorage] Deleted thread ${threadId} with matching apiKeyHash`);
 					} catch (error) {
-						console.error(`Failed to delete thread ${threadData.threadId}:`, error);
+						console.error(`Failed to delete thread ${threadId}:`, error);
 					}
 				}
 			}

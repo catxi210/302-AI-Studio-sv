@@ -4,6 +4,7 @@ import { isEmpty } from "es-toolkit/compat";
 import { nanoid } from "nanoid";
 import { storageService, StorageService } from ".";
 import { generalSettingsService } from "../settings-service";
+import { providerStorage } from "./provider-storage";
 import { sessionStorage } from "./session-storage";
 
 export class TabStorage extends StorageService<TabState> {
@@ -82,9 +83,10 @@ export class TabStorage extends StorageService<TabState> {
 			};
 
 			// Get default model same as handleNewTab in tab-service
-			const [preferencesSettingsData, latestUsedModel] = await Promise.all([
+			const [preferencesSettingsData, latestUsedModel, apiKeyHash] = await Promise.all([
 				storageService.getItemInternal("PreferencesSettingsStorage:state"),
 				sessionStorage.getLatestUsedModel(),
+				providerStorage.get302AIApiKeyHash(),
 			]);
 			const preferencesSettings = preferencesSettingsData as unknown as {
 				newSessionModel?: ThreadParmas["selectedModel"];
@@ -108,6 +110,7 @@ export class TabStorage extends StorageService<TabState> {
 				selectedModel: preferencesSettings?.newSessionModel ?? latestUsedModel,
 				isPrivateChatActive: false,
 				updatedAt: new Date(),
+				apiKeyHash,
 			};
 			allWindowsTabs.push([initTab]);
 

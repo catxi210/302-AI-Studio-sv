@@ -277,8 +277,12 @@ class ProviderState {
 					);
 				}
 
-				// Broadcast to all tabs to clear their in-memory selectedModel if it was deleted
-				await broadcastService.broadcastToAll("models-deleted", { deletedModelIds });
+				// Broadcast to all tabs to clear their in-memory selectedModel
+				// Include providerId so tabs can clear even if modelId shape mismatches
+				await broadcastService.broadcastToAll("models-deleted", {
+					deletedModelIds,
+					providerId,
+				});
 			} catch (error) {
 				console.error("[Provider] Failed to clear deleted model references:", error);
 			}

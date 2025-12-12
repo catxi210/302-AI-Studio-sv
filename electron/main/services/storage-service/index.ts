@@ -109,11 +109,19 @@ export class StorageService<T extends StorageValue> {
 
 		if (this.watches.has(watchKey)) return;
 		const unwatch = await this.storage.watch(async (_event, key) => {
-			if (key === jsonKey) {
-				const sendKey = key.split(".")[0];
+			// Some drivers may report watched keys using "/" namespace separators (e.g. "TabStorage/tab-bar-state.json")
+			// while the app uses ":" separators (e.g. "TabStorage:tab-bar-state.json").
+			// Normalize to compare reliably, but always emit using the canonical watchKey (":" form).
+			const normalize = (k: string) => k.replaceAll("/", ":");
+			const normalizedKey = normalize(key);
+			const normalizedJsonKey = normalize(jsonKey);
+
+			if (normalizedKey === normalizedJsonKey) {
+				const sendKey = watchKey;
 				const sourceWebContentsId = this.lastUpdateSource.get(jsonKey) ?? -1;
 
-				const syncValue = await this.getItemInternal(key);
+				// Read using canonical watchKey to avoid driver-specific key formats
+				const syncValue = await this.getItemInternal(watchKey);
 				// Only emit sync if value is not null to prevent overwriting valid state with null
 				if (syncValue !== null) {
 					emitter.emit("persisted-state:sync", {

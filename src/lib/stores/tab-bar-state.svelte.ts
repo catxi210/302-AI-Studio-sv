@@ -22,6 +22,8 @@ class TabBarState {
 	#activeOverlayId = $state<string | null>(null);
 	#isShellViewElevated = $state<boolean>(false);
 	#isShellView = $state<boolean>(false);
+	#fallbackTabCreationInFlight = false;
+	#lastFallbackAttemptAt = 0;
 
 	get currentWindowId(): string {
 		return this.#windowId;
@@ -94,6 +96,48 @@ class TabBarState {
 			console.log("Shell view tabs:", this.tabs);
 		} else {
 			console.log("Tab view - TabBarState disabled for this context");
+		}
+
+		// Fallback: if external actions (e.g. "delete all sessions for account") remove ALL tabs,
+		// ensure the shell window always has at least one tab.
+		//
+		// We only do this:
+		// - in shell views (tab views must not manage tab state)
+		// - after PersistedState hydration (avoid creating tabs during boot)
+		// - with a small debounce + backend re-check (avoid duplicate tabs during async sync)
+		if (this.#isShellView) {
+			$effect.root(() => {
+				$effect(() => {
+					if (!persistedTabState.isHydrated) return;
+					if (!this.#windowId) return;
+
+					const current = persistedTabState.current;
+					const tabs = current?.[this.#windowId]?.tabs ?? [];
+					if (tabs.length > 0) return;
+
+					const now = Date.now();
+					if (this.#fallbackTabCreationInFlight) return;
+					if (now - this.#lastFallbackAttemptAt < 800) return;
+
+					this.#fallbackTabCreationInFlight = true;
+					this.#lastFallbackAttemptAt = now;
+
+					setTimeout(async () => {
+						try {
+							// Re-check backend state to avoid creating duplicates due to sync lag
+							const backendTabs = await this.getCurrentWindowTabs();
+							if ((backendTabs?.length ?? 0) === 0) {
+								await this.handleNewTab(m.title_new_chat());
+								// Ensure UI reflects the backend-created tab immediately even if
+								// cross-process sync is delayed or missed.
+								await persistedTabState.refresh();
+							}
+						} finally {
+							this.#fallbackTabCreationInFlight = false;
+						}
+					}, 0);
+				});
+			});
 		}
 
 		window.addEventListener("windowIdChanged", (event: Event) => {

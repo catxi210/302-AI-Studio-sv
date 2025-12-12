@@ -151,10 +151,17 @@ class ChatState {
 		}, 5000);
 
 		// Listen for models-deleted events and clear selectedModel if it was deleted
-		window.electronAPI.onModelsDeleted(({ deletedModelIds }) => {
+		// (or if the whole provider's models were cleared)
+		window.electronAPI.onModelsDeleted(({ deletedModelIds, providerId }) => {
 			const currentModel = this.selectedModel;
-			if (currentModel && deletedModelIds.includes(currentModel.id)) {
-				console.log(`[ChatState] Clearing selectedModel ${currentModel.id} as it was deleted`);
+			const shouldClear =
+				!!currentModel &&
+				(deletedModelIds.includes(currentModel.id) ||
+					(!!providerId && currentModel.providerId === providerId));
+			if (shouldClear) {
+				console.log(
+					`[ChatState] Clearing selectedModel ${currentModel?.providerId}:${currentModel?.id} (models deleted)`,
+				);
 				this.selectedModel = null;
 			}
 		});
@@ -450,6 +457,12 @@ class ChatState {
 				const currentModel = this.selectedModel!;
 				const currentAttachments = [...this.attachments];
 				const currentInputValue = this.inputValue;
+
+				// Ensure session association is recorded for tabs created at app boot
+				// (boot-created initial tabs may not have apiKeyHash until the first real send)
+				if (currentModel.providerId === "302AI") {
+					persistedChatParamsState.current.apiKeyHash = this.get302AIApiKeyHash();
+				}
 
 				this.resetError();
 
