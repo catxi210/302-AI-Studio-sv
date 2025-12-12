@@ -30,7 +30,7 @@ Settings page in standalone window, including General, Account, Preferences, MCP
 <img src="./docs/imgs/302_AI_Studio_en_screenshot_04.png" >
 <img src="./docs/imgs/302_AI_Studio_en_screenshot_05.png" > 
 
-Agent sandbox management page, supports switching between remote and local platforms, viewing and managing Agent sandbox list
+Agent management page, supports switching between remote/local platforms and viewing/managing the list of agent sandboxes
 <img src="./docs/imgs/302_AI_Studio_en_screenshot_06.png" >
 
 ## 🌟 Key Features
@@ -74,6 +74,12 @@ Agent sandbox management page, supports switching between remote and local platf
 - **中文**
 - **English**
 - **日本語**(coming soon)
+
+## 📝 Changelog
+
+**[v25.50.8]** Added Agent mode; added quick login and account configuration
+
+---
 
 ## 🛠️ Technical Architecture
 
