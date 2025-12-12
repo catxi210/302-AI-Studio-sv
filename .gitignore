@@ -30,3 +30,7 @@ paraglide/
 
 storage
 !src/shared/storage
+
+dist
+
+plugins/external

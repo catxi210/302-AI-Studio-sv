@@ -1,6 +1,6 @@
 <script lang="ts" module>
 	import type { ButtonSize, ButtonVariant } from "$lib/components/ui/button/index.js";
-	import type { Snippet } from "svelte";
+	import { type Snippet } from "svelte";
 
 	export interface ButtonWithTooltipProps {
 		tooltip: string;
@@ -13,6 +13,7 @@
 		onclick?: (event: MouseEvent) => void;
 		children?: Snippet;
 		onOpenChange?: (open: boolean) => void;
+		delayDuration?: number;
 	}
 </script>
 
@@ -37,13 +38,14 @@
 		onclick,
 		children,
 		onOpenChange,
+		delayDuration = 500,
 	}: ButtonWithTooltipProps = $props();
 
 	const buttonClass = $derived(cn(buttonVariants({ variant, size }), className));
 </script>
 
-<TooltipProvider>
-	<Tooltip {onOpenChange}>
+<TooltipProvider {delayDuration}>
+	<Tooltip {onOpenChange} ignoreNonKeyboardFocus={true}>
 		<TooltipTrigger class={cn(buttonClass, "group rounded-[10px]")} {disabled} {onclick} {style}>
 			{@render children?.()}
 		</TooltipTrigger>

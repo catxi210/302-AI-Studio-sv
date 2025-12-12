@@ -3,28 +3,28 @@
 	import { ButtonWithTooltip } from "$lib/components/buss/button-with-tooltip";
 	import { CopyButton } from "$lib/components/buss/copy-button";
 	import { preferencesSettings } from "$lib/stores/preferences-settings.state.svelte";
+	import { persistedThemeState } from "$lib/stores/theme.state.svelte";
 	import { ChevronDown } from "@lucide/svelte";
 	import { onMount } from "svelte";
 	import type { ShikiHighlighter } from "./highlighter";
-	import { DEFAULT_THEME, ensureHighlighter } from "./highlighter";
+	import { ensureHighlighter } from "./highlighter";
 
 	interface Props {
-		blockId: string;
 		code: string;
 		language: string | null;
-		meta?: string | null;
 		theme?: string | null;
 		title?: string | null;
 		showCollapseButton?: boolean;
+		canCollapse: boolean;
 	}
 
 	const props: Props = $props();
 
 	let highlighter = $state<ShikiHighlighter | null>(null);
 	let highlightedHtml = $state<string>("");
-	let isCollapsed = $state(preferencesSettings.autoHideCode);
+	let isCollapsed = $state(props.canCollapse ? preferencesSettings.autoHideCode : false);
 	let resolvedLanguage = $state("plaintext");
-	let resolvedTheme = $state<string>(DEFAULT_THEME);
+	let resolvedTheme = $state<string>("");
 
 	const formatLanguageName = (lang: string): string => {
 		if (!lang || lang === "plaintext") return "Text";
@@ -77,13 +77,13 @@
 		const lang = props.language?.toLowerCase().trim() || "plaintext";
 		resolvedLanguage = lang;
 
-		let theme = DEFAULT_THEME as string;
+		let theme = persistedThemeState.current.shouldUseDarkColors ? "vitesse-dark" : "vitesse-light";
 		if (props.theme?.trim()) {
 			try {
 				const loaded = highlighter.getInternalContext().getLoadedThemes();
-				theme = loaded.includes(props.theme.trim()) ? props.theme.trim() : DEFAULT_THEME;
+				theme = loaded.includes(props.theme.trim()) ? props.theme.trim() : theme;
 			} catch {
-				theme = DEFAULT_THEME;
+				// Use default theme based on current app theme
 			}
 		}
 		resolvedTheme = theme;
@@ -100,7 +100,9 @@
 	});
 
 	$effect(() => {
+		// Re-highlight when code, theme, or app theme changes
 		if (highlighter && props.code) {
+			void persistedThemeState.current.shouldUseDarkColors; // Access to track changes
 			highlightCode();
 		}
 	});
@@ -130,19 +132,20 @@
 				{/if}
 			</div>
 		</div>
-		{#if !isCollapsed}
-			<div class="overflow-auto flex-1 min-h-0 w-full">
-				{#if highlightedHtml}
-					<div class="min-w-full inline-block">
-						<!-- eslint-disable-next-line svelte/no-at-html-tags -->
-						{@html highlightedHtml}
-					</div>
-				{:else}
-					<pre class="shiki !m-0 !rounded-none !border-0 w-full min-w-full"><code
-							class="block min-w-full">{props.code}</code
-						></pre>
-				{/if}
-			</div>
-		{/if}
+		<div
+			class="flex-1 min-h-0 w-full overflow-x-auto {isCollapsed
+				? 'max-h-[120px] overflow-y-auto'
+				: ''}"
+		>
+			{#if highlightedHtml}
+				<div class="inline-block">
+					<!-- eslint-disable-next-line svelte/no-at-html-tags -->
+					{@html highlightedHtml}
+				</div>
+			{:else}
+				<pre class="shiki !m-0 !rounded-none !border-0"><code class="block w-max">{props.code}</code
+					></pre>
+			{/if}
+		</div>
 	</div>
 {/if}

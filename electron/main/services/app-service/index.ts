@@ -6,7 +6,7 @@ import {
 	WebContentsView,
 	type IpcMainInvokeEvent,
 } from "electron";
-import { CONFIG, isMac } from "../../constants";
+import { CONFIG, isMac, UNSUPPORTED_INJECTING_THEME } from "../../constants";
 import { themeStorage } from "../storage-service/theme-storage";
 
 export class AppService {
@@ -22,11 +22,20 @@ export class AppService {
 		nativeTheme.themeSource = state.theme;
 	}
 
+	async getTheme(_event: IpcMainInvokeEvent): Promise<Theme> {
+		const state = await themeStorage.getThemeState();
+		if (state === null) {
+			// Fallback to system theme if no saved theme
+			return "system";
+		}
+		return state.theme;
+	}
+
 	async setTheme(_event: IpcMainInvokeEvent, theme: Theme): Promise<void> {
 		nativeTheme.themeSource = theme;
 		const allWindows = BrowserWindow.getAllWindows();
 		allWindows.forEach((window) => {
-			window.setBackgroundColor(nativeTheme.shouldUseDarkColors ? "#1A1A1A" : "#F9F9F9");
+			window.setBackgroundColor(nativeTheme.shouldUseDarkColors ? "#121212" : "#F9F9F9");
 			if (!isMac) {
 				try {
 					window.setTitleBarOverlay(
@@ -44,15 +53,20 @@ export class AppService {
 			contentViews.forEach((view) => {
 				if (view && "webContents" in view) {
 					const webContentsView = view as WebContentsView;
-					const backgroundColor = nativeTheme.shouldUseDarkColors ? "#1A1A1A" : "#F9F9F9";
-					webContentsView.setBackgroundColor(backgroundColor);
+					const url = webContentsView.webContents.getURL();
+					if (!url.includes("shell")) {
+						const backgroundColor = nativeTheme.shouldUseDarkColors ? "#121212" : "#F9F9F9";
+						webContentsView.setBackgroundColor(backgroundColor);
+					}
 					if (!webContentsView.webContents.isDestroyed()) {
-						const url = webContentsView.webContents.getURL();
 						const isExternalPage =
 							url &&
 							!url.startsWith("app://") &&
 							!url.includes("localhost") &&
-							!url.includes("127.0.0.1");
+							!url.includes("127.0.0.1") &&
+							!UNSUPPORTED_INJECTING_THEME.some((domain) =>
+								new URL(url).hostname.endsWith(`${domain}`),
+							);
 						if (isExternalPage) {
 							this.updateWebContentsTheme(webContentsView.webContents);
 						}
@@ -178,6 +192,54 @@ export class AppService {
 		console.log("Restarting application...");
 		app.relaunch();
 		app.exit(0);
+	}
+
+	/**
+	 * Reset all application data and restart
+	 */
+	async resetAllData(_event: IpcMainInvokeEvent): Promise<void> {
+		console.log("Resetting all data...");
+		const { storageService } = await import("../storage-service");
+		await storageService.clear(_event);
+		console.log("All data cleared, restarting...");
+		app.relaunch();
+		app.exit(0);
+	}
+
+	/**
+	 * Clear only chat history (threads and messages) but keep settings
+	 */
+	async clearChatHistory(_event: IpcMainInvokeEvent): Promise<void> {
+		console.log("Clearing chat history...");
+		const { storageService } = await import("../storage-service");
+		const { tabStorage } = await import("../storage-service/tab-storage");
+
+		try {
+			// Get all storage keys
+			const allKeys = await storageService.getKeys(_event);
+			console.log("All storage keys:", allKeys);
+
+			// Filter and delete chat messages and threads
+			const chatAndThreadKeys = allKeys.filter(
+				(key) => key.startsWith("app-chat-messages:") || key.startsWith("app-thread:"),
+			);
+
+			console.log("Deleting chat and thread keys:", chatAndThreadKeys);
+			for (const key of chatAndThreadKeys) {
+				await storageService.removeItem(_event, key);
+			}
+
+			// Remove tab-bar-state file (will be recreated on restart with new initial tab)
+			console.log("Removing tab-bar-state...");
+			await tabStorage.removeItem(_event, "tab-bar-state");
+
+			console.log("Chat history cleared, restarting...");
+			app.relaunch();
+			app.exit(0);
+		} catch (error) {
+			console.error("Failed to clear chat history:", error);
+			throw error;
+		}
 	}
 }
 

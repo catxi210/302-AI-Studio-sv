@@ -3,8 +3,8 @@ import fsDriver from "@302ai/unstorage/drivers/fs";
 import { isDev } from "@electron/main/constants";
 import type { MigrationConfig, StorageItem, StorageMetadata, StorageOptions } from "@shared/types";
 import type { IpcMainInvokeEvent } from "electron";
-import { app } from "electron";
 import { join } from "path";
+import { userDataManager } from "../app-service/user-data-manager";
 import { emitter } from "../broadcast-service";
 import { getStorageVersion, setStorageVersion } from "./migration-utils";
 
@@ -17,7 +17,7 @@ export class StorageService<T extends StorageValue> {
 	constructor(migrationConfig?: MigrationConfig<T>) {
 		const storagePath = isDev
 			? join(process.cwd(), "storage")
-			: join(app.getPath("userData"), "storage");
+			: join(userDataManager.storagePath, "storage");
 		this.storage = createStorage<T>({
 			driver: fsDriver({
 				base: storagePath,
@@ -40,8 +40,13 @@ export class StorageService<T extends StorageValue> {
 	}
 
 	async getItem(_event: IpcMainInvokeEvent, key: string): Promise<T | null> {
-		const value = await this.storage.getItem<T>(this.ensureJsonExtension(key));
-		return await this.migrateIfNeeded(key, value);
+		try {
+			const value = await this.storage.getItem<T>(this.ensureJsonExtension(key));
+			return await this.migrateIfNeeded(key, value);
+		} catch (error) {
+			console.error("Failed to get item from storage:", error);
+			return null;
+		}
 	}
 
 	async hasItem(_event: IpcMainInvokeEvent, key: string): Promise<boolean> {
@@ -104,15 +109,27 @@ export class StorageService<T extends StorageValue> {
 
 		if (this.watches.has(watchKey)) return;
 		const unwatch = await this.storage.watch(async (_event, key) => {
-			if (key === jsonKey) {
-				const sendKey = key.split(".")[0];
+			// Some drivers may report watched keys using "/" namespace separators (e.g. "TabStorage/tab-bar-state.json")
+			// while the app uses ":" separators (e.g. "TabStorage:tab-bar-state.json").
+			// Normalize to compare reliably, but always emit using the canonical watchKey (":" form).
+			const normalize = (k: string) => k.replaceAll("/", ":");
+			const normalizedKey = normalize(key);
+			const normalizedJsonKey = normalize(jsonKey);
+
+			if (normalizedKey === normalizedJsonKey) {
+				const sendKey = watchKey;
 				const sourceWebContentsId = this.lastUpdateSource.get(jsonKey) ?? -1;
 
-				emitter.emit("persisted-state:sync", {
-					sendKey,
-					syncValue: await this.getItemInternal(key),
-					sourceWebContentsId,
-				});
+				// Read using canonical watchKey to avoid driver-specific key formats
+				const syncValue = await this.getItemInternal(watchKey);
+				// Only emit sync if value is not null to prevent overwriting valid state with null
+				if (syncValue !== null) {
+					emitter.emit("persisted-state:sync", {
+						sendKey,
+						syncValue,
+						sourceWebContentsId,
+					});
+				}
 
 				this.lastUpdateSource.delete(jsonKey);
 			}
@@ -134,8 +151,20 @@ export class StorageService<T extends StorageValue> {
 
 	// Internal methods for main process usage (without IPC event parameter)
 	async getItemInternal(key: string): Promise<T | null> {
-		const value = await this.storage.getItem<T>(this.ensureJsonExtension(key));
-		return await this.migrateIfNeeded(key, value);
+		try {
+			const value = await this.storage.getItem<T>(this.ensureJsonExtension(key));
+			return await this.migrateIfNeeded(key, value);
+		} catch (error) {
+			// Handle JSON parsing errors from corrupted files
+			if (error instanceof SyntaxError) {
+				console.error(
+					`Failed to parse storage file "${key}": ${error.message}. The file may be corrupted.`,
+				);
+				return null;
+			}
+			// Re-throw other errors
+			throw error;
+		}
 	}
 
 	async setItemInternal(key: string, value: T): Promise<void> {
@@ -149,6 +178,10 @@ export class StorageService<T extends StorageValue> {
 
 	async removeItemInternal(key: string, options: StorageOptions = {}): Promise<void> {
 		await this.storage.removeItem(this.ensureJsonExtension(key), options);
+	}
+
+	async getKeysInternal(base?: string): Promise<string[]> {
+		return await this.storage.getKeys(base);
 	}
 
 	private async migrateIfNeeded(key: string, value: T | null): Promise<T | null> {

@@ -2,14 +2,21 @@ import { AiApplicationService, aiApplicationService } from "./ai-application-ser
 import { AppService, appService } from "./app-service";
 import { AttachmentsService, attachmentsService } from "./attachments-sevice";
 import { BroadcastService, broadcastService } from "./broadcast-service";
+import { CodeAgentService, codeAgentService } from "./code-agent-service";
 import { DataService, dataService } from "./data-service";
 import { ExternalLinkService, externalLinkService } from "./external-link-service";
+import { GhostWindowService, ghostWindowService } from "./ghost-window-service";
 import { McpService, mcpService } from "./mcp-service";
+import { PluginService, pluginService } from "./plugin-service";
+import { providerService, ProviderService } from "./provider-service";
+import { RegistryService, registryService } from "./registry-service";
 import { GeneralSettingsService, generalSettingsService } from "./settings-service";
 import { ShortcutService, shortcutService } from "./shortcut-service";
+import { SsoService, ssoService } from "./sso-service";
 import { StorageService, storageService } from "./storage-service";
 import { TabService, tabService } from "./tab-service";
 import { ThreadService, threadService } from "./thread-service";
+import { TrayService, trayService } from "./tray-service";
 import { UpdaterService, updaterService } from "./updater-service";
 import { WindowService, windowService } from "./window-service";
 
@@ -19,14 +26,21 @@ export {
 	AppService,
 	AttachmentsService,
 	BroadcastService,
+	CodeAgentService,
 	DataService,
 	ExternalLinkService,
 	GeneralSettingsService,
+	GhostWindowService,
 	McpService,
+	PluginService,
+	ProviderService,
+	RegistryService,
 	ShortcutService,
+	SsoService,
 	StorageService,
 	TabService,
 	ThreadService,
+	TrayService,
 	UpdaterService,
 	WindowService,
 };
@@ -37,14 +51,21 @@ export {
 	appService,
 	attachmentsService,
 	broadcastService,
+	codeAgentService,
 	dataService,
 	externalLinkService,
 	generalSettingsService,
+	ghostWindowService,
 	mcpService,
+	pluginService,
+	providerService,
+	registryService,
 	shortcutService,
+	ssoService,
 	storageService,
 	tabService,
 	threadService,
+	trayService,
 	updaterService,
 	windowService,
 };

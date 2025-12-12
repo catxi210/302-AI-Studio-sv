@@ -2,7 +2,6 @@ import { PersistedState } from "$lib/hooks/persisted-state.svelte";
 import { m } from "$lib/paraglide/messages";
 import type { Tab, TabState, TabType } from "@shared/types";
 import { isNull, isUndefined } from "es-toolkit/predicate";
-import { parse } from "superjson";
 import { match } from "ts-pattern";
 
 export const persistedTabState = new PersistedState<TabState>(
@@ -10,42 +9,175 @@ export const persistedTabState = new PersistedState<TabState>(
 	{} as TabState,
 );
 
+$effect.root(() => {
+	$effect(() => {
+		// eslint-disable-next-line @typescript-eslint/no-unused-expressions
+		persistedTabState.current;
+	});
+});
 const { tabService, windowService, threadService } = window.electronAPI;
 
 class TabBarState {
 	#windowId = $state<string>(window.windowId);
 	#activeOverlayId = $state<string | null>(null);
 	#isShellViewElevated = $state<boolean>(false);
+	#isShellView = $state<boolean>(false);
+	#fallbackTabCreationInFlight = false;
+	#lastFallbackAttemptAt = 0;
 
-	tabs = $derived<Tab[]>(persistedTabState.current[this.#windowId]?.tabs ?? []);
+	get currentWindowId(): string {
+		return this.#windowId;
+	}
+
+	async getCurrentWindowTabs(): Promise<Tab[]> {
+		return (await tabService.getAllTabsForCurrentWindow()) ?? [];
+	}
+
+	async getAllTabs(): Promise<Tab[]> {
+		return (await tabService.getAllTabs()) ?? [];
+	}
+
+	tabs = $derived.by<Tab[]>(() => {
+		// Only return tabs for shell views, tab views should not access tab bar state
+		if (!this.#isShellView) {
+			return [];
+		}
+
+		const current = persistedTabState.current;
+		// Guard against null state during cross-window sync
+		if (!current) return [];
+
+		console.log("_persistedTabState_persistedTabState", current);
+
+		const _persistedTabState = current[this.#windowId];
+		return _persistedTabState?.tabs ?? [];
+	});
+
 	windowTabsInfo = $derived.by(() => {
-		const windowIds = Object.keys(persistedTabState.current);
+		// Only return window info for shell views
+		if (!this.#isShellView) {
+			return [];
+		}
+		const current = persistedTabState.current;
+		// Guard against null state during cross-window sync
+		if (!current) return [];
+
+		const windowIds = Object.keys(current);
 		return windowIds
 			.filter((id) => id !== this.#windowId)
 			.map((windowId) => {
-				const tabs = persistedTabState.current[windowId].tabs;
+				const windowState = current[windowId];
+				if (!windowState || !windowState.tabs || windowState.tabs.length === 0) {
+					return null;
+				}
+				const tabs = windowState.tabs;
 				return {
 					windowId,
 					tabs,
 					firstTabTitle: tabs[0].title,
 				};
-			});
+			})
+			.filter((item): item is NonNullable<typeof item> => item !== null);
 	});
 
 	constructor() {
-		console.log("windowId", this.#windowId);
-		console.log("tabs", this.tabs);
+		// Detect if this is a shell view (has TabBar) or a tab view (chat content)
+		// Shell views have routes like /shell/123, tab views have routes like /chat/xxx
+		this.#isShellView = window.location.pathname.startsWith("/shell");
 
-		// Listen for window ID changes when tab is moved between windows
+		console.log(
+			"TabBarState initialized - windowId:",
+			this.#windowId,
+			"isShellView:",
+			this.#isShellView,
+		);
+
+		if (this.#isShellView) {
+			console.log("Shell view tabs:", this.tabs);
+		} else {
+			console.log("Tab view - TabBarState disabled for this context");
+		}
+
+		// Fallback: if external actions (e.g. "delete all sessions for account") remove ALL tabs,
+		// ensure the shell window always has at least one tab.
+		//
+		// We only do this:
+		// - in shell views (tab views must not manage tab state)
+		// - after PersistedState hydration (avoid creating tabs during boot)
+		// - with a small debounce + backend re-check (avoid duplicate tabs during async sync)
+		if (this.#isShellView) {
+			$effect.root(() => {
+				$effect(() => {
+					if (!persistedTabState.isHydrated) return;
+					if (!this.#windowId) return;
+
+					const current = persistedTabState.current;
+					const tabs = current?.[this.#windowId]?.tabs ?? [];
+					if (tabs.length > 0) return;
+
+					const now = Date.now();
+					if (this.#fallbackTabCreationInFlight) return;
+					if (now - this.#lastFallbackAttemptAt < 800) return;
+
+					this.#fallbackTabCreationInFlight = true;
+					this.#lastFallbackAttemptAt = now;
+
+					setTimeout(async () => {
+						try {
+							// Re-check backend state to avoid creating duplicates due to sync lag
+							const backendTabs = await this.getCurrentWindowTabs();
+							if ((backendTabs?.length ?? 0) === 0) {
+								await this.handleNewTab(m.title_new_chat());
+								// Ensure UI reflects the backend-created tab immediately even if
+								// cross-process sync is delayed or missed.
+								await persistedTabState.refresh();
+							}
+						} finally {
+							this.#fallbackTabCreationInFlight = false;
+						}
+					}, 0);
+				});
+			});
+		}
+
 		window.addEventListener("windowIdChanged", (event: Event) => {
 			const customEvent = event as CustomEvent<{ newWindowId: string }>;
 			const { newWindowId } = customEvent.detail;
 			console.log(`Window ID changed from ${this.#windowId} to ${newWindowId}`);
 			this.#windowId = newWindowId;
 		});
+
+		// Listen for window ID changes when tab is moved between windows
+		// Tab views need this to update window.windowId, but should NOT update TabBarState's #windowId
+		// window.addEventListener("windowIdChanged", (event: Event) => {
+		// 	const customEvent = event as CustomEvent<{ newWindowId: string }>;
+		// 	const { newWindowId } = customEvent.detail;
+
+		// 	if (this.#isShellView) {
+		// 		// Shell views should never be migrated, log warning if this happens
+		// 		console.warn(
+		// 			`[TabBarState] Unexpected windowId change in shell view from ${this.#windowId} to ${newWindowId}`,
+		// 		);
+		// 	} else {
+		// 		// Tab views are migrated between windows
+		// 		// Do NOT update #windowId to prevent this tab view's TabBarState from interfering
+		// 		console.log(
+		// 			`[TabBarState] Tab view migrated to window ${newWindowId}, keeping TabBarState disabled`,
+		// 		);
+		// 	}
+		// 	// CRITICAL: Do NOT update #windowId
+		// 	// This prevents migrated tab views from reading/writing other windows' tab state
+		// });
 	}
 
 	// ******************************* Private Methods ******************************* //
+	#safeUpdateWindowTabs(windowId: string, tabs: Tab[]): void {
+		persistedTabState.current = {
+			...persistedTabState.current,
+			[windowId]: { tabs },
+		};
+	}
+
 	#setActiveTab(tabs: Tab[], activeTabId: string): Tab[] {
 		return tabs.map((t) => ({
 			...t,
@@ -53,9 +185,10 @@ class TabBarState {
 		}));
 	}
 
-	async #handleTabRemovalWithActiveState(tabId: string): Promise<string | null> {
-		const currentTabs = this.tabs;
-		const currentWindowId = this.#windowId;
+	async #handleTabRemovalWithActiveState(
+		tabId: string,
+		currentTabs: Tab[],
+	): Promise<string | null> {
 		const targetTab = currentTabs.find((t) => t.id === tabId);
 		if (!targetTab) return null;
 
@@ -92,7 +225,7 @@ class TabBarState {
 		}
 
 		if (remainingTabs.length > 0) {
-			persistedTabState.current[currentWindowId].tabs = remainingTabs;
+			this.#safeUpdateWindowTabs(this.#windowId, remainingTabs);
 		}
 
 		// Activate new tab if needed
@@ -105,34 +238,37 @@ class TabBarState {
 
 	// ******************************* Public Methods ******************************* //
 	async handleActivateTab(tabId: string) {
-		if (this.tabs.length === 1) return;
-		const targetTab = this.tabs.find((t) => t.id === tabId);
-		if (isUndefined(targetTab)) return;
-
-		const updatedTabs = this.#setActiveTab(this.tabs, tabId);
-		persistedTabState.current[this.#windowId].tabs = updatedTabs;
-
+		// This method can be called from both shell views and tab views
+		// Only call backend - let sync update frontend state
 		await tabService.handleActivateTab(tabId);
 	}
 
 	async handleTabClose(tabId: string) {
 		if (!this.#windowId) return;
 
-		const currentTabs = this.tabs;
+		const currentTabs = this.#isShellView ? this.tabs : await this.getCurrentWindowTabs();
 
 		if (currentTabs.length > 1) {
-			const newActiveTabId = await this.#handleTabRemovalWithActiveState(tabId);
+			const newActiveTabId = await this.#handleTabRemovalWithActiveState(tabId, currentTabs);
 
 			await tabService.handleTabClose(tabId, newActiveTabId);
 		} else {
-			persistedTabState.current[this.#windowId].tabs = [];
+			this.#safeUpdateWindowTabs(this.#windowId, []);
 			console.log("handleTabClose: currentTabs.length === 1");
 
-			this.handleNewTab(m.title_new_chat());
+			setTimeout(() => {
+				this.handleNewTab(m.title_new_chat());
+			}, 300);
 		}
 	}
 
 	async handleTabCloseOthers(tabId: string) {
+		// Only shell views should handle tab operations
+		if (!this.#isShellView) {
+			console.warn("[TabBarState] handleTabCloseOthers called in tab view, ignoring");
+			return;
+		}
+
 		const currentTabs = this.tabs;
 		const targetTab = currentTabs.find((t) => t.id === tabId);
 		if (isUndefined(targetTab)) return;
@@ -140,12 +276,18 @@ class TabBarState {
 		const tabIdsToClose = currentTabs.filter((t) => t.id !== tabId).map((t) => t.id);
 		const remainingTabs = [{ ...targetTab, active: true }];
 
-		persistedTabState.current[this.#windowId].tabs = remainingTabs;
+		this.#safeUpdateWindowTabs(this.#windowId, remainingTabs);
 
 		await tabService.handleTabCloseOthers(tabId, tabIdsToClose);
 	}
 
 	async handleTabCloseOffside(tabId: string) {
+		// Only shell views should handle tab operations
+		if (!this.#isShellView) {
+			console.warn("[TabBarState] handleTabCloseOffside called in tab view, ignoring");
+			return;
+		}
+
 		const currentTabs = this.tabs;
 		const targetIndex = currentTabs.findIndex((t) => t.id === tabId);
 		if (targetIndex === -1) return;
@@ -162,7 +304,7 @@ class TabBarState {
 
 		const remainingTabIds = updatedTabs.map((t) => t.id);
 
-		persistedTabState.current[this.#windowId].tabs = updatedTabs;
+		this.#safeUpdateWindowTabs(this.#windowId, updatedTabs);
 
 		await tabService.handleTabCloseOffside(
 			tabId,
@@ -172,126 +314,120 @@ class TabBarState {
 		);
 	}
 
-	async handleTabCloseAll() {
-		persistedTabState.current[this.#windowId].tabs = [];
+	async handleNewTab(
+		title: string,
+		type: TabType = "chat",
+		active = true,
+		href?: string,
+		content?: string,
+		previewId?: string,
+	) {
+		// This method can be called from both shell views and tab views
+		// Use real window.windowId to ensure correct behavior
+		const currentWindowId = this.currentWindowId;
+		const currentTabs = await this.getCurrentWindowTabs();
 
-		await tabService.handleTabCloseAll();
-
-		this.handleNewTab(m.title_new_chat());
-	}
-
-	async #createNewTab(title: string, type: TabType, active: boolean, href?: string) {
-		const unserializedTab = await tabService.handleNewTab(title, type, active, href);
-		if (!unserializedTab) return;
-
-		const tab = parse<Tab>(unserializedTab);
-		const updatedTabs = active
-			? [...this.tabs.map((t) => ({ ...t, active: false })), tab]
-			: [...this.tabs, tab];
-
-		persistedTabState.current[this.#windowId].tabs = updatedTabs;
-	}
-
-	async handleNewTab(title: string, type: TabType = "chat", active = true, href?: string) {
 		const shouldCreateNewTab = await match(type)
 			.with("settings", async () => {
-				const existingSettingsTab = this.tabs.find((tab) => tab.type === "settings");
+				const existingSettingsTab = currentTabs?.find((tab) => tab.type === "settings");
 				if (existingSettingsTab) {
-					await this.handleActivateTab(existingSettingsTab.id);
+					// Activate existing settings tab
+					const updatedTabs = currentTabs?.map((t) => ({
+						...t,
+						active: t.id === existingSettingsTab.id,
+					}));
+					this.#safeUpdateWindowTabs(currentWindowId, updatedTabs ?? []);
+					await tabService.handleActivateTab(existingSettingsTab.id);
 					return false;
 				}
 				return true;
 			})
 			.with("chat", () => true)
 			.with("aiApplications", () => true)
+			.with("codeAgent", () => true)
+			.with("htmlPreview", async () => {
+				// Check if a tab with the same previewId already exists
+				if (previewId) {
+					const existingPreviewTab = currentTabs?.find(
+						(tab) => tab.type === "htmlPreview" && tab.previewId === previewId,
+					);
+					if (existingPreviewTab) {
+						// Just activate existing tab, don't update content
+						await tabService.handleActivateTab(existingPreviewTab.id);
+						return false;
+					}
+				}
+				return true;
+			})
 			.exhaustive();
 
 		if (shouldCreateNewTab) {
-			await this.#createNewTab(title, type, active, href);
+			// Backend will create tab and update storage
+			await tabService.handleNewTab(title, type, active, href, content, previewId);
+			// Wait for PersistedState sync to update frontend
 		}
 	}
 
 	async handleNewTabForExistingThread(threadId: string) {
-		// Case 1: Check if thread exists in current window's tabs
-		const existingTabInCurrentWindow = this.tabs.find((tab) => tab.threadId === threadId);
-		if (existingTabInCurrentWindow) {
-			await this.handleActivateTab(existingTabInCurrentWindow.id);
-			return;
-		}
+		// This method can be called from both shell views and tab views
+		// Use real window.windowId to ensure correct behavior regardless of context
+		const currentWindowId = this.currentWindowId;
 
-		// Case 2: Check if thread exists in other windows
-		const tabStateEntries = Object.entries(persistedTabState.current);
-		if (tabStateEntries.length > 1) {
-			for (const [windowId, windowTabs] of tabStateEntries) {
-				if (windowId === this.#windowId) continue;
-				if (!windowTabs) continue;
+		console.log(
+			`[TabBarState] handleNewTabForExistingThread: threadId=${threadId}, currentWindowId=${currentWindowId}`,
+		);
 
-				const targetTab = windowTabs.tabs.find((tab) => tab.threadId === threadId);
-				if (!targetTab) continue;
+		// IMPORTANT: Do NOT use persistedTabState.current here - it may be stale due to async IPC sync
+		// Instead, get the current window's tabs directly from backend
+		const currentWindowTabs = await this.getCurrentWindowTabs();
+		console.log(`[TabBarState] Current window tabs from backend:`, currentWindowTabs);
 
-				// Found in another window - focus that window and tab
-				const updatedTabs = windowTabs.tabs.map((tab) => ({
-					...tab,
-					active: tab.id === targetTab.id,
-				}));
-				persistedTabState.current[windowId].tabs = updatedTabs;
-
-				await windowService.focusWindow(windowId, targetTab.id);
+		// Check if tab with this threadId already exists in current window
+		if (currentWindowTabs && currentWindowTabs.length > 0) {
+			const existingTab = currentWindowTabs.find((tab) => tab.threadId === threadId);
+			if (existingTab) {
+				// Found the tab in current window - activate it
+				console.log(`[TabBarState] Found tab ${existingTab.id} in current window, activating it`);
+				await this.handleActivateTab(existingTab.id);
 				return;
 			}
 		}
 
-		// Case 3: Thread doesn't exist in any tab - replace current active tab's content
-		const activeTab = this.tabs.find((tab) => tab.active);
-		if (activeTab) {
-			console.log(
-				`[handleNewTabForExistingThread] Replacing active tab ${activeTab.id} with thread ${threadId}`,
-			);
+		// Thread doesn't exist in current window - create a new tab in current window
+		console.log(`[TabBarState] Thread ${threadId} not found in current window, creating new tab`);
 
-			// Get thread data first to update tab title
-			const threadData = await threadService.getThread(threadId);
-			if (!threadData) return;
-
-			// Update persisted tabs BEFORE calling replaceTabContent to avoid UI flicker
-			const updatedTabs = this.tabs.map((tab) =>
-				tab.id === activeTab.id ? { ...tab, threadId, title: threadData.thread.title } : tab,
-			);
-			this.updatePersistedTabs(updatedTabs);
-
-			// Call main process to replace the view
-			const success = await tabService.replaceTabContent(activeTab.id, threadId);
-			console.log(`[handleNewTabForExistingThread] Replace result: ${success}`);
-
-			if (!success) {
-				// If failed, revert the tab changes
-				this.updatePersistedTabs(this.tabs);
-			}
+		const threadData = await threadService.getThread(threadId);
+		if (!threadData) {
+			console.log(`[TabBarState] Thread data not found for ${threadId}`);
 			return;
 		}
 
-		// Fallback: create new tab if no active tab exists
-		const threadData = await threadService.getThread(threadId);
-		if (!threadData) return;
-
-		const unserializedTab = await tabService.handleNewTabWithThread(
+		console.log(`[TabBarState] Calling handleNewTabWithThread for thread ${threadId}`);
+		// Backend will create tab and update storage
+		const result = await tabService.handleNewTabWithThread(
 			threadId,
 			threadData.thread.title,
 			"chat",
 			true,
 		);
-		if (!unserializedTab) return;
-
-		const newTab = parse<Tab>(unserializedTab);
-		const updatedTabs = [...this.tabs.map((t) => ({ ...t, active: false })), newTab];
-
-		persistedTabState.current[this.#windowId].tabs = updatedTabs;
+		console.log(`[TabBarState] handleNewTabWithThread result:`, result);
+		// Wait for PersistedState sync to update frontend
 	}
 
 	updatePersistedTabs(tabs: Tab[]) {
-		persistedTabState.current[this.#windowId].tabs = tabs;
+		// Only shell views should update tab state
+		if (!this.#isShellView) {
+			console.warn("[TabBarState] updatePersistedTabs called in tab view, ignoring");
+			return;
+		}
+
+		this.#safeUpdateWindowTabs(this.#windowId, tabs);
 	}
 
 	async handleTabOverlayChange(tabId: string, open: boolean) {
+		// Only shell views should handle overlay changes
+		if (!this.#isShellView) return;
+
 		if (open) {
 			if (!isNull(this.#activeOverlayId) && this.#activeOverlayId !== tabId) {
 				this.#activeOverlayId = tabId;
@@ -314,6 +450,9 @@ class TabBarState {
 	}
 
 	async handleGeneralOverlayChange(open: boolean) {
+		// Only shell views should handle overlay changes
+		if (!this.#isShellView) return;
+
 		await match({
 			open,
 			isElevated: this.#isShellViewElevated,
@@ -337,7 +476,13 @@ class TabBarState {
 		type: "new-window" | "existing-window",
 		targetWindowId?: string,
 	) {
-		await this.#handleTabRemovalWithActiveState(tabId);
+		// Only shell views should handle tab operations
+		if (!this.#isShellView) {
+			console.warn("[TabBarState] handleMoveTab called in tab view, ignoring");
+			return;
+		}
+
+		await this.#handleTabRemovalWithActiveState(tabId, this.tabs);
 
 		if (type === "existing-window" && targetWindowId) {
 			await windowService.handleMoveTabIntoExistingWindow(tabId, targetWindowId);
@@ -346,14 +491,35 @@ class TabBarState {
 		}
 	}
 
+	/**
+	 * Remove a tab from the current window's state (for drag-to-detach/merge)
+	 * This updates the frontend state after the backend has already moved the tab
+	 */
+	async handleTabRemovedByDrag(tabId: string) {
+		// Only shell views should handle tab operations
+		if (!this.#isShellView) {
+			console.warn("[TabBarState] handleTabRemovedByDrag called in tab view, ignoring");
+			return;
+		}
+
+		await this.#handleTabRemovalWithActiveState(tabId, this.tabs);
+	}
+
 	async updateTabTitle(threadId: string, title: string) {
-		const updatedTabs = this.tabs.map((tab) => {
+		// This method can be called from both shell views and tab views
+		// Use real window.windowId to ensure correct behavior
+		const currentWindowId = this.currentWindowId;
+		const currentTabs = await this.getCurrentWindowTabs();
+
+		const updatedTabs = currentTabs?.map((tab) => {
 			if (tab.threadId === threadId) {
 				return { ...tab, title };
 			}
 			return tab;
 		});
-		this.updatePersistedTabs(updatedTabs);
+
+		// Use real windowId to ensure correct window is updated
+		this.#safeUpdateWindowTabs(currentWindowId, updatedTabs ?? []);
 	}
 }
 

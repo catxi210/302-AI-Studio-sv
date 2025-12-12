@@ -4,6 +4,8 @@ import { isEmpty } from "es-toolkit/compat";
 import { nanoid } from "nanoid";
 import { storageService, StorageService } from ".";
 import { generalSettingsService } from "../settings-service";
+import { providerStorage } from "./provider-storage";
+import { sessionStorage } from "./session-storage";
 
 export class TabStorage extends StorageService<TabState> {
 	constructor() {
@@ -11,9 +13,47 @@ export class TabStorage extends StorageService<TabState> {
 		this.storage = prefixStorage(this.storage, "TabStorage");
 	}
 
-	async getTabs(windowId: string): Promise<Tab[] | null> {
+	/**
+	 * Validate if thread file has valid JSON format
+	 * - If thread file doesn't exist: valid (returns true)
+	 * - If thread file exists but has invalid JSON: invalid (returns false)
+	 * @param threadId - The thread ID to validate
+	 * @returns true if thread is valid or doesn't exist, false if JSON is corrupted
+	 */
+	private async validateThreadData(threadId: string): Promise<boolean> {
+		try {
+			const threadKey = "app-thread:" + threadId;
+			const hasFile = await storageService.hasItemInternal(threadKey);
+
+			// If file doesn't exist, it's considered valid (allow this tab)
+			if (!hasFile) {
+				return true;
+			}
+
+			// If file exists, try to parse it to ensure JSON format is valid
+			const threadData = await storageService.getItemInternal(threadKey);
+			// If parsing succeeds, data is valid
+			return !isNull(threadData) && !isEmpty(threadData);
+		} catch (error) {
+			// If we get a JSON parsing error, the file is corrupted
+			if (error instanceof SyntaxError) {
+				console.error(`Thread ${threadId} has corrupted JSON format: ${error.message}`);
+				return false;
+			}
+			// Other errors (file access, etc.) are also treated as invalid
+			console.error(`Failed to validate thread ${threadId}:`, error);
+			return false;
+		}
+	}
+
+	async getTabsByWindowId(windowId: string): Promise<Tab[] | null> {
 		const result = await this.getItemInternal("tab-bar-state");
 		return result ? result[windowId].tabs : null;
+	}
+
+	async getAllTabs(): Promise<Tab[] | null> {
+		const result = await this.getItemInternal("tab-bar-state");
+		return result ? Object.values(result).flatMap((windowTabs) => windowTabs.tabs) : null;
 	}
 
 	async getActiveTabId(windowId: string): Promise<string | null> {
@@ -41,6 +81,17 @@ export class TabStorage extends StorageService<TabState> {
 				active: true,
 				threadId,
 			};
+
+			// Get default model same as handleNewTab in tab-service
+			const [preferencesSettingsData, latestUsedModel, apiKeyHash] = await Promise.all([
+				storageService.getItemInternal("PreferencesSettingsStorage:state"),
+				sessionStorage.getLatestUsedModel(),
+				providerStorage.get302AIApiKeyHash(),
+			]);
+			const preferencesSettings = preferencesSettingsData as unknown as {
+				newSessionModel?: ThreadParmas["selectedModel"];
+			} | null;
+
 			const initThread: ThreadParmas = {
 				id: threadId,
 				title,
@@ -56,9 +107,10 @@ export class TabStorage extends StorageService<TabState> {
 				isThinkingActive: false,
 				isOnlineSearchActive: false,
 				isMCPActive: false,
-				selectedModel: null,
+				selectedModel: preferencesSettings?.newSessionModel ?? latestUsedModel,
 				isPrivateChatActive: false,
 				updatedAt: new Date(),
+				apiKeyHash,
 			};
 			allWindowsTabs.push([initTab]);
 
@@ -70,9 +122,18 @@ export class TabStorage extends StorageService<TabState> {
 			await storageService.setItemInternal("app-thread:" + initTab.threadId, initThread);
 			await storageService.setItemInternal("app-chat-messages:" + initTab.threadId, []);
 		} else {
-			Object.values(result).forEach((windowTabs) => {
-				allWindowsTabs.push(windowTabs.tabs);
-			});
+			for (const windowTabs of Object.values(result)) {
+				const validTabs: Tab[] = [];
+
+				for (const tab of windowTabs.tabs) {
+					const isThreadValid = await this.validateThreadData(tab.threadId);
+					if (isThreadValid) {
+						validTabs.push(tab);
+					}
+				}
+
+				allWindowsTabs.push(validTabs);
+			}
 		}
 
 		return allWindowsTabs;
@@ -106,6 +167,10 @@ export class TabStorage extends StorageService<TabState> {
 		if (isNull(tabState)) return;
 		delete tabState[windowId];
 		await this.setItemInternal("tab-bar-state", tabState);
+	}
+
+	async getPersistedTabState(): Promise<TabState | null> {
+		return this.getItemInternal("tab-bar-state");
 	}
 }
 

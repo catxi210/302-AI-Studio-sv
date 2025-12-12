@@ -1,5 +1,11 @@
-import type { FileUIPart } from "ai";
+import { m } from "$lib/paraglide/messages.js";
+import pdf2md from "@opendocsg/pdf2md";
 import type { AttachmentFile } from "@shared/types";
+import type { FileUIPart } from "ai";
+import mammoth from "mammoth";
+import * as XLSX from "xlsx";
+import { compressFile } from "./file-compressor";
+import { officeMimeTypes } from "./file-preview";
 
 export type MessagePart = FileUIPart | { type: "text"; text: string };
 
@@ -16,6 +22,22 @@ export type AttachmentMetadata = {
 function isMediaFile(attachment: AttachmentFile): boolean {
 	const mediaTypes = ["image/", "audio/", "video/"];
 	return mediaTypes.some((type) => attachment.type.startsWith(type));
+}
+
+function isPdfFile(attachment: AttachmentFile): boolean {
+	const { type, name } = attachment;
+	return type === "application/pdf" || name.toLowerCase().endsWith(".pdf");
+}
+
+function isOfficeDocumentFile(attachment: AttachmentFile): boolean {
+	const { type, name } = attachment;
+	const lowerName = name.toLowerCase();
+
+	if (officeMimeTypes.includes(type)) return true;
+
+	// Check by file extension
+	const officeExtensions = [".xlsx", ".xls", ".docx", ".doc", ".pptx", ".ppt"];
+	return officeExtensions.some((ext) => lowerName.endsWith(ext));
 }
 
 function isTextFile(attachment: AttachmentFile): boolean {
@@ -73,15 +95,51 @@ function isTextFile(attachment: AttachmentFile): boolean {
 	return textExtensions.some((ext) => name.toLowerCase().endsWith(ext));
 }
 
+async function readPdfFile(attachment: AttachmentFile): Promise<string> {
+	try {
+		if (!attachment.file) {
+			throw new Error("No file available for PDF parsing");
+		}
+
+		// Convert File to ArrayBuffer (browser-compatible)
+		const arrayBuffer = await attachment.file.arrayBuffer();
+		const uint8Array = new Uint8Array(arrayBuffer);
+
+		// Parse PDF to Markdown using Uint8Array (browser-compatible)
+		const markdown = await pdf2md(uint8Array);
+		return markdown;
+	} catch (error) {
+		console.error("Failed to parse PDF:", error);
+		throw new Error(
+			`Failed to parse PDF: ${error instanceof Error ? error.message : "Unknown error"}`,
+		);
+	}
+}
+
+/**
+ * Decode base64 string to UTF-8 text
+ * Uses TextDecoder to properly handle multi-byte UTF-8 characters (e.g., Chinese)
+ */
+function decodeBase64ToUtf8(base64: string): string {
+	const binaryString = atob(base64);
+	const bytes = new Uint8Array(binaryString.length);
+	for (let i = 0; i < binaryString.length; i++) {
+		bytes[i] = binaryString.charCodeAt(i);
+	}
+	return new TextDecoder("utf-8").decode(bytes);
+}
+
 async function readTextFile(attachment: AttachmentFile): Promise<string> {
-	if (attachment.file) {
+	// First try to read from file if it's a valid File object
+	if (attachment.file && typeof attachment.file.text === "function") {
 		return await attachment.file.text();
 	}
 
+	// Then try to read from preview (data URL)
 	if (attachment.preview && typeof attachment.preview === "string") {
-		if (attachment.preview.startsWith("data:text/")) {
+		if (attachment.preview.startsWith("data:")) {
 			const base64Content = attachment.preview.split(",")[1];
-			return atob(base64Content);
+			return decodeBase64ToUtf8(base64Content);
 		} else {
 			const response = await fetch(attachment.preview);
 			return await response.text();
@@ -89,6 +147,61 @@ async function readTextFile(attachment: AttachmentFile): Promise<string> {
 	}
 
 	throw new Error("No content available for text file");
+}
+
+async function readExcelFile(attachment: AttachmentFile): Promise<string> {
+	try {
+		if (!attachment.file) {
+			throw new Error("No file available for Excel parsing");
+		}
+
+		// Read file as ArrayBuffer
+		const arrayBuffer = await attachment.file.arrayBuffer();
+
+		// Parse Excel file
+		const workbook = XLSX.read(arrayBuffer, { type: "array" });
+
+		let content = "";
+
+		// Process each sheet
+		workbook.SheetNames.forEach((sheetName, index) => {
+			const worksheet = workbook.Sheets[sheetName];
+
+			// Convert sheet to CSV format (more readable than JSON)
+			const csv = XLSX.utils.sheet_to_csv(worksheet);
+
+			if (index > 0) content += "\n\n";
+			content += `[${m.attachment_sheet()}: ${sheetName}]\n${csv}`;
+		});
+
+		return content;
+	} catch (error) {
+		console.error("Failed to parse Excel file:", error);
+		throw new Error(
+			`Failed to parse Excel file: ${error instanceof Error ? error.message : "Unknown error"}`,
+		);
+	}
+}
+
+async function readWordFile(attachment: AttachmentFile): Promise<string> {
+	try {
+		if (!attachment.file) {
+			throw new Error("No file available for Word parsing");
+		}
+
+		// Read file as ArrayBuffer
+		const arrayBuffer = await attachment.file.arrayBuffer();
+
+		// Extract text from Word document
+		const result = await mammoth.extractRawText({ arrayBuffer });
+
+		return result.value;
+	} catch (error) {
+		console.error("Failed to parse Word document:", error);
+		throw new Error(
+			`Failed to parse Word document: ${error instanceof Error ? error.message : "Unknown error"}`,
+		);
+	}
 }
 
 export function createAttachmentMetadata(
@@ -115,7 +228,18 @@ export async function convertAttachmentToMessagePart(
 		if (attachment.preview) {
 			url = attachment.preview;
 		} else {
-			url = await fileToDataURL(attachment.file);
+			// For images, use compression to ensure base64 size < 1MB
+			if (attachment.type.startsWith("image/")) {
+				try {
+					url = await compressFile(attachment.file);
+				} catch (error) {
+					console.error("[AttachmentConverter] Failed to compress image, using original:", error);
+					url = await fileToDataURL(attachment.file);
+				}
+			} else {
+				// For audio/video, use original (no compression)
+				url = await fileToDataURL(attachment.file);
+			}
 		}
 
 		return {
@@ -126,6 +250,73 @@ export async function convertAttachmentToMessagePart(
 				url,
 			},
 		};
+	}
+
+	// Handle PDF files - parse to markdown and treat as text
+	if (isPdfFile(attachment)) {
+		const content = await readPdfFile(attachment);
+
+		return {
+			part: {
+				type: "text",
+				text: `[File: ${attachment.name}]\n\`\`\`markdown\n${content}\n\`\`\``,
+			},
+			textContent: content,
+		};
+	}
+
+	// Handle Office documents (xlsx, docx, pptx, etc.) - read and parse content
+	if (isOfficeDocumentFile(attachment)) {
+		const lowerName = attachment.name.toLowerCase();
+
+		try {
+			// Handle Excel files (.xlsx, .xls)
+			if (lowerName.endsWith(".xlsx") || lowerName.endsWith(".xls")) {
+				const content = await readExcelFile(attachment);
+				return {
+					part: {
+						type: "text",
+						text: `[File: ${attachment.name}]\n\`\`\`csv\n${content}\n\`\`\``,
+					},
+					textContent: content,
+				};
+			}
+
+			// Handle Word documents (.docx, .doc)
+			if (lowerName.endsWith(".docx") || lowerName.endsWith(".doc")) {
+				const content = await readWordFile(attachment);
+				return {
+					part: {
+						type: "text",
+						text: `[File: ${attachment.name}]\n\`\`\`\n${content}\n\`\`\``,
+					},
+					textContent: content,
+				};
+			}
+
+			// Handle PowerPoint files (.pptx, .ppt) - not supported yet, show description
+			if (lowerName.endsWith(".pptx") || lowerName.endsWith(".ppt")) {
+				const sizeInKB = (attachment.size / 1024).toFixed(2);
+				const description = `[${attachment.name}]\n${m.attachment_type()}: ${m.attachment_file_type_powerpoint()}\n${m.attachment_size()}: ${sizeInKB} KB\n\n${m.attachment_note()}: ${m.attachment_note_powerpoint_not_supported()}`;
+
+				return {
+					part: {
+						type: "text",
+						text: description,
+					},
+				};
+			}
+		} catch (error) {
+			console.error(`Failed to read Office document ${attachment.name}:`, error);
+			// If parsing fails, return a description instead
+			const sizeInKB = (attachment.size / 1024).toFixed(2);
+			return {
+				part: {
+					type: "text",
+					text: `[${attachment.name}]\n${m.attachment_size()}: ${sizeInKB} KB\n\n${m.attachment_note()}: ${m.attachment_note_cannot_read_content()}`,
+				},
+			};
+		}
 	}
 
 	if (isTextFile(attachment)) {

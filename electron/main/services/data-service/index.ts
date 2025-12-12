@@ -1,13 +1,60 @@
 import { isDev } from "@electron/main/constants";
-import type { ImportResult } from "@shared/types";
+import type { BackupInfo, ImportResult } from "@shared/types";
 import archiver from "archiver";
 import { type IpcMainInvokeEvent, app, dialog } from "electron";
 import extract from "extract-zip";
-import { createWriteStream } from "fs";
+import { createWriteStream, existsSync } from "fs";
 import { cp, mkdir, readdir, readFile, rm } from "fs/promises";
 import { join } from "path";
+import { userDataManager } from "../app-service/user-data-manager";
+import { importLegacyJson } from "./legacy-import";
 
 export class DataService {
+	private storagePath: string;
+
+	constructor() {
+		this.storagePath = isDev
+			? join(process.cwd(), "storage")
+			: join(userDataManager.storagePath, "storage");
+	}
+
+	async importLegacyJson(_event: IpcMainInvokeEvent): Promise<ImportResult> {
+		try {
+			const storagePath = this.storagePath;
+
+			// Create backup before importing legacy data
+			const backupPath = await this.createBackupToDirectory(storagePath);
+			console.log(`Backup created before legacy import: ${backupPath}`);
+
+			try {
+				const result = await importLegacyJson();
+
+				if (result.success) {
+					// Clean up old backups on success
+					userDataManager.cleanupOldBackups(5);
+
+					return {
+						...result,
+						message: `${result.message}. A backup was created before import.`,
+						backupPath,
+					};
+				}
+
+				return result;
+			} catch (error) {
+				// Restore backup on error
+				await this.restoreBackup(backupPath, storagePath);
+				throw error;
+			}
+		} catch (error) {
+			console.error("Failed to import legacy JSON:", error);
+			return {
+				success: false,
+				message: error instanceof Error ? error.message : "Unknown error occurred",
+			};
+		}
+	}
+
 	/**
 	 * Export storage folder as a zip file
 	 * @returns The path to the exported zip file, or null if cancelled
@@ -15,9 +62,7 @@ export class DataService {
 	async exportStorage(_event: IpcMainInvokeEvent): Promise<string | null> {
 		try {
 			// Get storage path
-			const storagePath = isDev
-				? join(process.cwd(), "storage")
-				: join(app.getPath("userData"), "storage");
+			const storagePath = this.storagePath;
 
 			// Show save dialog
 			const { canceled, filePath } = await dialog.showSaveDialog({
@@ -47,9 +92,7 @@ export class DataService {
 	async importStorage(_event: IpcMainInvokeEvent): Promise<ImportResult> {
 		try {
 			// Get storage path
-			const storagePath = isDev
-				? join(process.cwd(), "storage")
-				: join(app.getPath("userData"), "storage");
+			const storagePath = this.storagePath;
 
 			// Show open dialog
 			const { canceled, filePaths } = await dialog.showOpenDialog({
@@ -67,8 +110,8 @@ export class DataService {
 
 			const zipPath = filePaths[0];
 
-			// Create backup of current storage
-			const backupPath = await this.createBackup(storagePath);
+			// Create backup of current storage to the backups directory
+			const backupPath = await this.createBackupToDirectory(storagePath);
 
 			try {
 				// Validate zip file
@@ -76,8 +119,6 @@ export class DataService {
 				if (!isValid) {
 					// Restore backup if validation fails
 					await this.restoreBackup(backupPath, storagePath);
-					// Clean up backup after restore
-					await rm(backupPath, { recursive: true, force: true });
 					return {
 						success: false,
 						message: "Invalid backup file format",
@@ -87,21 +128,18 @@ export class DataService {
 				// Extract and merge data
 				const importedFiles = await this.extractAndMergeData(zipPath, storagePath);
 
-				// Clean up backup on success
-				await rm(backupPath, { recursive: true, force: true });
-				console.log(`Backup cleaned up: ${backupPath}`);
+				// Clean up old backups (keep last 5)
+				userDataManager.cleanupOldBackups(5);
 
 				return {
 					success: true,
-					message: `Successfully imported ${importedFiles} files`,
+					message: `Successfully imported ${importedFiles} files. A backup was created before import.`,
 					importedFiles,
 					backupPath,
 				};
 			} catch (error) {
 				// Restore backup on error
 				await this.restoreBackup(backupPath, storagePath);
-				// Clean up backup after restore
-				await rm(backupPath, { recursive: true, force: true });
 				throw error;
 			}
 		} catch (error) {
@@ -114,11 +152,102 @@ export class DataService {
 	}
 
 	/**
-	 * Create a backup of the current storage folder
+	 * Get list of all backups
+	 */
+	async listBackups(_event: IpcMainInvokeEvent): Promise<BackupInfo[]> {
+		return userDataManager.listBackups();
+	}
+
+	/**
+	 * Restore from a specific backup
+	 */
+	async restoreFromBackup(_event: IpcMainInvokeEvent, backupPath: string): Promise<ImportResult> {
+		try {
+			const storagePath = this.storagePath;
+
+			// Validate backup exists
+			if (!existsSync(backupPath)) {
+				return {
+					success: false,
+					message: "Backup not found",
+				};
+			}
+
+			// Create a backup of current state before restoring
+			const preRestoreBackup = await this.createBackupToDirectory(storagePath);
+
+			try {
+				// Restore from backup
+				await this.restoreBackup(backupPath, storagePath);
+
+				// Clean up old backups
+				userDataManager.cleanupOldBackups(5);
+
+				return {
+					success: true,
+					message: "Successfully restored from backup",
+					backupPath: preRestoreBackup,
+				};
+			} catch (error) {
+				// If restore fails, restore the pre-restore backup
+				await this.restoreBackup(preRestoreBackup, storagePath);
+				throw error;
+			}
+		} catch (error) {
+			console.error("Failed to restore from backup:", error);
+			return {
+				success: false,
+				message: error instanceof Error ? error.message : "Unknown error occurred",
+			};
+		}
+	}
+
+	/**
+	 * Delete a specific backup
+	 */
+	async deleteBackup(_event: IpcMainInvokeEvent, backupPath: string): Promise<boolean> {
+		try {
+			if (!existsSync(backupPath)) {
+				return false;
+			}
+			await rm(backupPath, { recursive: true, force: true });
+			console.log(`Backup deleted: ${backupPath}`);
+			return true;
+		} catch (error) {
+			console.error("Failed to delete backup:", error);
+			return false;
+		}
+	}
+
+	/**
+	 * Open backup directory in file explorer
+	 */
+	async openBackupDirectory(_event: IpcMainInvokeEvent): Promise<void> {
+		const { shell } = await import("electron");
+		const backupDir = userDataManager.getBackupDirectory();
+		await shell.openPath(backupDir);
+	}
+
+	/**
+	 * Create a backup of the current storage folder (legacy method for temporary backups)
 	 */
 	private async createBackup(storagePath: string): Promise<string> {
 		const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
 		const backupPath = `${storagePath}_backup_${timestamp}`;
+
+		await cp(storagePath, backupPath, { recursive: true });
+		console.log(`Temporary backup created at: ${backupPath}`);
+
+		return backupPath;
+	}
+
+	/**
+	 * Create a backup in the backups directory
+	 */
+	private async createBackupToDirectory(storagePath: string): Promise<string> {
+		const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+		const backupDir = userDataManager.getBackupDirectory();
+		const backupPath = join(backupDir, `backup_${timestamp}`);
 
 		await cp(storagePath, backupPath, { recursive: true });
 		console.log(`Backup created at: ${backupPath}`);
@@ -265,6 +394,49 @@ export class DataService {
 			archive.directory(sourceDir, false);
 			archive.finalize();
 		});
+	}
+
+	async checkOldVersionData(_event: IpcMainInvokeEvent): Promise<boolean> {
+		const triplitPath = join(app.getPath("userData"), "../", "302 AI Studio", "triplit");
+		console.log(triplitPath);
+		return existsSync(triplitPath);
+	}
+
+	/**
+	 * Select a folder and create a zip file for upload
+	 * @returns Object with zip file path and folder name, or null if cancelled
+	 */
+	async zipFolderForUpload(
+		_event: IpcMainInvokeEvent,
+	): Promise<{ zipPath: string; folderName: string } | null> {
+		try {
+			// Show folder selection dialog
+			const { canceled, filePaths } = await dialog.showOpenDialog({
+				title: "Select Folder to Upload",
+				properties: ["openDirectory"],
+			});
+
+			if (canceled || filePaths.length === 0) {
+				return null;
+			}
+
+			const selectedFolderPath = filePaths[0];
+			const folderName = selectedFolderPath.split(/[/\\]/).pop() || "folder";
+
+			// Create temp directory for zip file
+			const tempDir = app.getPath("temp");
+			const timestamp = Date.now();
+			const zipFileName = `${folderName}-upload-${timestamp}.zip`;
+			const zipPath = join(tempDir, zipFileName);
+
+			// Create zip file
+			await this.createZipFromFolder(selectedFolderPath, zipPath);
+
+			return { zipPath, folderName };
+		} catch (error) {
+			console.error("Failed to create zip for upload:", error);
+			throw error;
+		}
 	}
 }
 

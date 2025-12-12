@@ -19,6 +19,15 @@ export function formatFileSize(bytes: number): string {
 	return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
 }
 
+/**
+ * Check if the attachment preview should be displayed as a thumbnail image
+ * Only images and videos should show their preview as thumbnail
+ */
+export function shouldShowPreviewAsThumbnail(attachment: AttachmentFile): boolean {
+	const { type } = attachment;
+	return type.startsWith("image/") || type.startsWith("video/");
+}
+
 export function getViewerType(attachment: AttachmentFile): ViewerType {
 	const { type, name } = attachment;
 
@@ -155,6 +164,19 @@ export function getFileIcon(attachment: AttachmentFile): Component<IconProps, ob
 	}
 }
 
+/**
+ * Decode base64 string to UTF-8 text
+ * Uses TextDecoder to properly handle multi-byte UTF-8 characters (e.g., Chinese)
+ */
+function decodeBase64ToUtf8(base64: string): string {
+	const binaryString = atob(base64);
+	const bytes = new Uint8Array(binaryString.length);
+	for (let i = 0; i < binaryString.length; i++) {
+		bytes[i] = binaryString.charCodeAt(i);
+	}
+	return new TextDecoder("utf-8").decode(bytes);
+}
+
 export async function loadTextContent(attachment: AttachmentFile): Promise<string> {
 	if (attachment.textContent) {
 		return attachment.textContent;
@@ -163,7 +185,7 @@ export async function loadTextContent(attachment: AttachmentFile): Promise<strin
 	if (attachment.preview && typeof attachment.preview === "string") {
 		if (attachment.preview.startsWith("data:text/")) {
 			const base64Content = attachment.preview.split(",")[1];
-			return atob(base64Content);
+			return decodeBase64ToUtf8(base64Content);
 		} else {
 			const response = await fetch(attachment.preview);
 			return await response.text();

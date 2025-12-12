@@ -11,8 +11,6 @@
 		onTabClose: (tabId: string) => void;
 		onTabCloseOthers: (tabId: string) => void;
 		onTabCloseOffside: (tabId: string) => void;
-		onTabClearMessages: (tabId: string) => void;
-		onTabGenerateTitle: (tabId: string) => void;
 		onOpenChange: (open: boolean) => void;
 		class?: string;
 	}
@@ -26,9 +24,20 @@
 	import { m } from "$lib/paraglide/messages.js";
 	import { tabBarState } from "$lib/stores/tab-bar-state.svelte";
 	import { cn } from "$lib/utils";
-	import { Ghost, LayoutGrid, MessageCircle, Settings, X } from "@lucide/svelte";
+	import {
+		Ghost,
+		HatGlasses,
+		LayoutGrid,
+		MessageCircle,
+		MonitorSmartphone,
+		Settings,
+		X,
+	} from "@lucide/svelte";
 	import type { Tab } from "@shared/types";
 	import { onDestroy } from "svelte";
+
+	const { handleAiApplicationReload } = window.electronAPI.aiApplicationService;
+	const { storageService } = window.electronAPI;
 
 	const {
 		tab,
@@ -42,8 +51,6 @@
 		onTabClose,
 		onTabCloseOthers,
 		onTabCloseOffside,
-		onTabClearMessages,
-		onTabGenerateTitle,
 		onOpenChange,
 		class: className,
 	}: Props = $props();
@@ -51,6 +58,7 @@
 	let triggerRef = $state<HTMLElement | null>(null);
 	let isCompact = $state(false);
 	let windowTabsInfo = $derived(tabBarState.windowTabsInfo);
+	let hasMessages = $state(false);
 
 	$effect(() => {
 		if (!triggerRef?.parentElement) return;
@@ -75,12 +83,41 @@
 		}
 	});
 
+	// Check if the tab has messages for screenshot functionality
+	$effect(() => {
+		if (tab.type === "chat" && tab.threadId) {
+			(async () => {
+				try {
+					const messages = await storageService.getItem(`app-chat-messages:${tab.threadId}`);
+					hasMessages = Array.isArray(messages) && messages.length > 0;
+				} catch (error) {
+					console.warn("Failed to check messages for tab:", error);
+					hasMessages = false;
+				}
+			})();
+		} else {
+			hasMessages = false;
+		}
+	});
+
 	onDestroy(() => {
 		window.cancelAnimationFrame?.(0);
 	});
 
 	const handleScreenshot = async () => {
 		if (tab.type === "chat" && tab.threadId) {
+			// Check if there are messages before taking screenshot
+			if (!hasMessages) {
+				// Broadcast toast message to tab view (content area) so it displays on top
+				// Include threadId so only the current tab shows the toast
+				await window.electronAPI?.broadcastService?.broadcastToAll("show-toast", {
+					type: "warning",
+					message: m.screenshot_no_messages(),
+					threadId: tab.threadId,
+				});
+				return;
+			}
+
 			await window.electronAPI?.broadcastService?.broadcastToAll("trigger-screenshot", {
 				threadId: tab.threadId,
 			});
@@ -100,11 +137,17 @@
 		<Settings />
 	{:else if tabType === "aiApplications"}
 		<LayoutGrid />
+	{:else if tabType === "codeAgent"}
+		<HatGlasses />
+	{:else if tabType === "htmlPreview"}
+		<MonitorSmartphone />
 	{/if}
 {/snippet}
 
 <ContextMenu.Root {onOpenChange}>
 	<ContextMenu.Trigger
+		draggable={true}
+		data-tab-draggable
 		class={cn(
 			"h-tab rounded-[10px] px-tab-x relative flex cursor-pointer items-center text-sm",
 			isCompact ? "justify-center" : "gap-tab-gap justify-between",
@@ -124,6 +167,7 @@
 				onTabClose(tab.id);
 			}
 		}}
+		title={tab.title}
 		role="button"
 	>
 		<div bind:this={triggerRef} class="contents">
@@ -165,6 +209,13 @@
 		{#if tab.type === "chat"}
 			<ContextMenu.Item onSelect={handleScreenshot} disabled={!isActive}>
 				{m.screenshot_action()}
+			</ContextMenu.Item>
+			<ContextMenu.Separator />
+		{/if}
+
+		{#if tab.type === "aiApplications"}
+			<ContextMenu.Item onSelect={() => handleAiApplicationReload(tab.id)}>
+				{m.label_button_reload()}
 			</ContextMenu.Item>
 			<ContextMenu.Separator />
 		{/if}

@@ -1,15 +1,47 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-import type { StorageValue } from "@302ai/unstorage";
-
 export * from "@302ai/unstorage";
 export * from "./storage/ai-applications";
+export * from "./storage/code-agent";
+export * from "./storage/general-settings";
 export * from "./storage/mcp";
 export * from "./storage/provider";
+export * from "./storage/session";
 export * from "./storage/tab";
 export * from "./storage/theme";
 export * from "./storage/thread";
 export * from "./types/shortcut";
+
+// Re-export plugin types from SDK
+export * from "@302ai/studio-plugin-sdk";
+
+// Import specific types for use in this file
+import type { Model, ModelCapability, ModelType } from "@302ai/studio-plugin-sdk";
+import type { StorageValue } from "@302ai/unstorage";
+
+// Application-specific plugin types (not in SDK)
+export type PluginSource =
+	| { type: "marketplace"; id: string }
+	| { type: "url"; url: string }
+	| { type: "local"; path: string };
+
+// Application-specific plugin market types (not in SDK)
+export interface PluginMarketEntry {
+	metadata: import("@302ai/studio-plugin-sdk").PluginMetadata;
+	downloadUrl: string;
+	repository: string;
+	homepage?: string;
+	icon?: string;
+	downloads: number;
+	rating: number;
+	ratingCount: number;
+	featured: boolean;
+	screenshots?: string[];
+	readme?: string;
+	changelog?: string;
+	publishedAt: Date;
+	updatedAt: Date;
+}
 
 export interface StorageMetadata {
 	mtime?: Date;
@@ -46,21 +78,7 @@ export interface VersionedStorageValue {
 	_version?: number;
 }
 
-export type ModelType = "language" | "image-generation" | "tts" | "embedding" | "rerank";
-
-export type ModelCapability = string;
-
-export interface Model {
-	id: string;
-	name: string;
-	remark: string;
-	providerId: string;
-	capabilities: Set<ModelCapability>;
-	type: ModelType;
-	custom: boolean;
-	enabled: boolean;
-	collected: boolean;
-}
+// Model-related types are now exported from @302ai/studio-plugin-sdk
 
 export interface ModelCreateInput {
 	id: string;
@@ -72,6 +90,8 @@ export interface ModelCreateInput {
 	custom?: boolean;
 	enabled?: boolean;
 	collected?: boolean;
+	isFeatured?: boolean;
+	isAddedByUser?: boolean;
 }
 
 export interface ModelUpdateInput {
@@ -84,6 +104,8 @@ export interface ModelUpdateInput {
 	custom?: boolean;
 	enabled?: boolean;
 	collected?: boolean;
+	isFeatured?: boolean;
+	isAddedByUser?: boolean;
 }
 
 export interface MCPServer {
@@ -119,6 +141,9 @@ export interface ThreadParmas {
 	selectedModel: Model | null;
 	isPrivateChatActive: boolean;
 	updatedAt: Date;
+	autoSendOnLoad?: boolean; // Flag to auto-send message when thread loads (for branch and send)
+	/** Hash of the API key used when creating this thread, used to track account association */
+	apiKeyHash?: string;
 }
 
 export interface ThreadData {
@@ -132,7 +157,12 @@ export type BroadcastEvent =
 	| "thread-list-updated"
 	| "theme-changed"
 	| "settings-updated"
-	| "trigger-screenshot";
+	| "trigger-screenshot"
+	| "trigger-send-message"
+	| "show-toast"
+	| "sidebar-state-changed"
+	| "apply-default-model"
+	| "models-deleted";
 
 export interface BroadcastEventData {
 	broadcastEvent: BroadcastEvent;
@@ -145,9 +175,26 @@ export interface ShellWindowFullscreenChange {
 	isFullScreen: boolean;
 }
 
+export interface TabDragGhostHover {
+	windowId: string;
+	clientX: number;
+	clientY: number;
+	draggedWidth: number;
+}
+
+export interface TabDragGhostClear {
+	windowId: string;
+}
+
 export interface ImportResult {
 	success: boolean;
 	message: string;
 	importedFiles?: number;
 	backupPath?: string;
+}
+
+export interface BackupInfo {
+	path: string;
+	timestamp: Date;
+	size: number;
 }

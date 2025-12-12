@@ -109,7 +109,7 @@
 		return result;
 	});
 
-	const getCapabilityIcon = (capability: string) => {
+	const _getCapabilityIcon = (capability: string) => {
 		switch (capability) {
 			case "reasoning":
 				return {
@@ -151,7 +151,7 @@
 		}
 	};
 
-	const getTypeLabel = (type: string) => {
+	const _getTypeLabel = (type: string) => {
 		switch (type) {
 			case "language":
 				return m.text_model_type_chat();
@@ -202,10 +202,18 @@
 	>
 		<div class="grid h-full w-full" style="grid-template-columns: 2fr 0.8fr 1.2fr 1fr;">
 			<!-- 模型名称 -->
-			<div class="flex h-full items-center overflow-hidden pr-2 pl-4 outline-hidden">
+			<div class="flex h-full items-center gap-2 overflow-hidden pr-2 pl-4 outline-hidden">
 				<div class="truncate" title={model.remark || model.name}>
 					{model.remark || model.name}
 				</div>
+				{#if model.is_custom_model}
+					<span
+						class="text-muted-foreground flex-shrink-0 rounded-sm bg-muted px-1.5 py-0.5 text-xs"
+						title={m.common_custom()}
+					>
+						{m.common_custom()}
+					</span>
+				{/if}
 			</div>
 
 			<!-- 类型 -->

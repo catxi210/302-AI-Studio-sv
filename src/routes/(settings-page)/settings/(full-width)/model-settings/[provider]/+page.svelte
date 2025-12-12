@@ -3,14 +3,18 @@
 	import { IconPicker } from "$lib/components/buss/icon-picker/index.js";
 	import { ModelDialog } from "$lib/components/buss/model-dialog/index.js";
 	import { ModelList } from "$lib/components/buss/model-list/index.js";
+	import { SettingSwitchItem } from "$lib/components/buss/settings/index.js";
 	import { Button } from "$lib/components/ui/button/index.js";
 	import { Input } from "$lib/components/ui/input/index.js";
 	import { Label } from "$lib/components/ui/label/index.js";
 	import * as Select from "$lib/components/ui/select/index.js";
 	import { m } from "$lib/paraglide/messages.js";
 	import { persistedModelState, providerState } from "$lib/stores/provider-state.svelte.js";
+	import { userState } from "$lib/stores/user-state.svelte";
+	import { getFilteredModels } from "$lib/utils/model-filters.js";
 	import { Eye, EyeOff } from "@lucide/svelte";
 	import type { Model, ModelCreateInput, ModelProvider } from "@shared/types";
+	import { onMount } from "svelte";
 	import { toast } from "svelte-sonner";
 
 	const apiTypes = [
@@ -59,7 +63,12 @@
 	);
 	let showApiKey = $state(false);
 
-	const sortedModels = $derived.by(() => providerState.getSortedModels());
+	// 使用统一的过滤方法：对于 302AI provider，只包含 isFeatured === true 或 isAddedByUser === true 的模型；其他 provider 不应用过滤
+	const sortedModels = $derived.by(() => {
+		return getFilteredModels(persistedModelState.current).sort((a, b) =>
+			a.name.localeCompare(b.name),
+		);
+	});
 
 	let formData = $derived.by<ModelProvider>(() => {
 		if (currentProvider) {
@@ -74,6 +83,7 @@
 				status: currentProvider.status,
 				websites: { ...currentProvider.websites },
 				icon: currentProvider.icon,
+				autoUpdateModels: currentProvider.autoUpdateModels || false,
 			};
 		}
 
@@ -94,12 +104,13 @@
 				defaultBaseUrl: "",
 			},
 			icon: undefined,
+			autoUpdateModels: false,
 		};
 	});
 
-	function saveFormData() {
+	async function saveFormData() {
 		if (formData.id) {
-			providerState.updateProvider(formData.id, {
+			await providerState.updateProvider(formData.id, {
 				name: formData.name,
 				apiType: formData.apiType,
 				apiKey: formData.apiKey,
@@ -109,13 +120,14 @@
 				status: formData.status,
 				websites: formData.websites,
 				icon: formData.icon,
+				autoUpdateModels: formData.autoUpdateModels,
 			});
 		}
 	}
 
-	function handleIconChange(iconKey: string) {
+	async function handleIconChange(iconKey: string) {
 		formData.icon = iconKey;
-		saveFormData();
+		await saveFormData();
 	}
 
 	async function handleGetModels() {
@@ -123,8 +135,24 @@
 			return;
 		}
 		isLoadingModels = true;
+
+		// 先保存表单数据，确保使用最新的 API key
+		clearTimeout(saveTimeout);
+		await saveFormData();
+
 		await providerState.fetchModelsForProvider(currentProvider);
 		isLoadingModels = false;
+	}
+
+	function fillApiKeyFromAccount() {
+		// Prefer ssoApiKey (from SSO callback) over userInfo.api_key (from fetched account info)
+		// The SSO callback returns the actual API key that should be used
+		const apiKeyToUse = userState.ssoApiKey || userState.userInfo?.api_key;
+		if (apiKeyToUse) {
+			formData.apiKey = apiKeyToUse;
+			handleInputChange();
+			toast.success(m.text_provider_update_success({ name: formData.name }));
+		}
 	}
 
 	function handleAddModel() {
@@ -140,6 +168,7 @@
 	}
 
 	async function handleModelDelete(model: Model) {
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity
 		pendingRemovedIds = new Set(pendingRemovedIds).add(model.id);
 		providerState.scheduleRemoveModel(model.id);
 	}
@@ -154,7 +183,8 @@
 
 		try {
 			if (dialogMode === "add") {
-				const newModel = await providerState.addModel({
+				// 确保传递 isAddedByUser 字段
+				const createInput: ModelCreateInput = {
 					id: data.id,
 					name: data.name,
 					remark: data.remark,
@@ -164,7 +194,9 @@
 					custom: true,
 					enabled: data.enabled,
 					collected: false,
-				});
+					isAddedByUser: true,
+				};
+				const newModel = await providerState.addModel(createInput);
 
 				toast.success(m.text_model_add_success({ name: newModel.name }));
 			} else if (editingModel) {
@@ -241,6 +273,17 @@
 			)
 			.filter((m) => !pendingRemovedIds.has(m.id)),
 	);
+
+	// 页面加载时自动更新模型（异步执行，不阻塞页面渲染）
+	onMount(() => {
+		if (currentProvider?.autoUpdateModels && currentProvider.apiKey) {
+			// 使用 setTimeout 将更新操作推迟到下一个事件循环
+			// 让页面先完成渲染，避免切换标签页时卡顿
+			setTimeout(() => {
+				handleGetModels();
+			}, 0);
+		}
+	});
 </script>
 
 <div class="flex h-full min-w-0 flex-1 flex-col overflow-hidden p-6">
@@ -289,7 +332,7 @@
 					class="rounded-settings-item bg-settings-item-bg hover:ring-ring hover:ring-1"
 				/>
 				{#if formData.baseUrl}
-					<p class="text-muted-foreground text-xs">
+					<p class="text-muted-foreground max-w-full break-all text-xs">
 						{m.text_base_url_request_info({
 							url: getChatEndpointUrl(formData.baseUrl, formData.apiType),
 						})}
@@ -323,7 +366,7 @@
 					</Button>
 				</div>
 				{#if !formData.custom && formData.websites.apiKey}
-					<p class="text-muted-foreground text-xs">
+					<p class="text-muted-foreground flex items-center gap-2 text-xs">
 						<a
 							href={formData.websites.apiKey}
 							target="_blank"
@@ -335,8 +378,37 @@
 						>
 							{m.text_get_api_key()}
 						</a>
+						{#if formData.id === "302AI"}
+							<span class="text-muted-foreground/50">|</span>
+							{#if userState.isLoggedIn}
+								<button
+									class="text-primary cursor-pointer hover:underline"
+									onclick={fillApiKeyFromAccount}
+								>
+									<!-- @ts-expect-error - text_use_account_api_key may not exist in all locales -->
+									{m.text_use_account_api_key()}
+								</button>
+							{:else}
+								<a href="/settings/account-settings" class="text-primary hover:underline">
+									{m.text_login_to_get_api_key()}
+								</a>
+							{/if}
+						{/if}
 					</p>
 				{/if}
+			</div>
+
+			<!-- 自动更新模型 -->
+			<div class="space-y-2">
+				<Label class="text-sm font-medium">{m.text_label_provider_auto_update_models()}</Label>
+				<SettingSwitchItem
+					label={m.text_label_provider_auto_update_models_desc()}
+					checked={formData.autoUpdateModels}
+					onCheckedChange={(v) => {
+						formData.autoUpdateModels = v;
+						saveFormData();
+					}}
+				/>
 			</div>
 
 			<!-- 接口类型 (仅自定义供应商) -->

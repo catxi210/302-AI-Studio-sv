@@ -3,6 +3,71 @@
 	<head>
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<script>
+			// Theme initialization - prevent FOUC (Flash of Unstyled Content)
+			// This runs synchronously before any content is rendered
+			(function () {
+				// Check if this is a shell view (shellWebContentsView)
+				// Shell views need transparent background for proper window composition
+				const currentPath = window.location.pathname;
+				const searchParams = window.location.search;
+
+				// Dev: pathname is /shell/123
+				// Prod: pathname is /, but search is ?route=shell/123
+				const isShellView =
+					(currentPath && currentPath.startsWith("/shell/")) ||
+					(searchParams && searchParams.includes("route=shell/"));
+
+				if (isShellView) {
+					// Mark as shell view to skip background color in CSS
+					document.documentElement.classList.add("shell-view");
+					return;
+				}
+
+				try {
+					// Get theme from preload script (injected via additionalArguments)
+					const initialTheme = window.initialTheme;
+
+					// Check system preference as fallback
+					const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+
+					// Determine if dark mode should be applied
+					let shouldUseDark = prefersDark; // default to system preference
+
+					if (initialTheme === "dark") {
+						shouldUseDark = true;
+					} else if (initialTheme === "light") {
+						shouldUseDark = false;
+					}
+					// If initialTheme is "system" or null, use the prefersDark value
+
+					// Apply dark class immediately if needed
+					if (shouldUseDark) {
+						document.documentElement.classList.add("dark");
+					}
+				} catch (error) {
+					// Fallback to system preference on any error
+					console.error("Failed to initialize theme:", error);
+					if (window.matchMedia("(prefers-color-scheme: dark)").matches) {
+						document.documentElement.classList.add("dark");
+					}
+				}
+			})();
+		</script>
+		<style>
+			/* Prevent white flash by setting default background immediately */
+			/* Shell views need transparent background for window composition */
+			html:not(.shell-view) {
+				background-color: #121212;
+			}
+			html:not(.dark):not(.shell-view) {
+				background-color: #f9f9f9;
+			}
+			/* Shell view: transparent background */
+			html.shell-view {
+				background-color: transparent;
+			}
+		</style>
 		%sveltekit.head%
 	</head>
 	<body data-sveltekit-preload-data="hover">

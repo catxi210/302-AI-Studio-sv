@@ -75,12 +75,14 @@ export class PersistedState<T extends StorageValue> {
 	#isHydrated = $state(false);
 	#storeTimeoutId: ReturnType<typeof setTimeout> | null = null;
 	#storeDebounceMs: number;
+	#debounce: boolean;
 
-	constructor(key: string, initialValue: T, debounceMs: number = 300) {
+	constructor(key: string, initialValue: T, debounce: boolean = false, debounceMs: number = 300) {
 		this.#current = initialValue;
 		this.#key = key;
 		this.#storage = new ElectronStorageAdapter<T>();
 		this.#storeDebounceMs = debounceMs;
+		this.#debounce = debounce;
 
 		this.#hydratePersistState(key, initialValue);
 
@@ -154,6 +156,16 @@ export class PersistedState<T extends StorageValue> {
 	}
 
 	#store(value: T | undefined | null): void {
+		if (!this.#debounce) {
+			this.#storage?.setItemAsync(this.#key, value ?? null).catch((error) => {
+				console.log("Value", value);
+				console.error(
+					`Error when writing value from persisted store "${this.#key}" to Electron storage`,
+					error,
+				);
+			});
+			return;
+		}
 		// Clear existing timeout
 		if (this.#storeTimeoutId !== null) {
 			clearTimeout(this.#storeTimeoutId);
@@ -191,5 +203,21 @@ export class PersistedState<T extends StorageValue> {
 				error,
 			);
 		});
+	}
+
+	// Force refresh from storage (useful after main process updates)
+	async refresh(): Promise<void> {
+		try {
+			const existingValue = await this.#storage?.getItemAsync(this.#key);
+			if (existingValue != null && !isEqual(existingValue, this.#current)) {
+				this.#current = existingValue;
+				this.#update?.();
+			}
+		} catch (error) {
+			console.error(
+				`Error when refreshing persisted store "${this.#key}" from Electron storage`,
+				error,
+			);
+		}
 	}
 }

@@ -2,13 +2,15 @@
 	/* eslint-disable svelte/no-at-html-tags */
 	import { ButtonWithTooltip } from "$lib/components/buss/button-with-tooltip";
 	import { CopyButton } from "$lib/components/buss/copy-button";
+	import { htmlPreviewState } from "$lib/stores/html-preview-state.svelte";
 	import { preferencesSettings } from "$lib/stores/preferences-settings.state.svelte";
-	import { ChevronDown } from "@lucide/svelte";
+	import { persistedThemeState } from "$lib/stores/theme.state.svelte";
+	import { ChevronDown, CodeXml, ImagePlay, MonitorPlay } from "@lucide/svelte";
 	import type { GrammarState, ThemedToken } from "@shikijs/types";
 	import { onMount } from "svelte";
 	import { SvelteMap } from "svelte/reactivity";
 	import type { ShikiHighlighter } from "./highlighter";
-	import { DEFAULT_THEME, ensureHighlighter, ensureLanguageLoaded } from "./highlighter";
+	import { ensureHighlighter, ensureLanguageLoaded, LANGUAGE_ALIASES } from "./highlighter";
 
 	interface RenderedToken {
 		id: string;
@@ -29,6 +31,8 @@
 		language: string | null;
 		meta: string | null;
 		theme?: string | null;
+		messageId?: string;
+		messagePartIndex?: number;
 	}
 
 	const props: Props = $props();
@@ -37,11 +41,14 @@
 	let grammarState: GrammarState | undefined;
 	let lastCode = "";
 	let lastChunk = "";
-	let resolvedTheme = $state<string>(DEFAULT_THEME);
+	let resolvedTheme = $state<string>("");
 	let preStyle = $state<string | undefined>(undefined);
 	let codeStyle = $state<string | undefined>(undefined);
 	let lines = $state<RenderedLine[]>([]);
 	let isCollapsed = $state(preferencesSettings.autoHideCode);
+	let showSvgPreview = $state(false);
+	let isSvgCode = $state(false);
+	let isHtmlCode = $state(false);
 
 	const FONT_STYLE = {
 		Italic: 1,
@@ -115,13 +122,51 @@
 			svelte: "Svelte",
 			angular: "Angular",
 			react: "React",
+			svg: "SVG",
 		};
 
 		return languageNames[lang.toLowerCase()] || lang.charAt(0).toUpperCase() + lang.slice(1);
 	};
 
+	const detectSvg = (code: string, language: string | null): boolean => {
+		if (language?.toLowerCase() === "svg") return true;
+		const trimmed = code.trim();
+		return trimmed.startsWith("<svg") || (trimmed.startsWith("<?xml") && trimmed.includes("<svg"));
+	};
+
+	const detectHtml = (code: string, language: string | null): boolean => {
+		const htmlLanguages = ["html", "htm", "xhtml", "xml"];
+		if (language && htmlLanguages.includes(language.toLowerCase())) {
+			return true;
+		}
+
+		const trimmed = code.trim();
+		const htmlTagRegex =
+			/<([a-zA-Z][a-zA-Z0-9]*)\b[^>]*>(.*?)<\/\1>|<([a-zA-Z][a-zA-Z0-9]*)\b[^>]*\/>/s;
+		return htmlTagRegex.test(trimmed);
+	};
+
 	const toggleCollapse = () => {
 		isCollapsed = !isCollapsed;
+	};
+
+	const toggleSvgPreview = () => {
+		showSvgPreview = !showSvgPreview;
+	};
+
+	const toggleHtmlPreview = () => {
+		if (props.messageId === undefined || props.messagePartIndex === undefined) {
+			return;
+		}
+		const languageForPreview = resolvedLanguage === "plaintext" ? null : resolvedLanguage;
+		htmlPreviewState.togglePreview({
+			code: props.code,
+			language: languageForPreview,
+			messageId: props.messageId,
+			messagePartIndex: props.messagePartIndex,
+			blockId: props.blockId,
+			meta: props.meta ?? null,
+		});
 	};
 
 	const buildTokenStyle = (token: ThemedToken): string | undefined => {
@@ -273,10 +318,12 @@
 
 	const ensureLanguage = (): boolean => {
 		const raw = props.language?.toLowerCase().trim() || "plaintext";
-		if (resolvedLanguage !== raw) {
-			resolvedLanguage = raw;
-			ensureLanguageLoaded(raw).catch((error) => {
-				console.warn(`Failed to load language ${raw}:`, error);
+		const effectiveLang = LANGUAGE_ALIASES[raw] ?? raw;
+
+		if (resolvedLanguage !== effectiveLang) {
+			resolvedLanguage = effectiveLang;
+			ensureLanguageLoaded(effectiveLang).catch((error) => {
+				console.warn(`Failed to load language ${effectiveLang}:`, error);
 			});
 			return true;
 		}
@@ -285,11 +332,11 @@
 
 	const updateTheme = (): boolean => {
 		const requested = props.theme?.trim();
-		let next = DEFAULT_THEME as string;
+		let next = persistedThemeState.current.shouldUseDarkColors ? "vitesse-dark" : "vitesse-light";
 		if (requested && highlighter) {
 			try {
 				const loaded = highlighter.getInternalContext().getLoadedThemes();
-				next = loaded.includes(requested) ? requested : DEFAULT_THEME;
+				next = loaded.includes(requested) ? requested : next;
 			} catch (error) {
 				console.warn("Unable to read loaded themes", error);
 			}
@@ -364,6 +411,8 @@
 
 	$effect(() => {
 		if (!highlighter) return;
+		// Re-render when theme prop or app theme changes
+		void persistedThemeState.current.shouldUseDarkColors; // Access to track changes
 		if (updateTheme()) {
 			resetState();
 			syncCode(props.code);
@@ -374,6 +423,11 @@
 		if (!highlighter) return;
 		const { code } = props;
 		syncCode(code);
+	});
+
+	$effect(() => {
+		isSvgCode = detectSvg(props.code, props.language);
+		isHtmlCode = detectHtml(props.code, props.language);
 	});
 </script>
 
@@ -398,14 +452,14 @@
 					</ButtonWithTooltip>
 				</div>
 			</div>
-			{#if !isCollapsed}
-				<pre
-					class="shiki !m-0 !rounded-none !border-0"
-					data-theme={props.theme ?? DEFAULT_THEME}
-					data-meta={props.meta ?? undefined}>
-					<code>{props.code}</code>
-				</pre>
-			{/if}
+			<pre
+				class="shiki !m-0 !rounded-none !border-0 overflow-x-auto {isCollapsed
+					? 'max-h-[120px] overflow-y-auto'
+					: ''}"
+				data-theme={props.theme ?? resolvedTheme}
+				data-meta={props.meta ?? undefined}>
+				<code class="block w-max">{props.code}</code>
+			</pre>
 		</div>
 	{/if}
 {:else if props.code.trim() && lines.length > 0}
@@ -418,6 +472,30 @@
 			>
 			<div class="flex items-center gap-1">
 				<CopyButton content={props.code} position="bottom" />
+				{#if isSvgCode}
+					<ButtonWithTooltip
+						class="text-muted-foreground hover:!bg-chat-action-hover"
+						tooltip={showSvgPreview ? "Show code" : "Preview SVG"}
+						tooltipSide="bottom"
+						onclick={toggleSvgPreview}
+					>
+						{#if showSvgPreview}
+							<CodeXml class="" />
+						{:else}
+							<ImagePlay class="" />
+						{/if}
+					</ButtonWithTooltip>
+				{/if}
+				{#if isHtmlCode && props.messageId !== undefined && props.messagePartIndex !== undefined}
+					<ButtonWithTooltip
+						class="text-muted-foreground hover:!bg-chat-action-hover"
+						tooltip={htmlPreviewState.isVisible ? "Close preview" : "Preview HTML"}
+						tooltipSide="bottom"
+						onclick={toggleHtmlPreview}
+					>
+						<MonitorPlay class="" />
+					</ButtonWithTooltip>
+				{/if}
 				<ButtonWithTooltip
 					class="text-muted-foreground hover:!bg-chat-action-hover"
 					tooltip="Toggle collapse"
@@ -430,14 +508,20 @@
 				</ButtonWithTooltip>
 			</div>
 		</div>
-		{#if !isCollapsed}
+		{#if showSvgPreview && isSvgCode}
+			<div class="p-4 bg-background flex items-center justify-center min-h-[200px]">
+				{@html props.code}
+			</div>
+		{:else}
 			<pre
-				class="shiki !m-0 !rounded-none !border-0"
+				class="shiki !m-0 !rounded-none !border-0 overflow-x-auto {isCollapsed
+					? 'max-h-[120px] overflow-y-auto'
+					: ''}"
 				data-language={resolvedLanguage}
 				data-theme={resolvedTheme}
 				data-meta={props.meta ?? undefined}
 				style={preStyle}>
-				<code style={codeStyle}>
+				<code style={codeStyle} class="block w-max">
 					{#each lines as line (line.id)}
 						<span class="line" data-line={line.number}>{@html line.html}</span>
 					{/each}

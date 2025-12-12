@@ -11,6 +11,11 @@
 			labelKey: m.text_button_settings_general(),
 		},
 		{
+			name: "account-settings",
+			path: "/settings/account-settings",
+			labelKey: m.text_button_settings_account(),
+		},
+		{
 			name: "preferences-settings",
 			path: "/settings/preferences-settings",
 			labelKey: m.text_button_settings_preferences(),
@@ -26,10 +31,20 @@
 			labelKey: m.text_button_settings_models(),
 		},
 		{
+			name: "agent-settings",
+			path: "/settings/agent-settings",
+			labelKey: "Agent",
+		},
+		{
 			name: "mcp-settings",
 			path: "/settings/mcp-settings",
 			labelKey: m.text_button_settings_mcp(),
 		},
+		// {
+		// 	name: "plugins",
+		// 	path: "/settings/plugins",
+		// 	labelKey: m.text_button_settings_plugins(),
+		// },
 		{
 			name: "data-settings",
 			path: "/settings/data-settings",

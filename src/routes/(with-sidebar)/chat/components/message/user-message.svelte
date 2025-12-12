@@ -13,6 +13,7 @@
 	import { m } from "$lib/paraglide/messages";
 	import { chatState } from "$lib/stores/chat-state.svelte";
 	import type { ChatMessage } from "$lib/types/chat";
+	import { ChevronDown } from "@lucide/svelte";
 	import type { AttachmentFile } from "@shared/types";
 	import { toast } from "svelte-sonner";
 	import MessageActions from "./message-actions.svelte";
@@ -24,6 +25,9 @@
 	let selectedAttachment = $state<AttachmentFile | null>(null);
 	let isEditDialogOpen = $state(false);
 	let editContent = $state("");
+	let isExpanded = $state(false);
+	let _messageContentElement: HTMLDivElement | null = $state(null);
+	let needsCollapse = $state(false);
 
 	async function handleCopy(content: string) {
 		try {
@@ -53,6 +57,11 @@
 			const fileContentIndex = message.metadata?.fileContentPartIndex;
 			return fileContentIndex === undefined || index !== fileContentIndex;
 		}),
+	);
+
+	// Check if there's any text content to display (excluding empty strings)
+	const hasDisplayableText = $derived(
+		displayParts.some((part) => part.type === "text" && part.text.trim().length > 0),
 	);
 
 	function openViewer(attachment: AttachmentFile) {
@@ -113,7 +122,7 @@
 
 	function linkifyText(text: string): string {
 		const urlRegex =
-			/(https?:\/\/(?:www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b(?:[-a-zA-Z0-9()@:%_\+.~#?&\/=]*))/gi;
+			/(https?:\/\/(?:www\.)?[-a-zA-Z0-9@:%._+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b(?:[-a-zA-Z0-9()@:%_+.~#?&/=]*))/gi;
 
 		const parts: Array<{ type: "text" | "url"; value: string }> = [];
 		let lastIndex = 0;
@@ -159,12 +168,9 @@
 			if (target.tagName === "A") {
 				event.preventDefault();
 
-				// Only open link if Ctrl or Cmd is pressed
-				if (event.ctrlKey || event.metaKey) {
-					const url = (target as HTMLAnchorElement).href;
-					if (url && window.electronAPI?.externalLinkService?.openExternalLink) {
-						window.electronAPI.externalLinkService.openExternalLink(url);
-					}
+				const url = (target as HTMLAnchorElement).href;
+				if (url && window.electronAPI?.externalLinkService?.openExternalLink) {
+					window.electronAPI.externalLinkService.openExternalLink(url);
 				}
 			}
 		};
@@ -177,33 +183,109 @@
 			},
 		};
 	}
+
+	function checkLineCount(node: HTMLDivElement) {
+		_messageContentElement = node;
+
+		// Check if content exceeds 3 lines
+		const checkHeight = () => {
+			if (!node) return;
+
+			// Get line height
+			const lineHeight = parseFloat(window.getComputedStyle(node).lineHeight);
+			const actualHeight = node.scrollHeight;
+			const lines = Math.round(actualHeight / lineHeight);
+
+			needsCollapse = lines > 3;
+		};
+
+		// Check immediately and on resize
+		checkHeight();
+		window.addEventListener("resize", checkHeight);
+
+		return {
+			destroy() {
+				window.removeEventListener("resize", checkHeight);
+			},
+		};
+	}
+
+	function toggleExpand() {
+		isExpanded = !isExpanded;
+	}
 </script>
 
 {#snippet messageFooter()}
 	<div class="flex items-center gap-2 opacity-0 group-hover:opacity-100">
-		<MessageActions {message} enabledActions={["edit"]} />
+		<MessageActions {message} enabledActions={["edit", "regenerate"]} />
 	</div>
 {/snippet}
 
 <MessageContextMenu onCopy={handleCopyMessage} onEdit={handleEditClick} onDelete={handleDelete}>
-	<div class="group flex flex-col items-end gap-2">
-		<div class=" ax-w-[80%] rounded-lg bg-chat-user-message-bg px-4 py-2 text-chat-user-message-fg">
-			{#if attachments.length > 0}
-				<div class="space-y-2">
-					{#each attachments as attachment (attachment.id)}
-						<MessageAttachment {attachment} {openViewer} />
-					{/each}
-				</div>
-			{/if}
-
-			<div class="whitespace-pre-wrap break-all" use:handleLinkClick>
-				{#each displayParts as part, partIndex (partIndex)}
-					{#if part.type === "text"}
-						<div>{@html linkifyText(part.text)}</div>
-					{/if}
+	<div class="group flex flex-col items-end gap-2" data-message-id={message.id}>
+		{#if attachments.length > 0}
+			<div class="flex max-w-[80%] flex-wrap gap-2">
+				{#each attachments as attachment (attachment.id)}
+					<MessageAttachment {attachment} {openViewer} />
 				{/each}
 			</div>
-		</div>
+		{/if}
+
+		{#if hasDisplayableText}
+			<div
+				class="relative max-w-[80%] rounded-lg bg-chat-user-message-bg px-4 py-2 text-chat-user-message-fg"
+			>
+				<div
+					class="whitespace-pre-wrap break-all overflow-hidden transition-all duration-300 {needsCollapse &&
+					!isExpanded
+						? 'max-h-[4.5em]'
+						: ''}"
+					use:handleLinkClick
+					use:checkLineCount
+				>
+					{#each displayParts as part, partIndex (partIndex)}
+						{#if part.type === "text"}
+							<!-- eslint-disable svelte/no-at-html-tags -->
+							<div>{@html linkifyText(part.text)}</div>
+							<!-- eslint-enable svelte/no-at-html-tags -->
+						{/if}
+					{/each}
+				</div>
+
+				{#if needsCollapse && !isExpanded}
+					<!-- Gradient overlay -->
+					<div
+						class="pointer-events-none absolute bottom-0 left-0 right-0 h-20 bg-gradient-to-t from-chat-user-message-bg to-transparent"
+					></div>
+
+					<!-- Expand button - positioned absolutely at bottom center -->
+					<div class="absolute bottom-2 left-0 right-0 flex justify-center">
+						<button
+							type="button"
+							onclick={toggleExpand}
+							class="relative z-10 flex items-center gap-1 rounded-full bg-white px-3 py-1.5 text-xs text-primary shadow-md backdrop-blur-sm transition-all hover:shadow-lg dark:bg-[#8334EF] dark:text-white dark:hover:bg-[#7029d6]"
+						>
+							<span>{m.text_expand()}</span>
+							<ChevronDown class="h-3 w-3" />
+						</button>
+					</div>
+				{/if}
+
+				{#if needsCollapse && isExpanded}
+					<!-- Collapse button -->
+					<div class="flex justify-center pt-2">
+						<button
+							type="button"
+							onclick={toggleExpand}
+							class="flex items-center gap-1 rounded-full bg-white px-3 py-1.5 text-xs text-primary shadow-md backdrop-blur-sm transition-all hover:shadow-lg dark:bg-[#8334EF] dark:text-white dark:hover:bg-[#7029d6]"
+						>
+							<span>{m.text_collapse()}</span>
+							<ChevronDown class="h-3 w-3 rotate-180" />
+						</button>
+					</div>
+				{/if}
+			</div>
+		{/if}
 		{@render messageFooter()}
 	</div>
 </MessageContextMenu>

@@ -1,55 +1,94 @@
-import { PersistedState } from "$lib/hooks/persisted-state.svelte";
-import type { ChatMessage } from "$lib/types/chat";
-import { ChatErrorHandler, type ChatError } from "$lib/utils/error-handler";
-import { notificationState } from "./notification-state.svelte";
-
+import { generateSuggestions } from "$lib/api/suggestions-generation";
 import { generateTitle } from "$lib/api/title-generation";
+import { PersistedState } from "$lib/hooks/persisted-state.svelte";
 import { m } from "$lib/paraglide/messages.js";
-import { DynamicChatTransport } from "$lib/transport/dynamic-chat-transport";
-import { convertAttachmentsToMessageParts } from "$lib/utils/attachment-converter";
+import {
+	clearPendingResultMetadata,
+	DynamicChatTransport,
+	pendingResultMetadata,
+} from "$lib/transport/dynamic-chat-transport";
+import type { ChatMessage, MessageMetadata } from "$lib/types/chat";
+import {
+	convertAttachmentsToMessageParts,
+	type MessagePart,
+} from "$lib/utils/attachment-converter";
 import { clone } from "$lib/utils/clone";
+import { ChatErrorHandler, type ChatError } from "$lib/utils/error-handler";
+import { replaceCodeBlockAt } from "$lib/utils/markdown-code-block";
 import { Chat } from "@ai-sdk/svelte";
 import type { ModelProvider } from "@shared/storage/provider";
 import type { AttachmentFile, MCPServer, Model, ThreadParmas } from "@shared/types";
+import { hashApiKey } from "@shared/utils/hash";
 import { nanoid } from "nanoid";
 import { toast } from "svelte-sonner";
+
+import { updateSessionNote } from "$lib/api/sandbox-session";
+import { claudeCodeAgentState } from "$lib/stores/code-agent/claude-code-state.svelte";
+import { agentPreviewState } from "./agent-preview-state.svelte";
+import { codeAgentState } from "./code-agent";
+import { generalSettings } from "./general-settings.state.svelte";
+import { notificationState } from "./notification-state.svelte";
 import { preferencesSettings } from "./preferences-settings.state.svelte";
-import { persistedProviderState, providerState } from "./provider-state.svelte";
+import {
+	persistedModelState,
+	persistedProviderState,
+	providerState,
+} from "./provider-state.svelte";
+import { sessionState } from "./session-state.svelte";
 import { tabBarState } from "./tab-bar-state.svelte";
 
-const { broadcastService, threadService, storageService } = window.electronAPI;
+const { broadcastService, threadService, storageService, pluginService } = window.electronAPI;
 
 export interface Thread {
 	id: string;
 }
 
 const tab = window?.tab ?? null;
-const threadId = tab?.threadId ?? "shell";
-console.log("app-chat-messages:" + threadId);
+// Ensure we have a valid threadId, even if window.tab is corrupted or missing after reload
+const threadId =
+	tab &&
+	typeof tab === "object" &&
+	"threadId" in tab &&
+	typeof tab.threadId === "string" &&
+	tab.threadId
+		? tab.threadId
+		: "shell";
 
-const initialMessages = Array.isArray(window?.messages) ? clone(window.messages) : [];
+// Check if window.thread has valid data (not just an empty object from failed temp file load)
+// A valid thread should have at least an 'id' property that matches our threadId
+const hasValidThreadData =
+	window?.thread &&
+	typeof window.thread === "object" &&
+	"id" in window.thread &&
+	window.thread.id === threadId;
 
-const initialThread: ThreadParmas = clone(
-	window?.thread ?? {
-		id: threadId,
-		title: "New Chat",
-		inputValue: "",
-		attachments: [],
-		mcpServers: [],
-		mcpServerIds: [],
-		isThinkingActive: false,
-		isOnlineSearchActive: false,
-		isMCPActive: false,
-		isPrivateChatActive: false,
-		selectedModel: null,
-		temperature: null,
-		topP: null,
-		maxTokens: null,
-		frequencyPenalty: null,
-		presencePenalty: null,
-		updatedAt: new Date(),
-	},
-);
+// Use window data if valid (first load with temp files), otherwise use defaults
+// PersistedState will restore from storage if available, overriding these initial values
+const initialMessages: ChatMessage[] = Array.isArray(window?.messages)
+	? clone(window.messages)
+	: [];
+
+const initialThread: ThreadParmas = hasValidThreadData
+	? clone(window.thread as ThreadParmas)
+	: {
+			id: threadId,
+			title: "New Chat",
+			inputValue: "",
+			attachments: [],
+			mcpServers: [],
+			mcpServerIds: [],
+			isThinkingActive: false,
+			isOnlineSearchActive: false,
+			isMCPActive: false,
+			isPrivateChatActive: false,
+			selectedModel: null,
+			temperature: null,
+			topP: null,
+			maxTokens: null,
+			frequencyPenalty: null,
+			presencePenalty: null,
+			updatedAt: new Date(),
+		};
 
 export const persistedMessagesState = new PersistedState<ChatMessage[]>(
 	"app-chat-messages:" + threadId,
@@ -60,9 +99,91 @@ export const persistedChatParamsState = new PersistedState<ThreadParmas>(
 	initialThread,
 );
 
+$effect.root(() => {
+	$effect(() => {
+		// Avoid clearing too early (e.g. before persisted states are hydrated)
+		if (!persistedChatParamsState.isHydrated || !persistedModelState.isHydrated) {
+			return;
+		}
+
+		const selected = persistedChatParamsState.current.selectedModel;
+		if (!selected) return;
+
+		const exists = persistedModelState.current.some(
+			(m) => m.id === selected.id && m.providerId === selected.providerId,
+		);
+		if (!exists) {
+			console.log(
+				`[ChatState] Clearing selectedModel ${selected.providerId}:${selected.id} (model not found)`,
+			);
+			persistedChatParamsState.current.selectedModel = null;
+		}
+	});
+});
+
 class ChatState {
 	private lastError: ChatError | null = $state(null);
 	private retryInProgress = $state(false);
+	private hydrateCheckInterval: ReturnType<typeof setInterval> | null = null;
+
+	// Track loading state for attachments (not persisted)
+	loadingAttachmentIds = $state(new Set<string>());
+
+	constructor() {
+		// Watch for PersistedState hydration and sync messages to chat
+		// This handles the case where reload happens before hydration completes
+		this.hydrateCheckInterval = setInterval(() => {
+			if (persistedMessagesState.isHydrated && persistedChatParamsState.isHydrated) {
+				this.syncPersistedStatesToChat();
+				if (this.hydrateCheckInterval) {
+					clearInterval(this.hydrateCheckInterval);
+					this.hydrateCheckInterval = null;
+				}
+			}
+		}, 50);
+
+		// Also clear after 5 seconds to prevent infinite checking
+		setTimeout(() => {
+			if (this.hydrateCheckInterval) {
+				clearInterval(this.hydrateCheckInterval);
+				this.hydrateCheckInterval = null;
+			}
+		}, 5000);
+
+		// Listen for models-deleted events and clear selectedModel if it was deleted
+		// (or if the whole provider's models were cleared)
+		window.electronAPI.onModelsDeleted(({ deletedModelIds, providerId }) => {
+			const currentModel = this.selectedModel;
+			const shouldClear =
+				!!currentModel &&
+				(deletedModelIds.includes(currentModel.id) ||
+					(!!providerId && currentModel.providerId === providerId));
+			if (shouldClear) {
+				console.log(
+					`[ChatState] Clearing selectedModel ${currentModel?.providerId}:${currentModel?.id} (models deleted)`,
+				);
+				this.selectedModel = null;
+			}
+		});
+	}
+
+	private syncPersistedStatesToChat() {
+		const persistedMessages = persistedMessagesState.snapshot;
+		const currentChatMessages = chat.messages;
+
+		// Sync messages if persisted state has data but chat doesn't (e.g., after reload/hydration)
+		if (persistedMessages.length > 0 && currentChatMessages.length === 0) {
+			chat.messages = persistedMessages;
+		}
+	}
+
+	private resetChat() {
+		persistedChatParamsState.current = {
+			...(persistedChatParamsState.current ?? initialThread),
+			inputValue: "",
+			attachments: [],
+		};
+	}
 
 	get id(): string {
 		return persistedChatParamsState.current.id;
@@ -200,7 +321,8 @@ class ChatState {
 		(this.inputValue.trim() !== "" || this.attachments.length > 0) &&
 			!!this.selectedModel &&
 			!this.isStreaming &&
-			!this.isSubmitted,
+			!this.isSubmitted &&
+			this.loadingAttachmentIds.size === 0, // 确保没有附件正在加载
 	);
 	hasMessages = $derived(this.messages.length > 0);
 	canTogglePrivacy = $derived(!this.hasMessages);
@@ -228,7 +350,7 @@ class ChatState {
 		);
 	}
 
-	private handleChatError = (error: unknown) => {
+	private handleChatError = async (error: unknown) => {
 		const chatError = ChatErrorHandler.createError(error, {
 			provider: this.currentProvider?.name,
 			model: this.selectedModel?.id,
@@ -237,8 +359,65 @@ class ChatState {
 		});
 
 		this.lastError = chatError;
-		notificationState.setError(chatError);
-		ChatErrorHandler.showErrorNotification(chatError);
+
+		// Execute error hook
+		try {
+			const errorContext = {
+				source: "send_message" as const,
+				provider: this.currentProvider || undefined,
+				model: this.selectedModel || undefined,
+				metadata: {
+					errorType: chatError.type,
+					statusCode: chatError.statusCode,
+				},
+			};
+
+			const hookResult = await pluginService.executeErrorHook(
+				{
+					message:
+						chatError.originalError instanceof Error
+							? chatError.originalError.message
+							: String(chatError.originalError),
+					stack:
+						chatError.originalError instanceof Error ? chatError.originalError.stack : undefined,
+					name: chatError.originalError instanceof Error ? chatError.originalError.name : "Error",
+				},
+				errorContext,
+			);
+
+			if (hookResult.handled) {
+				console.log("[ChatState] Error handled by plugin hook");
+
+				// If plugin suggests custom message, use it
+				if (hookResult.message) {
+					notificationState.setError({
+						...chatError,
+						message: hookResult.message,
+					});
+				} else {
+					notificationState.setError(chatError);
+				}
+
+				// If plugin suggests retry
+				if (hookResult.retry) {
+					const retryDelay = hookResult.retryDelay || 0;
+					if (retryDelay > 0) {
+						await new Promise((resolve) => setTimeout(resolve, retryDelay));
+					}
+					await this.retryLastMessage();
+					return;
+				}
+			} else {
+				// Default error handling
+				notificationState.setError(chatError);
+				ChatErrorHandler.showErrorNotification(chatError);
+			}
+		} catch (hookError) {
+			console.error("[ChatState] Error hook failed:", hookError);
+			// Fallback to default error handling
+			notificationState.setError(chatError);
+			ChatErrorHandler.showErrorNotification(chatError);
+		}
 	};
 
 	private resetError = () => {
@@ -279,7 +458,63 @@ class ChatState {
 				const currentAttachments = [...this.attachments];
 				const currentInputValue = this.inputValue;
 
+				// Ensure session association is recorded for tabs created at app boot
+				// (boot-created initial tabs may not have apiKeyHash until the first real send)
+				if (currentModel.providerId === "302AI") {
+					persistedChatParamsState.current.apiKeyHash = this.get302AIApiKeyHash();
+				}
+
 				this.resetError();
+
+				// Execute before send message hook
+				try {
+					const messageContext = {
+						messages: this.messages,
+						userMessage: this.messages.at(-1),
+						model: currentModel,
+						provider: this.currentProvider!,
+						parameters: {
+							temperature: this.temperature,
+							topP: this.topP,
+							maxTokens: this.maxTokens,
+							frequencyPenalty: this.frequencyPenalty,
+							presencePenalty: this.presencePenalty,
+						},
+						options: {
+							isThinkingActive: this.isThinkingActive,
+							isOnlineSearchActive: this.isOnlineSearchActive,
+							isMCPActive: this.isMCPActive,
+							mcpServerIds: this.mcpServerIds,
+							autoParseUrl: preferencesSettings.autoParseUrl,
+							speedOptions: {
+								enabled: preferencesSettings.streamOutputEnabled,
+								speed: preferencesSettings.streamSpeed,
+							},
+						},
+					};
+
+					// Serialize context to remove Svelte Proxy objects
+					const serializedContext = JSON.parse(JSON.stringify(messageContext));
+
+					const modifiedContext =
+						await pluginService.executeBeforeSendMessageHook(serializedContext);
+
+					// Check if hook cancelled the message
+					if (
+						modifiedContext &&
+						typeof modifiedContext === "object" &&
+						"stop" in modifiedContext &&
+						modifiedContext.stop === true
+					) {
+						console.log("[ChatState] Message sending cancelled by plugin hook");
+						return;
+					}
+
+					console.log("[ChatState] Before send message hook executed successfully");
+				} catch (hookError) {
+					console.error("[ChatState] Before send message hook failed:", hookError);
+					// Continue with message sending even if hook fails
+				}
 
 				const { parts: attachmentParts, metadataList: attachmentMetadata } =
 					await convertAttachmentsToMessageParts(currentAttachments);
@@ -364,10 +599,14 @@ class ChatState {
 					);
 				}
 
-				threadService.addThread(persistedChatParamsState.current.id);
+				await threadService.addThread(threadId);
 
-				this.inputValue = "";
-				this.attachments = [];
+				await broadcastService.broadcastToAll("thread-list-updated", { threadId });
+
+				// this.inputValue = "";
+				// this.attachments = [];
+
+				this.resetChat();
 			} catch (error) {
 				this.handleChatError(error);
 			}
@@ -385,8 +624,48 @@ class ChatState {
 		try {
 			this.resetError();
 
+			let regenerateMessageId = messageId;
+
+			// If messageId is provided, remove messages to prevent duplicates when regenerating
+			if (messageId) {
+				const messageIndex = this.messages.findIndex((msg) => msg.id === messageId);
+				if (messageIndex !== -1) {
+					const message = this.messages[messageIndex];
+
+					if (message.role === "assistant") {
+						// If regenerating an assistant message, find the previous user message
+						// and remove the assistant message and all messages after it
+						let userMessageId: string | undefined;
+						for (let i = messageIndex - 1; i >= 0; i--) {
+							if (this.messages[i].role === "user") {
+								userMessageId = this.messages[i].id;
+								break;
+							}
+						}
+
+						// Remove the assistant message and all messages after it
+						const messagesToKeep = this.messages.slice(0, messageIndex);
+						chat.messages = messagesToKeep;
+						persistedMessagesState.current = messagesToKeep;
+
+						// Use the user message ID for regeneration
+						regenerateMessageId = userMessageId;
+					} else if (message.role === "user") {
+						// If regenerating a user message, remove all messages after it (including assistant messages)
+						const messagesToKeep = this.messages.slice(0, messageIndex + 1);
+						const messagesAfter = this.messages.slice(messageIndex + 1);
+						const hasAssistantAfter = messagesAfter.some((msg) => msg.role === "assistant");
+
+						if (hasAssistantAfter) {
+							chat.messages = messagesToKeep;
+							persistedMessagesState.current = messagesToKeep;
+						}
+					}
+				}
+			}
+
 			await chat.regenerate({
-				...(messageId && { messageId }),
+				...(regenerateMessageId && { messageId: regenerateMessageId }),
 				body: {
 					model: currentModel.id,
 					apiKey: persistedProviderState.current.find((p) => p.id === currentModel.providerId)
@@ -422,6 +701,81 @@ class ChatState {
 		});
 
 		chat.messages = updatedMessages;
+	}
+
+	updateMessageFeedback(messageId: string, feedback: "like" | "dislike" | null) {
+		const updatedMessages = this.messages.map((msg) => {
+			if (msg.id === messageId) {
+				return {
+					...msg,
+					metadata: {
+						...msg.metadata,
+						feedback: feedback || undefined,
+					},
+				};
+			}
+			return msg;
+		});
+
+		chat.messages = updatedMessages;
+		persistedMessagesState.current = updatedMessages;
+	}
+
+	updateMessageCodeBlock(
+		messageId: string,
+		messagePartIndex: number,
+		blockId: string,
+		code: string,
+		language?: string | null,
+		meta?: string | null,
+	) {
+		const blockIndex = Number(blockId.replace("code-", ""));
+		if (!Number.isFinite(blockIndex) || Number.isNaN(blockIndex)) {
+			return false;
+		}
+
+		const messageIndex = this.messages.findIndex((msg) => msg.id === messageId);
+		if (messageIndex === -1) {
+			return false;
+		}
+
+		const targetMessage = this.messages[messageIndex];
+		const targetPart = targetMessage.parts?.[messagePartIndex];
+		if (!targetPart || targetPart.type !== "text") {
+			return false;
+		}
+
+		const updatedContent = replaceCodeBlockAt(targetPart.text, blockIndex, {
+			code,
+			language,
+			meta,
+		});
+
+		if (updatedContent === null) {
+			return false;
+		}
+
+		const updatedMessages = this.messages.map((msg, idx) => {
+			if (idx !== messageIndex) {
+				return msg;
+			}
+			return {
+				...msg,
+				parts: msg.parts.map((part, partIdx) => {
+					if (partIdx === messagePartIndex && part.type === "text") {
+						return {
+							...part,
+							text: updatedContent,
+						};
+					}
+					return part;
+				}),
+			};
+		});
+
+		chat.messages = updatedMessages;
+		persistedMessagesState.current = updatedMessages;
+		return true;
 	}
 
 	deleteMessage(messageId: string) {
@@ -500,7 +854,10 @@ class ChatState {
 
 			if (generatedTitle) {
 				persistedChatParamsState.current.title = generatedTitle;
-				tabBarState.updateTabTitle(persistedChatParamsState.current.id, generatedTitle);
+				await tabBarState.updateTabTitle(persistedChatParamsState.current.id, generatedTitle);
+
+				// Force flush to ensure all changes are persisted before broadcasting
+				persistedChatParamsState.flush();
 
 				// Broadcast update event to trigger sidebar refresh
 				await broadcastService.broadcastToAll("thread-list-updated", {});
@@ -513,6 +870,14 @@ class ChatState {
 			console.error("Failed to generate title manually:", error);
 			toast.error(m.toast_title_generation_failed());
 		}
+	}
+
+	/**
+	 * Get the current 302.AI provider's API key hash for session tracking
+	 */
+	private get302AIApiKeyHash(): string | undefined {
+		const provider = providerState.getProvider("302AI");
+		return hashApiKey(provider?.apiKey);
 	}
 
 	async createBranch(upToMessageId: string): Promise<string | null> {
@@ -549,6 +914,7 @@ class ChatState {
 				frequencyPenalty: this.frequencyPenalty,
 				presencePenalty: this.presencePenalty,
 				updatedAt: new Date(),
+				apiKeyHash: this.get302AIApiKeyHash(),
 			});
 
 			// 5. save thread data
@@ -568,6 +934,121 @@ class ChatState {
 		}
 	}
 
+	async createBranchAndSend(
+		upToMessageId: string,
+		userInput: string,
+		userAttachments: AttachmentFile[],
+	): Promise<string | null> {
+		try {
+			// 1. find the target message index
+			const messageIndex = this.messages.findIndex((msg) => msg.id === upToMessageId);
+			if (messageIndex === -1) {
+				console.error("Message not found:", upToMessageId);
+				return null;
+			}
+
+			// 2. slice messages up to and including the target message
+			const branchMessages = clone(this.messages.slice(0, messageIndex + 1));
+
+			// 3. convert attachments to message parts
+			const { parts: attachmentParts, metadataList: attachmentMetadata } =
+				await convertAttachmentsToMessageParts(userAttachments);
+
+			// 4. Separate text and file parts
+			const textParts = attachmentParts.filter(
+				(part): part is { type: "text"; text: string } => part.type === "text",
+			);
+			const fileParts = attachmentParts.filter(
+				(part): part is import("ai").FileUIPart => part.type === "file",
+			);
+
+			// 5. Build message parts array - always include at least the user input as a text part
+			let messageParts: MessagePart[] = [];
+			let fileContentPartIndex: number | undefined = undefined;
+
+			if (fileParts.length > 0 && textParts.length > 0) {
+				// Has both files and text content from files
+				const fileContent = textParts.map((part) => part.text).join("\n\n");
+				messageParts = [
+					...fileParts,
+					{ type: "text" as const, text: fileContent },
+					{ type: "text" as const, text: userInput },
+				];
+				fileContentPartIndex = fileParts.length;
+			} else if (fileParts.length > 0) {
+				// Has only files
+				messageParts = [...fileParts, { type: "text" as const, text: userInput }];
+			} else if (textParts.length > 0) {
+				// Has only text content from files
+				const fileContent = textParts.map((part) => part.text).join("\n\n");
+				messageParts = [
+					{ type: "text" as const, text: fileContent },
+					{ type: "text" as const, text: userInput },
+				];
+				fileContentPartIndex = 0;
+			} else {
+				// No attachments, just user input
+				messageParts = [{ type: "text" as const, text: userInput }];
+			}
+
+			// 6. Create user message with proper structure
+			const userMessage: ChatMessage = {
+				id: nanoid(),
+				role: "user",
+				parts: messageParts,
+				metadata: {
+					createdAt: new Date().toISOString(),
+					attachments: attachmentMetadata,
+					...(fileContentPartIndex !== undefined && { fileContentPartIndex }),
+				},
+			};
+
+			// 7. add user message to branch messages
+			branchMessages.push(userMessage);
+
+			// 8. generate threadId
+			const newThreadId = nanoid();
+
+			// 9. clone thread data with autoSendOnLoad flag
+			const newThread: ThreadParmas = clone({
+				id: newThreadId,
+				title: `${this.title}`,
+				inputValue: "", // Keep input empty
+				attachments: [], // Keep attachments empty
+				mcpServers: this.mcpServers,
+				mcpServerIds: persistedChatParamsState.current.mcpServerIds || [],
+				isThinkingActive: this.isThinkingActive,
+				isOnlineSearchActive: this.isOnlineSearchActive,
+				isMCPActive: this.isMCPActive,
+				isPrivateChatActive: this.isPrivateChatActive,
+				selectedModel: this.selectedModel,
+				temperature: this.temperature,
+				topP: this.topP,
+				maxTokens: this.maxTokens,
+				frequencyPenalty: this.frequencyPenalty,
+				presencePenalty: this.presencePenalty,
+				updatedAt: new Date(),
+				autoSendOnLoad: true, // Set flag to trigger AI reply on load
+				apiKeyHash: this.get302AIApiKeyHash(),
+			});
+
+			// 8. save thread data and messages
+			await storageService.setItem(`app-thread:${newThreadId}`, newThread);
+			await storageService.setItem(`app-chat-messages:${newThreadId}`, branchMessages);
+
+			// 9. add to thread list
+			await threadService.addThread(newThreadId);
+
+			// 10. broadcast thread list update
+			await broadcastService.broadcastToAll("thread-list-updated", {});
+
+			return newThreadId;
+		} catch (error) {
+			console.error("Failed to create branch and send:", error);
+			return null;
+		}
+	}
+
 	addAttachment(attachment: AttachmentFile) {
 		this.attachments = [...this.attachments, attachment];
 	}
@@ -576,8 +1057,28 @@ class ChatState {
 		this.attachments = [...this.attachments, ...attachments];
 	}
 
+	updateAttachment(id: string, updates: Partial<AttachmentFile>) {
+		this.attachments = this.attachments.map((att) =>
+			att.id === id ? { ...att, ...updates } : att,
+		);
+	}
+
 	removeAttachment(id: string) {
 		this.attachments = this.attachments.filter((att) => att.id !== id);
+		// Also remove from loading state if present
+		this.loadingAttachmentIds.delete(id);
+	}
+
+	setAttachmentLoading(id: string, isLoading: boolean) {
+		if (isLoading) {
+			this.loadingAttachmentIds.add(id);
+		} else {
+			this.loadingAttachmentIds.delete(id);
+		}
+	}
+
+	isAttachmentLoading(id: string): boolean {
+		return this.loadingAttachmentIds.has(id);
 	}
 
 	handleThinkingActiveChange(active: boolean) {
@@ -632,9 +1133,16 @@ export const chat = new Chat({
 	transport: new DynamicChatTransport<ChatMessage>({
 		api: () => {
 			const port = window.app?.serverPort ?? 8089;
+
+			const codeAgentEnabled = codeAgentState.enabled;
+
 			switch (chatState.currentProvider?.apiType) {
-				case "302ai":
+				case "302ai": {
+					if (codeAgentEnabled) {
+						return `http://localhost:${port}/chat/302ai-code-agent`;
+					}
 					return `http://localhost:${port}/chat/302ai`;
+				}
 				case "openai":
 					return `http://localhost:${port}/chat/openai`;
 				case "anthropic":
@@ -645,30 +1153,196 @@ export const chat = new Chat({
 					return `http://localhost:${port}/chat/302`;
 			}
 		},
-		body: () => ({
-			baseUrl: chatState.currentProvider?.baseUrl,
-			temperature: persistedChatParamsState.current.temperature,
-			topP: persistedChatParamsState.current.topP,
-			maxTokens: persistedChatParamsState.current.maxTokens,
-			frequencyPenalty: persistedChatParamsState.current.frequencyPenalty,
-			presencePenalty: persistedChatParamsState.current.presencePenalty,
+		body: () => {
+			const codeAgentEnabled = codeAgentState.enabled;
+			const sessionId = codeAgentEnabled
+				? (() => {
+						// const getId = (s: string | { id: string }) => (typeof s === "string" ? s : s.id);
 
-			isThinkingActive: persistedChatParamsState.current.isThinkingActive,
-			isOnlineSearchActive: persistedChatParamsState.current.isOnlineSearchActive,
-			isMCPActive: persistedChatParamsState.current.isMCPActive,
-			mcpServerIds: persistedChatParamsState.current.mcpServerIds,
+						// If currentSessionId matches one of the known valid sessionIds, use it
+						if (
+							claudeCodeAgentState.currentSessionId
+							// &&
+							// claudeCodeAgentState.sessionIds.some(
+							// 	(s) => getId(s) === claudeCodeAgentState.currentSessionId,
+							// )
+						) {
+							return claudeCodeAgentState.currentSessionId;
+						}
+						// Otherwise fallback to the first available session ID (assuming single active session in most cases)
+						// Filter out empty IDs just in case
+						// const firstValidSession = claudeCodeAgentState.sessionIds.find((s) => getId(s));
+						// if (firstValidSession) {
+						// 	return getId(firstValidSession);
+						// }
 
-			autoParseUrl: preferencesSettings.autoParseUrl,
+						// If no session exists, generate a new one
+						const newSessionId = nanoid();
+						// claudeCodeAgentState.addSessionId(newSessionId);
+						claudeCodeAgentState.updateCurrentSessionId(newSessionId);
+						return newSessionId;
+					})()
+				: "";
 
-			speedOptions: {
-				enabled: preferencesSettings.streamOutputEnabled,
-				speed: preferencesSettings.streamSpeed,
-			},
-		}),
+			return {
+				baseUrl: codeAgentEnabled
+					? codeAgentState.codeAgentCfgs.baseUrl
+					: chatState.currentProvider?.baseUrl,
+				temperature: persistedChatParamsState.current.temperature,
+				maxTokens: persistedChatParamsState.current.maxTokens,
+				frequencyPenalty: persistedChatParamsState.current.frequencyPenalty,
+				presencePenalty: persistedChatParamsState.current.presencePenalty,
+
+				isThinkingActive: persistedChatParamsState.current.isThinkingActive,
+				isOnlineSearchActive: persistedChatParamsState.current.isOnlineSearchActive,
+				isMCPActive: persistedChatParamsState.current.isMCPActive,
+				mcpServerIds: persistedChatParamsState.current.mcpServerIds,
+
+				autoParseUrl: preferencesSettings.autoParseUrl,
+				searchProvider: preferencesSettings.searchProvider,
+
+				speedOptions: {
+					enabled: preferencesSettings.streamOutputEnabled,
+					speed: preferencesSettings.streamSpeed,
+				},
+
+				language: generalSettings.language,
+
+				threadId,
+				sessionId,
+				sandboxName: claudeCodeAgentState.sandboxRemark,
+			};
+		},
 	}),
-	onFinish: async ({ messages }) => {
+	onError: (error) => {
+		console.error("[Chat onError]", error);
+	},
+	onFinish: async ({ messages, isAbort, isDisconnect, isError }) => {
 		console.log("更新完成", $state.snapshot(messages));
+		console.log("[onFinish] isAbort:", isAbort, "isDisconnect:", isDisconnect, "isError:", isError);
+
+		const codeAgentEnabled = codeAgentState.enabled;
+		console.log("onFinish: async ({ messages }) pendingResultMetadata", pendingResultMetadata);
+		if (codeAgentEnabled && pendingResultMetadata) {
+			const lastMessage = messages[messages.length - 1];
+			if (lastMessage && lastMessage.role === "assistant") {
+				const currentMetadata = (lastMessage.metadata as MessageMetadata) || {};
+				lastMessage.metadata = {
+					...currentMetadata,
+					result: pendingResultMetadata,
+				};
+				console.log("[ChatState] Merged result metadata into message:", pendingResultMetadata);
+			}
+			clearPendingResultMetadata();
+		}
+
+		// Parse deploy sandbox info from the last message
+		let isDeploy = false;
+		let deployInfo: {
+			success: boolean;
+			status: string;
+			id: string;
+			url: string;
+			cover: string;
+		} | null = null;
+
+		if (codeAgentEnabled) {
+			const lastMessage = messages[messages.length - 1];
+			if (lastMessage && lastMessage.role === "assistant") {
+				// Extract text content from the message parts
+				const textContent = lastMessage.parts
+					.filter((part): part is { type: "text"; text: string } => part.type === "text")
+					.map((part) => part.text)
+					.join("\n");
+
+				// Check if deploy was successful
+				if (textContent.includes("**deploy sandbox successfully**")) {
+					isDeploy = true;
+
+					// Extract the Python dict-like structure after the success message
+					// Pattern matches: {'success': True, 'status': '...', 'id': '...', 'url': '...', 'cover': '...'}
+					const deployInfoRegex =
+						/\{[^{}]*'success'\s*:\s*(True|False)[^{}]*'status'\s*:\s*'([^']*)'[^{}]*'id'\s*:\s*'([^']*)'[^{}]*'url'\s*:\s*'([^']*)'[^{}]*'cover'\s*:\s*'([^']*)'\s*\}/;
+					const match = textContent.match(deployInfoRegex);
+
+					if (match) {
+						deployInfo = {
+							success: match[1] === "True",
+							status: match[2],
+							id: match[3],
+							url: match[4],
+							cover: match[5],
+						};
+						console.log("[ChatState] Parsed deploy info:", deployInfo);
+					}
+				}
+			}
+		}
+
+		if (isDeploy && deployInfo) {
+			await agentPreviewState.setDeploymentInfo(
+				claudeCodeAgentState.sandboxId,
+				claudeCodeAgentState.currentSessionId,
+				deployInfo.url,
+				deployInfo.id,
+			);
+			console.log("[ChatState] Deploy detected:", { isDeploy, deployInfo });
+		}
+
 		persistedMessagesState.current = messages;
+
+		sessionState.latestUsedModel = chatState.selectedModel ?? null;
+
+		// Execute after send message hook
+		try {
+			const lastMessage = messages[messages.length - 1];
+			const userMessage = messages[messages.length - 2]; // Assuming last is AI, second-to-last is user
+
+			if (lastMessage && userMessage && chatState.selectedModel && chatState.currentProvider) {
+				const messageContext = {
+					messages: messages,
+					userMessage: userMessage,
+					model: chatState.selectedModel,
+					provider: chatState.currentProvider,
+					parameters: {
+						temperature: chatState.temperature,
+						topP: chatState.topP,
+						maxTokens: chatState.maxTokens,
+						frequencyPenalty: chatState.frequencyPenalty,
+						presencePenalty: chatState.presencePenalty,
+					},
+					options: {
+						isThinkingActive: chatState.isThinkingActive,
+						isOnlineSearchActive: chatState.isOnlineSearchActive,
+						isMCPActive: chatState.isMCPActive,
+						mcpServerIds: chatState.mcpServerIds,
+						autoParseUrl: preferencesSettings.autoParseUrl,
+						speedOptions: {
+							enabled: preferencesSettings.streamOutputEnabled,
+							speed: preferencesSettings.streamSpeed,
+						},
+					},
+				};
+
+				const response = {
+					message: lastMessage,
+					usage: undefined,
+					model: chatState.selectedModel.id,
+					finishReason: "stop",
+					metadata: {},
+				};
+
+				// Serialize context and response to remove Svelte Proxy objects
+				const serializedContext = JSON.parse(JSON.stringify(messageContext));
+				const serializedResponse = JSON.parse(JSON.stringify(response));
+
+				await pluginService.executeAfterSendMessageHook(serializedContext, serializedResponse);
+				console.log("[ChatState] After send message hook executed successfully");
+			}
+		} catch (hookError) {
+			console.error("[ChatState] After send message hook failed:", hookError);
+			// Continue execution even if hook fails
+		}
 
 		const titleTiming = preferencesSettings.titleGenerationTiming;
 		const titleModel = preferencesSettings.titleGenerationModel;
@@ -696,8 +1370,18 @@ export const chat = new Chat({
 				const serverPort = window.app?.serverPort ?? 8089;
 
 				const generatedTitle = await generateTitle(messages, titleModel, provider, serverPort);
-				persistedChatParamsState.current.title = generatedTitle;
-				tabBarState.updateTabTitle(persistedChatParamsState.current.id, generatedTitle);
+				if (generatedTitle) {
+					persistedChatParamsState.current.title = generatedTitle;
+					if (codeAgentEnabled && provider) {
+						updateSessionNote(provider, {
+							note: generatedTitle,
+							sandbox_id: claudeCodeAgentState.sandboxId,
+							session_id: claudeCodeAgentState.currentSessionId,
+						});
+					}
+
+					await tabBarState.updateTabTitle(persistedChatParamsState.current.id, generatedTitle);
+				}
 			} catch (error) {
 				console.error("Failed to generate title:", error);
 			}
@@ -711,7 +1395,7 @@ export const chat = new Chat({
 					const titleText = [...text].slice(0, 10).join("");
 					if (titleText) {
 						persistedChatParamsState.current.title = titleText;
-						tabBarState.updateTabTitle(persistedChatParamsState.current.id, titleText);
+						await tabBarState.updateTabTitle(persistedChatParamsState.current.id, titleText);
 					}
 				}
 			}
@@ -721,6 +1405,78 @@ export const chat = new Chat({
 		// eslint-disable-next-line svelte/prefer-svelte-reactivity
 		persistedChatParamsState.current.updatedAt = new Date();
 
-		broadcastService.broadcastToAll("thread-list-updated", {});
+		// Force flush to ensure all changes are persisted before broadcasting
+		persistedChatParamsState.flush();
+
+		await broadcastService.broadcastToAll("thread-list-updated", {});
+
+		// Generate suggestions asynchronously (non-blocking)
+		// This runs in the background and updates the last message when ready
+		// Check if suggestions are enabled and timing is set to auto
+		if (
+			preferencesSettings.suggestionsEnabled &&
+			preferencesSettings.suggestionsTiming === "auto" &&
+			chatState.selectedModel &&
+			chatState.currentProvider
+		) {
+			const lastMessage = messages[messages.length - 1];
+			if (lastMessage && lastMessage.role === "assistant") {
+				const serverPort = window.app?.serverPort ?? 8089;
+
+				// Don't await - let this run in the background
+				generateSuggestions(
+					messages,
+					chatState.selectedModel,
+					chatState.currentProvider,
+					generalSettings.language,
+					preferencesSettings.suggestionsCount,
+					serverPort,
+				)
+					.then((suggestions) => {
+						if (suggestions && suggestions.length > 0) {
+							console.log("[Suggestions] Adding to message:", suggestions);
+
+							// Find the message again (it might have changed)
+							const currentMessages = persistedMessagesState.current;
+							const messageIndex = currentMessages.findIndex((m) => m.id === lastMessage.id);
+
+							if (messageIndex !== -1) {
+								// Check if suggestions already exist
+								const hasSuggestions = currentMessages[messageIndex].parts.some(
+									(part) => part.type === "data-suggestions",
+								);
+
+								if (!hasSuggestions) {
+									// Create a new message object with suggestions
+									const updatedMessage = {
+										...currentMessages[messageIndex],
+										parts: [
+											...currentMessages[messageIndex].parts,
+											{
+												type: "data-suggestions" as const,
+												data: {
+													suggestions: suggestions,
+												},
+											},
+										],
+									};
+
+									// Update the messages array
+									const updatedMessages = [...currentMessages];
+									updatedMessages[messageIndex] = updatedMessage;
+
+									// Update both the persisted state and chat.messages to trigger reactivity
+									persistedMessagesState.current = updatedMessages;
+									chat.messages = updatedMessages;
+									console.log("[Suggestions] Successfully added to message");
+								}
+							}
+						}
+					})
+					.catch((error) => {
+						console.error("[Suggestions] Failed to generate:", error);
+					});
+			}
+		}
 	},
 });
